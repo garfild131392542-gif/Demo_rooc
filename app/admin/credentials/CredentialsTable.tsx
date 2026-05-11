@@ -129,7 +129,22 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                   <form onSubmit={handleCreateSubmit} className="flex items-center space-x-4 flex-wrap gap-y-2">
                     <input name="uid_game" placeholder="UID Game" required className="flex-1 min-w-[120px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                     <input name="display_name" placeholder="ชื่อตัวละคร" required className="flex-1 min-w-[120px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                    <input name="job_name" placeholder="อาชีพ" className="flex-1 min-w-[100px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                    <select name="job_name" defaultValue="" className="flex-1 min-w-[100px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                      <option value="" disabled>-- กรุณาเลือกอาชีพ --</option>
+                      <option value="Knight">Knight</option>
+                      <option value="Paladin">Paladin</option>
+                      <option value="Biochemist">Biochemist</option>
+                      <option value="Whitesmith">Whitesmith</option>
+                      <option value="Bard">Bard</option>
+                      <option value="Gypsy">Gypsy</option>
+                      <option value="Sniper">Sniper</option>
+                      <option value="Monk">Monk</option>
+                      <option value="Priest">Priest</option>
+                      <option value="Assassin">Assassin</option>
+                      <option value="Rogue">Rogue</option>
+                      <option value="Wizard">Wizard</option>
+                      <option value="Sage">Sage</option>
+                    </select>
                     <input name="pvp_reduc" type="number" placeholder="PvP Reduc" defaultValue={0} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                     <input name="pvp_dmg" type="number" placeholder="PvP DMG" defaultValue={0} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                     <select name="role" defaultValue="member" className="px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
@@ -152,7 +167,22 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                     <form onSubmit={(e) => handleEditSubmit(e, item.id)} className="flex items-center space-x-4 flex-wrap gap-y-2">
                       <input name="uid_game" defaultValue={item.uid_game} required className="flex-1 min-w-[120px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                       <input name="display_name" defaultValue={item.display_name} required className="flex-1 min-w-[120px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                      <input name="job_name" defaultValue={item.job_name || ''} className="flex-1 min-w-[100px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                      <select name="job_name" defaultValue={item.job_name || ''} className="flex-1 min-w-[100px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                        <option value="" disabled>-- กรุณาเลือกอาชีพ --</option>
+                        <option value="Knight">Knight</option>
+                        <option value="Paladin">Paladin</option>
+                        <option value="Biochemist">Biochemist</option>
+                        <option value="Whitesmith">Whitesmith</option>
+                        <option value="Bard">Bard</option>
+                        <option value="Gypsy">Gypsy</option>
+                        <option value="Sniper">Sniper</option>
+                        <option value="Monk">Monk</option>
+                        <option value="Priest">Priest</option>
+                        <option value="Assassin">Assassin</option>
+                        <option value="Rogue">Rogue</option>
+                        <option value="Wizard">Wizard</option>
+                        <option value="Sage">Sage</option>
+                      </select>
                       <input name="pvp_reduc" type="number" placeholder="PvP Reduc" defaultValue={item.pvp_reduc} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                       <input name="pvp_dmg" type="number" placeholder="PvP DMG" defaultValue={item.pvp_dmg} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                       <select name="role" defaultValue={item.role} className="px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">

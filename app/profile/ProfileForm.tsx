@@ -62,10 +62,10 @@ export default function ProfileForm({ initialProfile }: { initialProfile: Profil
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         >
           <option value="" disabled>-- กรุณาเลือกอาชีพ --</option>
-          <option value="Knight">Knight</option>
+          <option value="Lord Knight">Lord Knight</option>
           <option value="Paladin">Paladin</option>
           <option value="Biochemist">Biochemist</option>
-          <option value="Whitesmith">Whitesmith</option>
+          <option value="Mastersmith">Mastersmith</option>
           <option value="Bard">Bard</option>
           <option value="Gypsy">Gypsy</option>
           <option value="Sniper">Sniper</option>

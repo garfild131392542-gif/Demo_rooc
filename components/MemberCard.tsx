@@ -3,15 +3,16 @@
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { Profile } from './Dashboard'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 
 function getJobDiskColor(jobName: string) {
   const job = (jobName || '').toLowerCase()
-  
-  if (['knight', 'paladin'].includes(job)) {
+
+  if (['knight', 'lord knight', 'paladin'].includes(job)) {
     return 'bg-red-400'
   }
-  if (['biochemist', 'whitesmith'].includes(job)) {
+  if (['biochemist', 'mastersmith'].includes(job)) {
     return 'bg-orange-400'
   }
   if (['bard', 'gypsy', 'sniper'].includes(job)) {
@@ -40,11 +41,25 @@ export default function MemberCard({ profile, isAdmin, isOverlay = false }: { pr
   }
 
   const [showPopup, setShowPopup] = useState(false)
+  const [coords, setCoords] = useState({ x: 0, y: 0 })
   const diskColor = getJobDiskColor(profile.job_name)
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    // Position to the right of the card
+    setCoords({ x: rect.right + 10, y: rect.top })
+    setShowPopup(true)
+  }
+
+  const setRefs = (node: HTMLDivElement | null) => {
+    setNodeRef(node)
+    cardRef.current = node
+  }
 
   return (
     <div
-      ref={setNodeRef}
+      ref={setRefs}
       style={style}
       {...listeners}
       {...attributes}
@@ -52,7 +67,7 @@ export default function MemberCard({ profile, isAdmin, isOverlay = false }: { pr
         ${isAdmin ? 'cursor-grab active:cursor-grabbing touch-none' : 'cursor-default'}
         ${isOverlay ? 'shadow-2xl ring-2 ring-indigo-500 rotate-2' : 'hover:shadow-md'}
         transition-shadow z-10`}
-      onMouseEnter={() => setShowPopup(true)}
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setShowPopup(false)}
     >
       <div className="flex items-center space-x-3">
@@ -67,24 +82,28 @@ export default function MemberCard({ profile, isAdmin, isOverlay = false }: { pr
         </div>
       </div>
 
-      {/* Hover Popup */}
-      {showPopup && !isOverlay && (
-        <div className="absolute left-full ml-2 top-0 w-48 p-4 bg-gray-900 text-white rounded-lg shadow-xl z-50 pointer-events-none transform -translate-y-2 opacity-100 transition-opacity">
+      {/* Hover Popup using Portal to escape overflow-hidden containers */}
+      {showPopup && !isOverlay && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed w-48 p-4 bg-gray-900 text-white rounded-lg shadow-xl z-[9999] pointer-events-none transform -translate-y-2 opacity-100 transition-opacity"
+          style={{ top: coords.y, left: coords.x }}
+        >
           <div className="flex flex-col items-center space-y-2">
             <div className={`w-16 h-16 rounded-full ${diskColor} mb-1`}></div>
             <p className="font-bold text-center">{profile.display_name}</p>
             <div className="w-full mt-2 text-sm grid grid-cols-2 gap-2 text-center border-t border-gray-700 pt-2">
               <div>
                 <p className="text-gray-400 text-xs">PvP Reduc</p>
-                <p className="font-medium text-emerald-400">{profile.pvp_reduc}%</p>
+                <p className="font-medium text-emerald-400">{profile.pvp_reduc}</p>
               </div>
               <div>
                 <p className="text-gray-400 text-xs">PvP DMG</p>
-                <p className="font-medium text-rose-400">{profile.pvp_dmg}%</p>
+                <p className="font-medium text-rose-400">{profile.pvp_dmg}</p>
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

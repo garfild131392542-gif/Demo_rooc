@@ -119,7 +119,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PVP DMG</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Password</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ลากิจกรรม</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -131,10 +131,10 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                     <input name="display_name" placeholder="ชื่อตัวละคร" required className="flex-1 min-w-[120px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                     <select name="job_name" defaultValue="" className="flex-1 min-w-[100px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                       <option value="" disabled>-- กรุณาเลือกอาชีพ --</option>
-                      <option value="Knight">Knight</option>
+                      <option value="Lord Knight">Lord Knight</option>
                       <option value="Paladin">Paladin</option>
                       <option value="Biochemist">Biochemist</option>
-                      <option value="Whitesmith">Whitesmith</option>
+                      <option value="Mastersmith">Mastersmith</option>
                       <option value="Bard">Bard</option>
                       <option value="Gypsy">Gypsy</option>
                       <option value="Sniper">Sniper</option>
@@ -169,7 +169,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                       <input name="display_name" defaultValue={item.display_name} required className="flex-1 min-w-[120px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                       <select name="job_name" defaultValue={item.job_name || ''} className="flex-1 min-w-[100px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                         <option value="" disabled>-- กรุณาเลือกอาชีพ --</option>
-                        <option value="Knight">Knight</option>
+                        <option value="Lord Knight">Lord Knight</option>
                         <option value="Paladin">Paladin</option>
                         <option value="Biochemist">Biochemist</option>
                         <option value="Whitesmith">Whitesmith</option>
@@ -208,7 +208,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-emerald-500 font-semibold">
                       {item.pvp_reduc}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-rose-500 font-semibold">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-rose-500 font-semibold ">
                       {item.pvp_dmg}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">

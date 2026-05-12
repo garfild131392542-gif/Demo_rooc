@@ -1,8 +1,16 @@
 @import "tailwindcss";
+/* หัวใจสำคัญของ v4: คำสั่งนี้จะบอกให้ระบบรู้ว่าเราใช้ปุ่มกดเพื่อเปลี่ยนโหมดมืด */
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+}
+
+/* ตั้งค่าสีกระดาษแผ่นล่างสุดเวลาเปิดโหมดมืด */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -12,15 +20,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }

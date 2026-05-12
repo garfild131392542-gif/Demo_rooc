@@ -17,7 +17,7 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-4 py-8">
+    <div className="w-full max-w-full overflow-x-hidden mx-auto px-4 py-8">
       <header className="mb-8">
         <h1 className="text-3xl font-bold">Explorers Management Dashboard</h1>
         <p className="text-lg text-gray-500 dark:text-gray-400 mt-2">

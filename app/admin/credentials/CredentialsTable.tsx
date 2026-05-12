@@ -1,5 +1,5 @@
 'use client'
-
+//
 import { useState, useTransition } from 'react'
 import { resetMemberPassword, changeMemberRole, createMember, updateMember, deleteMember, toggleMemberLeave } from '@/app/actions/admin'
 
@@ -13,6 +13,37 @@ type ManagementItem = {
   pvp_dmg: number
   isPasswordSet: boolean
   is_on_leave: boolean
+  updated_at?: string
+}
+
+function needsUpdate(updatedAt?: string) {
+  if (!updatedAt) return true;
+  
+  const updatedDate = new Date(updatedAt);
+  const now = new Date();
+  
+  let daysSinceTuesday = now.getDay() - 2;
+  if (daysSinceTuesday < 0) {
+    daysSinceTuesday += 7;
+  }
+  
+  const mostRecentTuesday = new Date(now);
+  mostRecentTuesday.setDate(now.getDate() - daysSinceTuesday);
+  mostRecentTuesday.setHours(0, 0, 0, 0);
+  
+  return updatedDate < mostRecentTuesday;
+}
+
+function formatUpdatedAt(updatedAt?: string) {
+  if (!updatedAt) return '-';
+  const d = new Date(updatedAt);
+  return d.toLocaleString('th-TH', { 
+    day: '2-digit', 
+    month: '2-digit', 
+    year: 'numeric', 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
 }
 
 export default function CredentialsTable({ initialData }: { initialData: ManagementItem[] }) {
@@ -20,6 +51,9 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
   const [isPending, startTransition] = useTransition()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('') // 2. สร้าง State สำหรับเก็บคำค้นหา
+  const [showOnlyNotUpdated, setShowOnlyNotUpdated] = useState(false)
+
 
   const handleResetPassword = (id: string, uid_game: string) => {
     if (!confirm(`Are you sure you want to reset the password for ${uid_game}? They will need to set a new password on their next login.`)) return
@@ -95,16 +129,63 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
     })
   }
 
+  // 3. กรองรายชื่อตามชื่อตัวละคร (Display Name) หรือ อาชีพ (Job Name) และการอัพเดท
+  const filteredProfiles = data.filter(p => {
+    const matchesSearch = p.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.uid_game.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.job_name && p.job_name.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+    if (showOnlyNotUpdated) {
+      return matchesSearch && needsUpdate(p.updated_at);
+    }
+    return matchesSearch;
+  })
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
       <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
         <h2 className="text-xl font-semibold">จัดการสมาชิกในกิล</h2>
-        <button
-          onClick={() => setIsCreating(true)}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium"
-        >
-          + เพิ่มสมาชิก
-        </button>
+        <div className='flex items-center space-x-4'>
+          <label className="flex items-center space-x-2 text-sm cursor-pointer text-gray-700 dark:text-gray-300">
+            <input 
+              type="checkbox" 
+              checked={showOnlyNotUpdated}
+              onChange={(e) => setShowOnlyNotUpdated(e.target.checked)}
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span>📌 คัดกรองคนที่ยังไม่อัพเดท</span>
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="ค้นหาชื่อหรืออาชีพ..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+            />
+            <div className="absolute left-3 top-2 text-gray-400">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setIsCreating(true)}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium"
+          >
+            + เพิ่มสมาชิก
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -119,13 +200,14 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PVP DMG</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Password</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ลากิจกรรม</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อัพเดทล่าสุด</th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {isCreating && (
               <tr>
-                <td colSpan={9} className="p-4 bg-indigo-50 dark:bg-indigo-900/20">
+                <td colSpan={10} className="p-4 bg-indigo-50 dark:bg-indigo-900/20">
                   <form onSubmit={handleCreateSubmit} className="flex items-center space-x-4 flex-wrap gap-y-2">
                     <input name="uid_game" placeholder="UID Game" required className="flex-1 min-w-[120px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                     <input name="display_name" placeholder="ชื่อตัวละคร" required className="flex-1 min-w-[120px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
@@ -160,10 +242,10 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
               </tr>
             )}
 
-            {data.map(item => (
+            {filteredProfiles.map(item => (
               <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 {editingId === item.id ? (
-                  <td colSpan={9} className="p-4">
+                  <td colSpan={10} className="p-4">
                     <form onSubmit={(e) => handleEditSubmit(e, item.id)} className="flex items-center space-x-4 flex-wrap gap-y-2">
                       <input name="uid_game" defaultValue={item.uid_game} required className="flex-1 min-w-[120px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                       <input name="display_name" defaultValue={item.display_name} required className="flex-1 min-w-[120px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
@@ -229,6 +311,20 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-rose-500 disabled:opacity-50"></div>
                       </label>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div className="flex flex-col space-y-1">
+                        <span className="text-gray-500 dark:text-gray-400 text-xs">{formatUpdatedAt(item.updated_at)}</span>
+                        {needsUpdate(item.updated_at) ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 w-fit">
+                            🔴 ยังไม่อัพเดท
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 w-fit">
+                            🟢 อัพเดทแล้ว
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                       <button

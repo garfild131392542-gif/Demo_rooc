@@ -111,10 +111,24 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
-      <div className="overflow-x-auto pb-8">
-        <div className="flex flex-row gap-8 items-start min-w-[1200px]">
+      <div className="w-full">
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          
+          {/* Waitlist & LeaveList (Top on mobile, Right on desktop) - Only visible to admin */}
+          {isAdmin && (
+            <div className="w-full lg:w-80 shrink-0 lg:sticky lg:top-4 flex flex-col gap-6 lg:h-[calc(100vh-2rem)] order-1 lg:order-2">
+              <WaitlistBlock
+                profiles={profiles.filter(p => p.party_id === null && !p.is_on_leave)}
+                isAdmin={isAdmin}
+              />
+              <LeaveListBlock 
+                profiles={profiles.filter(p => p.party_id === null && p.is_on_leave)}
+              />
+            </div>
+          )}
+
           {/* Left Side: 16 Parties */}
-          <div className="flex-1 grid grid-cols-4 gap-6">
+          <div className="flex-1 w-full grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 order-2 lg:order-1">
             {parties.map(partyId => (
               <PartyBlock
                 key={partyId}
@@ -125,16 +139,6 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
             ))}
           </div>
 
-          {/* Right Side: Waitlist & LeaveList */}
-          <div className="w-80 shrink-0 sticky top-4 flex flex-col gap-6 h-[calc(100vh-2rem)]">
-            <WaitlistBlock
-              profiles={profiles.filter(p => p.party_id === null && !p.is_on_leave)}
-              isAdmin={isAdmin}
-            />
-            <LeaveListBlock 
-              profiles={profiles.filter(p => p.party_id === null && p.is_on_leave)}
-            />
-          </div>
         </div>
       </div>
 

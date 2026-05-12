@@ -47,8 +47,8 @@ export default function MemberCard({ profile, isAdmin, isOverlay = false }: { pr
 
   const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
-    // Position to the right of the card
-    setCoords({ x: rect.right + 10, y: rect.top })
+    // Position TOP horizontally centered
+    setCoords({ x: rect.left + (rect.width / 2), y: rect.top - 8 })
     setShowPopup(true)
   }
 
@@ -85,23 +85,25 @@ export default function MemberCard({ profile, isAdmin, isOverlay = false }: { pr
       {/* Hover Popup using Portal to escape overflow-hidden containers */}
       {showPopup && !isOverlay && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed w-48 p-4 bg-gray-900 text-white rounded-lg shadow-xl z-[9999] pointer-events-none transform -translate-y-2 opacity-100 transition-opacity"
+          className="fixed w-36 p-2 bg-gray-900 text-white rounded shadow-lg z-[9999] pointer-events-none transform -translate-x-1/2 -translate-y-full opacity-100 transition-opacity"
           style={{ top: coords.y, left: coords.x }}
         >
-          <div className="flex flex-col items-center space-y-2">
-            <div className={`w-16 h-16 rounded-full ${diskColor} mb-1`}></div>
-            <p className="font-bold text-center">{profile.display_name}</p>
-            <div className="w-full mt-2 text-sm grid grid-cols-2 gap-2 text-center border-t border-gray-700 pt-2">
+          <div className="flex flex-col items-center">
+            <div className={`w-8 h-8 rounded-full ${diskColor} mb-1`}></div>
+            <p className="font-bold text-center text-xs truncate w-full px-1">{profile.display_name}</p>
+            <div className="w-full mt-1 text-[10px] grid grid-cols-2 gap-1 text-center border-t border-gray-700 pt-1">
               <div>
-                <p className="text-gray-400 text-xs">PvP Reduc</p>
+                <p className="text-gray-400">PvP Reduc</p>
                 <p className="font-medium text-emerald-400">{profile.pvp_reduc}</p>
               </div>
               <div>
-                <p className="text-gray-400 text-xs">PvP DMG</p>
+                <p className="text-gray-400">PvP DMG</p>
                 <p className="font-medium text-rose-400">{profile.pvp_dmg}</p>
               </div>
             </div>
           </div>
+          {/* Arrow pointing down */}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
         </div>,
         document.body
       )}

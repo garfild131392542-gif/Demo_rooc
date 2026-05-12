@@ -17,7 +17,7 @@ export async function updateMyProfile(formData: FormData) {
 
   const { error } = await supabase
     .from('profiles')
-    .update({ display_name, job_name, pvp_reduc, pvp_dmg } as any)
+    .update({ display_name, job_name, pvp_reduc, pvp_dmg, updated_at: new Date().toISOString() } as any)
     .eq('id', session.id)
 
   if (error) return { success: false, error: error.message }

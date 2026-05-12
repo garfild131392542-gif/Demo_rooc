@@ -25,7 +25,7 @@ export async function createMember(formData: FormData) {
 
   const { error } = await supabase
     .from('profiles')
-    .insert([{ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg }])
+    .insert([{ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, updated_at: new Date().toISOString() }])
 
   if (error) return { success: false, error: error.message }
   
@@ -48,7 +48,7 @@ export async function updateMember(id: string, formData: FormData) {
 
   const { error } = await supabase
     .from('profiles')
-    .update({ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg } as any)
+    .update({ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, updated_at: new Date().toISOString() } as any)
     .eq('id', id)
 
   if (error) return { success: false, error: error.message }

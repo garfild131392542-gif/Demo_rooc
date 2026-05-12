@@ -42,6 +42,25 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
     })
   )
 
+
+  const handleClearMember = (memberId: string) => {
+    if (!isAdmin) return
+
+    // 1. Optimistic Update: แก้ไข State ในหน้าจอทันทีเพื่อให้ UI เปลี่ยนไวที่สุด
+    setProfiles((prev) =>
+      prev.map(p =>
+        p.id === memberId
+          ? { ...p, party_id: null, slot_index: null }
+          : p
+      )
+    )
+
+    // 2. Sync to DB in the background
+    startTransition(() => {
+      updateProfileParty(memberId, null, null)
+    })
+  }
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string)
   }
@@ -54,6 +73,7 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
 
     const profileId = active.id as string
     const overId = over.id as string
+
 
     let targetPartyId: number | null = null
     let targetSlotIndex: number | null = null
@@ -178,6 +198,7 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
                   profiles={profiles.filter(p => p.party_id === partyId)}
                   isAdmin={isAdmin}
                   onEmptySlotClick={(partyId, slotIndex) => setActiveSlot({ partyId, slotIndex })}
+                  onMemberClear={handleClearMember}
                 />
               ))}
             </div>

@@ -4,13 +4,13 @@ import { useDroppable } from '@dnd-kit/core'
 import { Profile } from './Dashboard'
 import MemberCard from './MemberCard'
 
-function PartySlot({ partyId, slotIndex, profile, isAdmin, onEmptySlotClick }: { partyId: number, slotIndex: number, profile?: Profile, isAdmin: boolean, onEmptySlotClick?: (partyId: number, slotIndex: number) => void }) {
+function PartySlot({ partyId, slotIndex, profile, isAdmin, onEmptySlotClick, onMemberClear }: { partyId: number, slotIndex: number, profile?: Profile, isAdmin: boolean, onEmptySlotClick?: (partyId: number, slotIndex: number) => void, onMemberClear?: (memberId: string) => void }) {
   const { isOver, setNodeRef } = useDroppable({
     id: `party-${partyId}-slot-${slotIndex}`,
   })
 
   return (
-    <div 
+    <div
       ref={setNodeRef}
       className={`h-[4.5rem] rounded-lg border-2 border-dashed transition-colors flex items-center justify-center p-2
         ${isOver ? 'border-indigo-400 bg-indigo-50 dark:border-indigo-500 dark:bg-indigo-900/30' : 'border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'}
@@ -18,10 +18,10 @@ function PartySlot({ partyId, slotIndex, profile, isAdmin, onEmptySlotClick }: {
     >
       {profile ? (
         <div className="w-full h-full">
-          <MemberCard profile={profile} isAdmin={isAdmin} />
+          <MemberCard profile={profile} isAdmin={isAdmin} onClear={onMemberClear ? () => onMemberClear(profile.id) : undefined} />
         </div>
       ) : (
-        <div 
+        <div
           className={`w-full h-full flex flex-col items-center justify-center rounded-lg transition-colors ${isAdmin ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50' : ''}`}
           onClick={isAdmin && onEmptySlotClick ? () => onEmptySlotClick(partyId, slotIndex) : undefined}
         >
@@ -40,7 +40,7 @@ function PartySlot({ partyId, slotIndex, profile, isAdmin, onEmptySlotClick }: {
   )
 }
 
-export default function PartyBlock({ partyId, profiles, isAdmin, onEmptySlotClick }: { partyId: number, profiles: Profile[], isAdmin: boolean, onEmptySlotClick?: (partyId: number, slotIndex: number) => void }) {
+export default function PartyBlock({ partyId, profiles, isAdmin, onEmptySlotClick, onMemberClear }: { partyId: number, profiles: Profile[], isAdmin: boolean, onEmptySlotClick?: (partyId: number, slotIndex: number) => void, onMemberClear?: (memberId: string) => void }) {
   const slots = Array.from({ length: 5 }, (_, i) => i)
 
   return (
@@ -52,13 +52,14 @@ export default function PartyBlock({ partyId, profiles, isAdmin, onEmptySlotClic
         {slots.map(slotIndex => {
           const profile = profiles.find(p => p.slot_index === slotIndex)
           return (
-            <PartySlot 
-              key={slotIndex} 
-              partyId={partyId} 
-              slotIndex={slotIndex} 
-              profile={profile} 
-              isAdmin={isAdmin} 
+            <PartySlot
+              key={slotIndex}
+              partyId={partyId}
+              slotIndex={slotIndex}
+              profile={profile}
+              isAdmin={isAdmin}
               onEmptySlotClick={onEmptySlotClick}
+              onMemberClear={onMemberClear}
             />
           )
         })}

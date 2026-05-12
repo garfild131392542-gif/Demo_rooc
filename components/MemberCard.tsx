@@ -5,8 +5,6 @@ import { CSS } from '@dnd-kit/utilities'
 import { Profile } from './Dashboard'
 import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { clearMemberParty } from '@/app/actions/admin'
-import { useRouter } from 'next/navigation';
 
 function getJobDiskColor(jobName: string) {
   const job = (jobName || '').toLowerCase()
@@ -32,8 +30,7 @@ function getJobDiskColor(jobName: string) {
   return 'bg-gray-300'
 }
 
-export default function MemberCard({ profile, isAdmin, isOverlay = false, onClick }: { profile: Profile, isAdmin?: boolean, isOverlay?: boolean, onClick?: () => void }) {
-  const router = useRouter();
+export default function MemberCard({ profile, isAdmin, isOverlay = false, onClick, onClear }: { profile: Profile, isAdmin?: boolean, isOverlay?: boolean, onClick?: () => void, onClear?: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: profile.id,
     disabled: !isAdmin,
@@ -79,15 +76,10 @@ export default function MemberCard({ profile, isAdmin, isOverlay = false, onClic
       {/* 💡 ย้ายปุ่มกากบาทมาไว้ตรงนี้ (ข้างใน div หลัก) */}
       {isAdmin && profile.party_id && (
         <button
-          onClick={async (e) => {
-            e.stopPropagation(); // กันไม่ให้คลิกแล้วไปโดนฟังก์ชันลากวางหรือ onClick ของการ์ด
+          onClick={(e) => {
+            e.stopPropagation();
             if (confirm(`ต้องการนำคุณ ${profile.display_name} ออกจากปาร์ตี้ใช่หรือไม่?`)) {
-              try {
-                await clearMemberParty(profile.id);
-                router.refresh();
-              } catch (err) {
-                alert("เกิดข้อผิดพลาดในการลบสมาชิก");
-              }
+              if (onClear) onClear(profile.id);
             }
           }}
           className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-lg z-[50] opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"

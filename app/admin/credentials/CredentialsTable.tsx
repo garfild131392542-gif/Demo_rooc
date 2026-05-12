@@ -18,31 +18,31 @@ type ManagementItem = {
 
 function needsUpdate(updatedAt?: string) {
   if (!updatedAt) return true;
-  
+
   const updatedDate = new Date(updatedAt);
   const now = new Date();
-  
+
   let daysSinceTuesday = now.getDay() - 2;
   if (daysSinceTuesday < 0) {
     daysSinceTuesday += 7;
   }
-  
+
   const mostRecentTuesday = new Date(now);
   mostRecentTuesday.setDate(now.getDate() - daysSinceTuesday);
   mostRecentTuesday.setHours(0, 0, 0, 0);
-  
+
   return updatedDate < mostRecentTuesday;
 }
 
 function formatUpdatedAt(updatedAt?: string) {
   if (!updatedAt) return '-';
   const d = new Date(updatedAt);
-  return d.toLocaleString('th-TH', { 
-    day: '2-digit', 
-    month: '2-digit', 
-    year: 'numeric', 
-    hour: '2-digit', 
-    minute: '2-digit' 
+  return d.toLocaleString('th-TH', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   });
 }
 
@@ -134,7 +134,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
     const matchesSearch = p.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.uid_game.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.job_name && p.job_name.toLowerCase().includes(searchTerm.toLowerCase()));
-      
+
     if (showOnlyNotUpdated) {
       return matchesSearch && needsUpdate(p.updated_at);
     }
@@ -147,8 +147,8 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
         <h2 className="text-xl font-semibold">จัดการสมาชิกในกิล</h2>
         <div className='flex items-center space-x-4'>
           <label className="flex items-center space-x-2 text-sm cursor-pointer text-gray-700 dark:text-gray-300">
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               checked={showOnlyNotUpdated}
               onChange={(e) => setShowOnlyNotUpdated(e.target.checked)}
               className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
@@ -254,7 +254,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                         <option value="Lord Knight">Lord Knight</option>
                         <option value="Paladin">Paladin</option>
                         <option value="Biochemist">Biochemist</option>
-                        <option value="Whitesmith">Whitesmith</option>
+                        <option value="Mastersmith">Mastersmith</option>
                         <option value="Bard">Bard</option>
                         <option value="Gypsy">Gypsy</option>
                         <option value="Sniper">Sniper</option>

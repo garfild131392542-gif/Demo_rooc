@@ -5,7 +5,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { Profile } from './Dashboard'
 import MemberCard from './MemberCard'
 
-export default function WaitlistBlock({ profiles, isAdmin }: { profiles: Profile[], isAdmin: boolean }) {
+export default function WaitlistBlock({ profiles, isAdmin, onMemberClick }: { profiles: Profile[], isAdmin: boolean, onMemberClick?: (memberId: string) => void }) {
   const [searchTerm, setSearchTerm] = useState('') // 2. สร้าง State สำหรับเก็บคำค้นหา
 
   const { isOver, setNodeRef } = useDroppable({
@@ -66,7 +66,7 @@ export default function WaitlistBlock({ profiles, isAdmin }: { profiles: Profile
           </p>
         ) : (
           filteredProfiles.map(p => (
-            <MemberCard key={p.id} profile={p} isAdmin={isAdmin} />
+            <MemberCard key={p.id} profile={p} isAdmin={isAdmin} onClick={onMemberClick ? () => onMemberClick(p.id) : undefined} />
           ))
         )}
       </div>

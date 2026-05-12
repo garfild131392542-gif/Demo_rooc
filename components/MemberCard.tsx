@@ -30,7 +30,7 @@ function getJobDiskColor(jobName: string) {
   return 'bg-gray-300'
 }
 
-export default function MemberCard({ profile, isAdmin, isOverlay = false }: { profile: Profile, isAdmin?: boolean, isOverlay?: boolean }) {
+export default function MemberCard({ profile, isAdmin, isOverlay = false, onClick }: { profile: Profile, isAdmin?: boolean, isOverlay?: boolean, onClick?: () => void }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: profile.id,
     disabled: !isAdmin,
@@ -64,11 +64,14 @@ export default function MemberCard({ profile, isAdmin, isOverlay = false }: { pr
       {...listeners}
       {...attributes}
       className={`relative group bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 
-        ${isAdmin ? 'cursor-grab active:cursor-grabbing touch-none' : 'cursor-default'}
+        ${isAdmin && !onClick ? 'cursor-grab active:cursor-grabbing touch-none' : ''}
+        ${onClick ? 'cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500' : ''}
+        ${!isAdmin && !onClick ? 'cursor-default' : ''}
         ${isOverlay ? 'shadow-2xl ring-2 ring-indigo-500 rotate-2' : 'hover:shadow-md'}
         transition-shadow z-10`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setShowPopup(false)}
+      onClick={onClick}
     >
       <div className="flex items-center space-x-3">
         <div className={`w-8 h-8 rounded-full ${diskColor} shrink-0`}></div>

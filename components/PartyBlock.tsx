@@ -4,7 +4,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { Profile } from './Dashboard'
 import MemberCard from './MemberCard'
 
-function PartySlot({ partyId, slotIndex, profile, isAdmin }: { partyId: number, slotIndex: number, profile?: Profile, isAdmin: boolean }) {
+function PartySlot({ partyId, slotIndex, profile, isAdmin, onEmptySlotClick }: { partyId: number, slotIndex: number, profile?: Profile, isAdmin: boolean, onEmptySlotClick?: (partyId: number, slotIndex: number) => void }) {
   const { isOver, setNodeRef } = useDroppable({
     id: `party-${partyId}-slot-${slotIndex}`,
   })
@@ -21,13 +21,26 @@ function PartySlot({ partyId, slotIndex, profile, isAdmin }: { partyId: number, 
           <MemberCard profile={profile} isAdmin={isAdmin} />
         </div>
       ) : (
-        <span className="text-sm font-medium text-gray-400 dark:text-gray-500">Slot {slotIndex + 1}</span>
+        <div 
+          className={`w-full h-full flex flex-col items-center justify-center rounded-lg transition-colors ${isAdmin ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50' : ''}`}
+          onClick={isAdmin && onEmptySlotClick ? () => onEmptySlotClick(partyId, slotIndex) : undefined}
+        >
+          <span className={`text-sm font-medium text-gray-400 dark:text-gray-500 ${isAdmin ? 'hidden lg:block' : ''}`}>Slot {slotIndex + 1}</span>
+          {isAdmin && (
+            <span className="text-sm font-medium text-indigo-500 dark:text-indigo-400 lg:hidden flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-md">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add
+            </span>
+          )}
+        </div>
       )}
     </div>
   )
 }
 
-export default function PartyBlock({ partyId, profiles, isAdmin }: { partyId: number, profiles: Profile[], isAdmin: boolean }) {
+export default function PartyBlock({ partyId, profiles, isAdmin, onEmptySlotClick }: { partyId: number, profiles: Profile[], isAdmin: boolean, onEmptySlotClick?: (partyId: number, slotIndex: number) => void }) {
   const slots = Array.from({ length: 5 }, (_, i) => i)
 
   return (
@@ -45,6 +58,7 @@ export default function PartyBlock({ partyId, profiles, isAdmin }: { partyId: nu
               slotIndex={slotIndex} 
               profile={profile} 
               isAdmin={isAdmin} 
+              onEmptySlotClick={onEmptySlotClick}
             />
           )
         })}

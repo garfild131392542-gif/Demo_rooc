@@ -25,6 +25,7 @@ export type Profile = {
 export default function Dashboard({ initialProfiles, isAdmin }: { initialProfiles: Profile[], isAdmin: boolean }) {
   const [profiles, setProfiles] = useState<Profile[]>(initialProfiles)
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeSlot, setActiveSlot] = useState<{ partyId: number, slotIndex: number } | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const sensors = useSensors(
@@ -104,6 +105,43 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
     })
   }
 
+  const assignMemberToSlot = (memberId: string) => {
+    if (!activeSlot || !isAdmin) return
+    const { partyId: targetPartyId, slotIndex: targetSlotIndex } = activeSlot
+
+    const sourceProfile = profiles.find(p => p.id === memberId)
+    if (!sourceProfile) return
+
+    // If dropped on the same slot, do nothing
+    if (sourceProfile.party_id === targetPartyId && sourceProfile.slot_index === targetSlotIndex) {
+      setActiveSlot(null)
+      return
+    }
+
+    const occupant = profiles.find(p => p.party_id === targetPartyId && p.slot_index === targetSlotIndex)
+
+    setProfiles((prev) =>
+      prev.map(p => {
+        if (p.id === memberId) {
+          return { ...p, party_id: targetPartyId, slot_index: targetSlotIndex }
+        }
+        if (occupant && p.id === occupant.id) {
+          return { ...p, party_id: null, slot_index: null }
+        }
+        return p
+      })
+    )
+
+    startTransition(() => {
+      if (occupant) {
+        updateProfileParty(occupant.id, null, null)
+      }
+      updateProfileParty(memberId, targetPartyId, targetSlotIndex)
+    })
+
+    setActiveSlot(null)
+  }
+
   const activeProfile = profiles.find(p => p.id === activeId)
 
   // Generate Party Arrays
@@ -111,17 +149,17 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
-      <div className="w-full">
+      <div className="w-full max-w-7xl mx-auto px-4 lg:px-8">
         <div className="flex flex-col lg:flex-row gap-6 items-start">
-          
+
           {/* Waitlist & LeaveList (Top on mobile, Right on desktop) - Only visible to admin */}
           {isAdmin && (
-            <div className="w-full lg:w-80 shrink-0 lg:sticky lg:top-4 flex flex-col gap-6 lg:h-[calc(100vh-2rem)] order-1 lg:order-2">
+            <div className="w-full lg:w-80 shrink-0 sticky top-20 h-[calc(100vh-6rem)] overflow-y-auto flex flex-col gap-4 hidden lg:flex order-1 lg:order-2">
               <WaitlistBlock
                 profiles={profiles.filter(p => p.party_id === null && !p.is_on_leave)}
                 isAdmin={isAdmin}
               />
-              <LeaveListBlock 
+              <LeaveListBlock
                 profiles={profiles.filter(p => p.party_id === null && p.is_on_leave)}
               />
             </div>
@@ -135,6 +173,7 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
                 partyId={partyId}
                 profiles={profiles.filter(p => p.party_id === partyId)}
                 isAdmin={isAdmin}
+                onEmptySlotClick={(partyId, slotIndex) => setActiveSlot({ partyId, slotIndex })}
               />
             ))}
           </div>
@@ -145,6 +184,34 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
       <DragOverlay>
         {activeProfile ? <MemberCard profile={activeProfile} isOverlay /> : null}
       </DragOverlay>
+
+      {/* Mobile Modal for Waitlist Selection */}
+      {activeSlot && isAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 lg:hidden p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-h-[90vh] flex flex-col overflow-hidden relative">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-indigo-50 dark:bg-indigo-900/30">
+              <h2 className="text-lg font-bold text-indigo-900 dark:text-indigo-100">
+                Select Member for Party {activeSlot.partyId}
+              </h2>
+              <button 
+                onClick={() => setActiveSlot(null)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden p-2 flex flex-col">
+              <WaitlistBlock
+                profiles={profiles.filter(p => p.party_id === null && !p.is_on_leave)}
+                isAdmin={isAdmin}
+                onMemberClick={assignMemberToSlot}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </DndContext>
   )
 }

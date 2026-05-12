@@ -6,7 +6,7 @@ export default async function AdminCredentialsPage() {
 
   const { data: profiles, error } = await supabase
     .from('profiles')
-    .select('id, uid_game, display_name, job_name, role, password_game, pvp_reduc, pvp_dmg, is_on_leave, updated_at')
+    .select('id, uid_game, display_name, job_name, role, password_game, pvp_reduc, pvp_dmg, is_on_leave, updated_at, last_stat_update')
     .order('id', { ascending: true })
 
   if (error) {
@@ -24,7 +24,9 @@ export default async function AdminCredentialsPage() {
     pvp_dmg: p.pvp_dmg,
     isPasswordSet: p.password_game !== null,
     is_on_leave: p.is_on_leave || false,
-    updated_at: p.updated_at
+    updated_at: p.updated_at,
+    last_stat_update: p.last_stat_update
+
   }))
 
   return (

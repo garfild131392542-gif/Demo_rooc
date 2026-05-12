@@ -14,12 +14,13 @@ type ManagementItem = {
   isPasswordSet: boolean
   is_on_leave: boolean
   updated_at?: string
+  last_stat_update?: string;
 }
 
-function needsUpdate(updatedAt?: string) {
-  if (!updatedAt) return true;
+function needsUpdate(last_stat_update?: string) {
+  if (!last_stat_update) return true;
 
-  const updatedDate = new Date(updatedAt);
+  const updatedDate = new Date(last_stat_update);
   const now = new Date();
 
   let daysSinceTuesday = now.getDay() - 2;
@@ -34,9 +35,9 @@ function needsUpdate(updatedAt?: string) {
   return updatedDate < mostRecentTuesday;
 }
 
-function formatUpdatedAt(updatedAt?: string) {
-  if (!updatedAt) return '-';
-  const d = new Date(updatedAt);
+function formatUpdatedAt(last_stat_update?: string) {
+  if (!last_stat_update) return '-';
+  const d = new Date(last_stat_update);
   return d.toLocaleString('th-TH', {
     day: '2-digit',
     month: '2-digit',
@@ -314,8 +315,8 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex flex-col space-y-1">
-                        <span className="text-gray-500 dark:text-gray-400 text-xs">{formatUpdatedAt(item.updated_at)}</span>
-                        {needsUpdate(item.updated_at) ? (
+                        <span className="text-gray-500 dark:text-gray-400 text-xs">{formatUpdatedAt(item.last_stat_update)}</span>
+                        {needsUpdate(item.last_stat_update) ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 w-fit">
                             🔴 ยังไม่อัพเดท
                           </span>

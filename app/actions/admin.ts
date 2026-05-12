@@ -25,10 +25,10 @@ export async function createMember(formData: FormData) {
 
   const { error } = await supabase
     .from('profiles')
-    .insert([{ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, updated_at: new Date().toISOString() }])
+    .insert([{ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, last_stat_update: new Date().toISOString() }])
 
   if (error) return { success: false, error: error.message }
-  
+
   revalidatePath('/admin/credentials')
   revalidatePath('/members')
   revalidatePath('/')
@@ -48,11 +48,11 @@ export async function updateMember(id: string, formData: FormData) {
 
   const { error } = await supabase
     .from('profiles')
-    .update({ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, updated_at: new Date().toISOString() } as any)
+    .update({ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, last_stat_update: new Date().toISOString() } as any)
     .eq('id', id)
 
   if (error) return { success: false, error: error.message }
-  
+
   revalidatePath('/admin/credentials')
   revalidatePath('/members')
   revalidatePath('/')
@@ -69,7 +69,7 @@ export async function deleteMember(id: string) {
     .eq('id', id)
 
   if (error) return { success: false, error: error.message }
-  
+
   revalidatePath('/admin/credentials')
   revalidatePath('/members')
   revalidatePath('/')
@@ -87,7 +87,7 @@ export async function resetMemberPassword(id: string) {
     .eq('id', id)
 
   if (error) return { success: false, error: error.message }
-  
+
   revalidatePath('/admin/credentials')
   return { success: true }
 }
@@ -102,7 +102,7 @@ export async function changeMemberRole(id: string, newRole: 'admin' | 'member') 
     .eq('id', id)
 
   if (error) return { success: false, error: error.message }
-  
+
   revalidatePath('/admin/credentials')
   revalidatePath('/members')
   revalidatePath('/')
@@ -119,7 +119,7 @@ export async function toggleMemberLeave(id: string, is_on_leave: boolean) {
     .eq('id', id)
 
   if (error) return { success: false, error: error.message }
-  
+
   revalidatePath('/admin/credentials')
   revalidatePath('/members')
   revalidatePath('/')

@@ -6,6 +6,7 @@ import { Profile } from './Dashboard'
 import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { clearMemberParty } from '@/app/actions/admin'
+import { useRouter } from 'next/navigation';
 
 function getJobDiskColor(jobName: string) {
   const job = (jobName || '').toLowerCase()
@@ -32,6 +33,7 @@ function getJobDiskColor(jobName: string) {
 }
 
 export default function MemberCard({ profile, isAdmin, isOverlay = false, onClick }: { profile: Profile, isAdmin?: boolean, isOverlay?: boolean, onClick?: () => void }) {
+  const router = useRouter();
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: profile.id,
     disabled: !isAdmin,
@@ -82,6 +84,7 @@ export default function MemberCard({ profile, isAdmin, isOverlay = false, onClic
             if (confirm(`ต้องการนำคุณ ${profile.display_name} ออกจากปาร์ตี้ใช่หรือไม่?`)) {
               try {
                 await clearMemberParty(profile.id);
+                router.refresh();
               } catch (err) {
                 alert("เกิดข้อผิดพลาดในการลบสมาชิก");
               }

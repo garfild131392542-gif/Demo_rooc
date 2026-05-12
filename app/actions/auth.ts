@@ -3,6 +3,14 @@
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 
+// กำหนด Type ให้ชัดเจนเพื่อป้องกันความสับสน
+type SessionData = {
+  id: string;
+  uid_game: string;
+  role: 'admin' | 'member';
+  display_name: string; // เพิ่มตัวนี้เข้ามา
+}
+
 export async function loginAction(uid: string, password: string) {
   try {
     const supabase = await createClient()
@@ -11,7 +19,6 @@ export async function loginAction(uid: string, password: string) {
       return { success: false, error: 'รหัสผ่านต้องไม่เป็นค่าว่าง' }
     }
 
-    // 1. Fetch profile from `profiles` where `uid_game` = input `uid`
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('*')
@@ -22,9 +29,7 @@ export async function loginAction(uid: string, password: string) {
       return { success: false, error: 'ไม่พบ UID นี้ในระบบ โปรดติดต่อ Admin' }
     }
 
-    // 2. Check password state
     if (profile.password_game === null) {
-      // Update `profiles` setting `password_game` = input `password`
       const { data: updatedProfile, error: updateError } = await supabase
         .from('profiles')
         .update({ password_game: password } as any)
@@ -36,20 +41,19 @@ export async function loginAction(uid: string, password: string) {
         return { success: false, error: 'เกิดข้อผิดพลาดในการตั้งรหัสผ่าน กรุณาติดต่อ Admin' }
       }
     } else {
-      // 3. If `password_game` is NOT NULL: Check if input `password` matches
       if (profile.password_game !== password) {
         return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' }
       }
     }
 
-    // 4. On success: Create a base64 encoded JSON cookie
-    const sessionData = {
+    // 💡 4. On success: เพิ่ม display_name ลงไปใน Session ทันที
+    const sessionData: SessionData = {
       id: profile.id,
       uid_game: profile.uid_game,
       role: profile.role,
+      display_name: profile.display_name || 'No Name', // ดึงจากฐานข้อมูลมาใส่
     }
 
-    // Simple base64 encoding for this specific use case
     const cookieValue = Buffer.from(JSON.stringify(sessionData)).toString('base64')
 
     const cookieStore = await cookies()
@@ -79,7 +83,8 @@ export async function getSession() {
 
   try {
     const jsonStr = Buffer.from(sessionCookie.value, 'base64').toString('utf-8')
-    return JSON.parse(jsonStr) as { id: string; uid_game: string; role: 'admin' | 'member' }
+    // 💡 แค่ถอดรหัส JSON ออกมา ข้อมูล display_name ก็จะติดออกมาด้วยเลย ไม่ต้อง Query ซ้ำ
+    return JSON.parse(jsonStr) as SessionData
   } catch (e) {
     return null
   }

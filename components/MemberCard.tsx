@@ -5,6 +5,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { Profile } from './Dashboard'
 import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { clearMemberParty } from '@/app/actions/admin'
 
 function getJobDiskColor(jobName: string) {
   const job = (jobName || '').toLowerCase()
@@ -73,6 +74,29 @@ export default function MemberCard({ profile, isAdmin, isOverlay = false, onClic
       onMouseLeave={() => setShowPopup(false)}
       onClick={onClick}
     >
+      {/* 💡 ย้ายปุ่มกากบาทมาไว้ตรงนี้ (ข้างใน div หลัก) */}
+      {isAdmin && profile.party_id && (
+        <button
+          onClick={async (e) => {
+            e.stopPropagation(); // กันไม่ให้คลิกแล้วไปโดนฟังก์ชันลากวางหรือ onClick ของการ์ด
+            if (confirm(`ต้องการนำคุณ ${profile.display_name} ออกจากปาร์ตี้ใช่หรือไม่?`)) {
+              try {
+                await clearMemberParty(profile.id);
+              } catch (err) {
+                alert("เกิดข้อผิดพลาดในการลบสมาชิก");
+              }
+            }
+          }}
+          className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-lg z-[50] opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+          title="ล้างค่าปาร์ตี้"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 1.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        </button>
+      )}
+
+      {/* ส่วนเนื้อหาของการ์ด (เหมือนเดิม) */}
       <div className="flex items-center space-x-3">
         <div className={`w-8 h-8 rounded-full ${diskColor} shrink-0`}></div>
         <div className="flex-1 min-w-0">

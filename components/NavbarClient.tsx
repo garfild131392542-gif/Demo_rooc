@@ -2,143 +2,203 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { logoutAction } from '@/app/actions/auth'
 import { useTheme } from 'next-themes'
+import { motion, AnimatePresence } from 'framer-motion'
+import { SunIcon, MoonIcon } from '@heroicons/react/24/outline'
 
 type SessionType = {
     uid_game: string;
     role: string;
+    display_name: string;
 }
 
-export default function NavbarClient({ session }: { session: SessionType }) {
+export default function NavbarClient({ enrichedSession }: { enrichedSession: SessionType }) {
     const [isOpen, setIsOpen] = useState(false)
-    const { theme, setTheme, resolvedTheme } = useTheme()
+    const { resolvedTheme, setTheme } = useTheme()
     const [mounted, setMounted] = useState(false)
     const router = useRouter()
+    const pathname = usePathname()
 
-    // ป้องกัน Hydration Mismatch
     useEffect(() => {
         setMounted(true)
-    }, [])
+        setIsOpen(false) // ปิดเมนูทุกครั้งที่ pathname เปลี่ยน หรือตอนโหลดหน้าครั้งแรก
+    }, [pathname]) // <--- ตะกร้านี้ต้องมีขนาดคงที่ (มีแค่ pathname ตัวเดียว)
+
+    if (!mounted) {
+        return null; // หรือ return Navbar แบบที่เป็นสีกลางๆ ไปก่อน
+    }
 
     const isDarkMode = mounted && resolvedTheme === 'dark'
 
-    // ฟังก์ชันสลับ Dark Mode ด้วย next-themes
-    const toggleDarkMode = () => {
-        setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
-    }
 
-    // ฟังก์ชันจัดการ Logout ฝั่ง Client
     const handleLogout = async (e: React.FormEvent) => {
         e.preventDefault()
         await logoutAction()
         router.push('/login')
     }
 
+
+
+
+    const toggleDarkMode = () => {
+        setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
+    }
+
+    // Variants สำหรับการทำ Animation ของเมนูมือถือ
+    const menuVariants = {
+        closed: {
+            opacity: 0,
+            height: 0,
+            transition: { duration: 0.1, ease: 'easeInOut', when: "afterChildren" }
+        },
+        open: {
+            opacity: 1,
+            height: 'auto',
+            transition: { duration: 0.2, ease: 'easeInOut', when: "beforeChildren" }
+        }
+    } as any
+
+    const itemVariants = {
+        closed: { x: -20, opacity: 0 },
+        open: { x: 0, opacity: 1 }
+    } as any
+
     return (
-        <nav className="bg-indigo-600 dark:bg-gray-900 text-white shadow-md transition-colors">
+        <nav className="sticky top-0 z-[100] bg-indigo-600/90 dark:bg-gray-900/90 backdrop-blur-md text-white shadow-lg transition-colors border-b border-white/10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16">
 
-                    {/* ส่วนโลโก้ และ เมนูแนวนอน (Desktop) */}
                     <div className="flex items-center">
-                        <Link href="/" className="font-bold text-xl tracking-wider mr-8">
-                            Explorers Guild
+                        <Link href="/" className="gap-2 font-bold text-xl tracking-tighter hover:scale-105 transition-transform">
+                            Explorers<span className="gap-2 ml-1 text-indigo-200">Guild</span>
                         </Link>
 
-                        <div className="hidden md:flex space-x-4">
-                            <Link href="/" className="hover:bg-indigo-500 dark:hover:bg-gray-800 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                                Dashboard
-                            </Link>
-                            <Link href="/profile" className="hover:bg-indigo-500 dark:hover:bg-gray-800 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                                My Profile
-                            </Link>
-                            <Link href="/members" className="hover:bg-indigo-500 dark:hover:bg-gray-800 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                                Members
-                            </Link>
-                            {session.role === 'admin' && (
-                                <Link href="/admin/credentials" className="hover:bg-indigo-500 dark:hover:bg-gray-800 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                                    ศูนย์จัดการสมาชิกกิล
+                        <div className="hidden md:flex ml-10 space-x-1">
+                            {['Dashboard', 'Profile', 'Members'].map((item) => (
+                                <Link
+                                    key={item}
+                                    href={item === 'Dashboard' ? '/' : `/${item.toLowerCase().replace(' ', '')}`}
+                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-white/10 ${pathname === (item === 'Dashboard' ? '/' : `/${item.toLowerCase().replace(' ', '')}`) ? 'bg-white/20' : ''}`}
+                                >
+                                    {item}
+                                </Link>
+                            ))}
+                            {enrichedSession.role === 'admin' && (
+                                <Link href="/admin/credentials" className="px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-white/10 bg-indigo-500/30 border border-white/20">
+                                    จัดการข้อมูลสมาชิกกิล
                                 </Link>
                             )}
                         </div>
                     </div>
 
-                    {/* ส่วน Profile, Dark Mode และปุ่ม Hamburger */}
-                    <div className="flex items-center space-x-3 md:space-x-4">
+                    <div className="flex items-center space-x-2 md:space-x-4  pl-4">
+                        {/* Dark Mode Switch */}
                         <button
                             type="button"
                             onClick={toggleDarkMode}
-                            className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus:outline-none ${isDarkMode ? 'bg-gray-700' : 'bg-indigo-400'
-                                }`}
+                            className="cursor-pointer relative p-2 rounded-full hover:bg-white/10 dark:hover:bg-gray-800 transition-colors focus:outline-none active:scale-95"
                             aria-label="Toggle Dark Mode"
                         >
                             <span className="sr-only">Toggle Dark Mode</span>
-                            <span
-                                className={`inline-flex h-5 w-5 transform items-center justify-center rounded-full bg-white transition-transform ${isDarkMode ? 'translate-x-8' : 'translate-x-1'
-                                    }`}
-                            >
-                                <span className="text-[10px] leading-none">{isDarkMode ? '🌙' : '☀️'}</span>
-                            </span>
+
+                            {/* ส่วนแสดงไอคอนพร้อม Animation (หมุนตัว) */}
+                            <div className="relative h-6 w-6">
+                                {/* ไอคอนพระอาทิตย์ (โชว์ตอน Light Mode) */}
+                                <div className={`absolute inset-0 transition-transform duration-500 ease-in-out ${isDarkMode ? 'rotate-[180deg] opacity-0 scale-50' : 'rotate-0 opacity-100 scale-100'
+                                    }`}>
+                                    <SunIcon className="h-6 w-6 text-yellow-300" />
+                                </div>
+
+                                {/* ไอคอนพระจันทร์ (โชว์ตอน Dark Mode) */}
+                                <div className={`absolute inset-0 transition-transform duration-500 ease-in-out ${isDarkMode ? 'rotate-0 opacity-100 scale-100' : 'rotate-[-180deg] opacity-0 scale-50'
+                                    }`}>
+                                    <MoonIcon className="h-6 w-6 text-indigo-300" />
+                                </div>
+                            </div>
                         </button>
 
-                        <span className="hidden md:block text-sm font-medium opacity-80">
-                            {session.uid_game} ({session.role})
-                        </span>
+                        <div className="hidden md:flex items-center space-x-4 border-l border-white/20 pl-4">
+                            <div className="flex items-center space-x-1">
+                                <span className="text-xs font-mono opacity-80 bg-black/20 px-2 py-1 rounded-md border border-white/5">
+                                    <span className="text-indigo-200">{enrichedSession.display_name}</span>
+                                    <span className="mx-1 opacity-40">|</span>
+                                    <span>{enrichedSession.uid_game}</span>
+                                </span>
+                            </div>
+                            <form onSubmit={handleLogout}>
+                                <button type="submit" className="hover cursor-pointer text-sm bg-red-600/95 py-1 px-2 rounded font-semibold text-red-200 hover:text-white hover:bg-red-600/10 transition-colors">
+                                    Logout
+                                </button>
+                            </form>
+                        </div>
 
-                        <form onSubmit={handleLogout} className="hidden md:block">
-                            <button type="submit" className="bg-indigo-700 dark:bg-gray-800 dark:border dark:border-gray-700 hover:bg-indigo-800 dark:hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                                Logout
-                            </button>
-                        </form>
-
+                        {/* Animated Hamburger Button */}
                         <button
                             onClick={() => setIsOpen(!isOpen)}
-                            className="md:hidden p-2 rounded-md hover:bg-indigo-500 dark:hover:bg-gray-800 transition-colors"
+                            className="md:hidden p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all active:scale-95"
                         >
-                            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                {isOpen ? (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                ) : (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                                )}
-                            </svg>
+                            <div className="w-6 h-5 relative flex flex-col justify-between items-center">
+                                <motion.span
+                                    animate={isOpen ? { rotate: 45, y: 8 } : { rotate: 0, y: 0 }}
+                                    className="w-full h-0.5 bg-white rounded-full origin-center"
+                                />
+                                <motion.span
+                                    animate={isOpen ? { opacity: 0, x: -10 } : { opacity: 1, x: 0 }}
+                                    className="w-full h-0.5 bg-white rounded-full"
+                                />
+                                <motion.span
+                                    animate={isOpen ? { rotate: -45, y: -10 } : { rotate: 0, y: 0 }}
+                                    className="w-full h-0.5 bg-white rounded-full origin-center"
+                                />
+                            </div>
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* เมนู Dropdown แถวแนวตั้ง (Mobile) */}
-            {isOpen && (
-                <div className="md:hidden bg-indigo-700 dark:bg-gray-950 px-2 pt-2 pb-3 space-y-1 shadow-inner">
-                    <Link href="/" className="block hover:bg-indigo-600 dark:hover:bg-gray-800 px-3 py-2 rounded-md text-base font-medium">
-                        Dashboard
-                    </Link>
-                    <Link href="/profile" className="block hover:bg-indigo-600 dark:hover:bg-gray-800 px-3 py-2 rounded-md text-base font-medium">
-                        My Profile
-                    </Link>
-                    <Link href="/members" className="block hover:bg-indigo-600 dark:hover:bg-gray-800 px-3 py-2 rounded-md text-base font-medium">
-                        Members
-                    </Link>
-                    {session.role === 'admin' && (
-                        <Link href="/admin/credentials" className="block hover:bg-indigo-600 dark:hover:bg-gray-800 px-3 py-2 rounded-md text-base font-medium">
-                            ศูนย์จัดการสมาชิกกิล
-                        </Link>
-                    )}
+            {/* Mobile Menu with Framer Motion */}
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial="closed"
+                        animate="open"
+                        exit="closed"
+                        variants={menuVariants}
+                        className="md:hidden overflow-hidden bg-indigo-700/95 dark:bg-gray-950/95 backdrop-blur-xl border-t border-white/10"
+                    >
+                        <div className="px-4 pt-2 pb-6 space-y-2">
+                            {[
+                                { name: 'Dashboard', href: '/' },
+                                { name: 'My Profile', href: '/profile' },
+                                { name: 'Members', href: '/members' },
+                                ...(enrichedSession.role === 'admin' ? [{ name: 'จัดการข้อมูลสมาชิกกิล', href: '/admin/credentials' }] : [])
+                            ].map((item) => (
+                                <motion.div key={item.name} variants={itemVariants}>
+                                    <Link
+                                        href={item.href}
+                                        className="block px-4 py-3 rounded-xl text-lg font-medium hover:bg-white/10 active:bg-white/20 transition-colors"
+                                    >
+                                        {item.name}
+                                    </Link>
+                                </motion.div>
+                            ))}
 
-                    <div className="border-t border-indigo-500 dark:border-gray-800 mt-4 pt-4 pb-1">
-                        <div className="px-3 text-sm opacity-80 mb-2">
-                            เข้าสู่ระบบในชื่อ: {session.uid_game} ({session.role})
+                            <motion.div variants={itemVariants} className="pt-4 mt-4 border-t border-white/10">
+                                <div className="px-4 text-xs opacity-50 mb-4">
+                                    Logged in as: {enrichedSession.uid_game} ({enrichedSession.role})
+                                </div>
+                                <form onSubmit={handleLogout}>
+                                    <button type="submit" className="cursor-pointer w-[100px] py-4 rounded-xl bg-red-500 text-white font-bold border border-red-500 active:scale-95 transition-all">
+                                        Logout
+                                    </button>
+                                </form>
+                            </motion.div>
                         </div>
-                        <form onSubmit={handleLogout}>
-                            <button type="submit" className="w-full text-left bg-red-600/80 hover:bg-red-600 px-3 py-2 rounded-md text-base font-medium transition-colors">
-                                Logout
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </nav>
     )
 }

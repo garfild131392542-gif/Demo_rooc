@@ -92,6 +92,23 @@ export async function resetMemberPassword(id: string) {
   return { success: true }
 }
 
+export async function clearMemberParty(id: string) {
+  await checkAdmin()
+  const supabase = await createAdminClient()
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      party_id: null,
+      slot_index: null // หรือชื่อคอลัมน์ตำแหน่งในปาร์ตี้ของคุณ
+    } as any)
+    .eq('id', id)
+
+  if (error) return { success: false, error: error.message }
+  revalidatePath('/')
+  return { success: true }
+}
+
 export async function changeMemberRole(id: string, newRole: 'admin' | 'member') {
   await checkAdmin()
   const supabase = await createAdminClient()
@@ -113,15 +130,21 @@ export async function toggleMemberLeave(id: string, is_on_leave: boolean) {
   await checkAdmin()
   const supabase = await createAdminClient()
 
+  // Logic: ถ้าสถานะลาเป็น true ให้ล้างค่าปาร์ตี้และตำแหน่งทันที
+  const updateData: any = { is_on_leave };
+  if (is_on_leave === true) {
+    updateData.party_id = null;
+    updateData.slot_index = null;
+  }
+
   const { error } = await supabase
     .from('profiles')
-    .update({ is_on_leave } as any)
+    .update(updateData)
     .eq('id', id)
 
   if (error) return { success: false, error: error.message }
 
   revalidatePath('/admin/credentials')
-  revalidatePath('/members')
   revalidatePath('/')
   return { success: true }
 }

@@ -154,7 +154,10 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
 
           {/* Waitlist & LeaveList (Top on mobile, Right on desktop) - Only visible to admin */}
           {isAdmin && (
-            <div className="w-full lg:w-80 shrink-0 sticky top-20 h-[calc(100vh-6rem)] overflow-y-auto flex flex-col gap-4 hidden lg:flex order-1 lg:order-2">
+            <div className="sm:block hidden w-full lg:w-80 shrink-0 flex flex-col gap-4 
+      order-1 lg:order-2 
+      lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)] lg:overflow-y-auto"
+            >
               <WaitlistBlock
                 profiles={profiles.filter(p => p.party_id === null && !p.is_on_leave)}
                 isAdmin={isAdmin}
@@ -166,18 +169,19 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
           )}
 
           {/* Left Side: 16 Parties */}
-          <div className="flex-1 w-full grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 order-2 lg:order-1">
-            {parties.map(partyId => (
-              <PartyBlock
-                key={partyId}
-                partyId={partyId}
-                profiles={profiles.filter(p => p.party_id === partyId)}
-                isAdmin={isAdmin}
-                onEmptySlotClick={(partyId, slotIndex) => setActiveSlot({ partyId, slotIndex })}
-              />
-            ))}
+          <div className="flex-1 w-full order-2 lg:order-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {parties.map(partyId => (
+                <PartyBlock
+                  key={partyId}
+                  partyId={partyId}
+                  profiles={profiles.filter(p => p.party_id === partyId)}
+                  isAdmin={isAdmin}
+                  onEmptySlotClick={(partyId, slotIndex) => setActiveSlot({ partyId, slotIndex })}
+                />
+              ))}
+            </div>
           </div>
-
         </div>
       </div>
 
@@ -193,7 +197,7 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
               <h2 className="text-lg font-bold text-indigo-900 dark:text-indigo-100">
                 Select Member for Party {activeSlot.partyId}
               </h2>
-              <button 
+              <button
                 onClick={() => setActiveSlot(null)}
                 className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               >

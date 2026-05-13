@@ -4,7 +4,23 @@ import { useDroppable } from '@dnd-kit/core'
 import { Profile } from './Dashboard'
 import MemberCard from './MemberCard'
 
-function PartySlot({ partyId, slotIndex, profile, isAdmin, onEmptySlotClick, onMemberClear }: { partyId: number, slotIndex: number, profile?: Profile, isAdmin: boolean, onEmptySlotClick?: (partyId: number, slotIndex: number) => void, onMemberClear?: (memberId: string) => void }) {
+function PartySlot({
+  partyId,
+  slotIndex,
+  profile,
+  isAdmin,
+  isEditMode,
+  onEmptySlotClick,
+  onMemberClear,
+}: {
+  partyId: number
+  slotIndex: number
+  profile?: Profile
+  isAdmin: boolean
+  isEditMode: boolean
+  onEmptySlotClick?: (partyId: number, slotIndex: number) => void
+  onMemberClear?: (memberId: string) => void
+}) {
   const { isOver, setNodeRef } = useDroppable({
     id: `party-${partyId}-slot-${slotIndex}`,
   })
@@ -18,7 +34,12 @@ function PartySlot({ partyId, slotIndex, profile, isAdmin, onEmptySlotClick, onM
     >
       {profile ? (
         <div className="w-full h-full">
-          <MemberCard profile={profile} isAdmin={isAdmin} onClear={onMemberClear ? () => onMemberClear(profile.id) : undefined} />
+          <MemberCard
+            profile={profile}
+            isAdmin={isAdmin}
+            isEditMode={isEditMode}
+            onClear={onMemberClear ? () => onMemberClear(profile.id) : undefined}
+          />
         </div>
       ) : (
         <div
@@ -40,7 +61,21 @@ function PartySlot({ partyId, slotIndex, profile, isAdmin, onEmptySlotClick, onM
   )
 }
 
-export default function PartyBlock({ partyId, profiles, isAdmin, onEmptySlotClick, onMemberClear }: { partyId: number, profiles: Profile[], isAdmin: boolean, onEmptySlotClick?: (partyId: number, slotIndex: number) => void, onMemberClear?: (memberId: string) => void }) {
+export default function PartyBlock({
+  partyId,
+  profiles,
+  isAdmin,
+  isEditMode,
+  onEmptySlotClick,
+  onMemberClear,
+}: {
+  partyId: number
+  profiles: Profile[]
+  isAdmin: boolean
+  isEditMode: boolean
+  onEmptySlotClick?: (partyId: number, slotIndex: number) => void
+  onMemberClear?: (memberId: string) => void
+}) {
   const slots = Array.from({ length: 5 }, (_, i) => i)
 
   return (
@@ -58,6 +93,7 @@ export default function PartyBlock({ partyId, profiles, isAdmin, onEmptySlotClic
               slotIndex={slotIndex}
               profile={profile}
               isAdmin={isAdmin}
+              isEditMode={isEditMode}
               onEmptySlotClick={onEmptySlotClick}
               onMemberClear={onMemberClear}
             />

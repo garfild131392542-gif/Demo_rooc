@@ -3,7 +3,7 @@
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { Profile } from './Dashboard'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 
 function getJobDiskColor(jobName: string) {
@@ -27,23 +27,58 @@ function getJobDiskColor(jobName: string) {
   if (['wizard', 'sage'].includes(job)) {
     return 'bg-blue-400'
   }
+  if (job === 'summoner') {
+    return 'bg-pink-400'
+  }
   return 'bg-gray-300'
 }
 
-export default function MemberCard({ profile, isAdmin, isOverlay = false, onClick, onClear }: { profile: Profile, isAdmin?: boolean, isOverlay?: boolean, onClick?: () => void, onClear?: (id: string) => void }) {
+/** Pure visual snapshot used inside <DragOverlay> — no dnd hooks, no duplicate ID conflict. */
+export function MemberCardOverlay({ profile }: { profile: Profile }) {
+  const diskColor = getJobDiskColor(profile.job_name)
+  return (
+    <div className="relative bg-white dark:bg-gray-800 p-3 rounded-lg shadow-2xl ring-2 ring-indigo-500 rotate-2 border border-gray-200 dark:border-gray-700 cursor-grabbing z-10">
+      <div className="flex items-center space-x-3">
+        <div className={`w-8 h-8 rounded-full ${diskColor} shrink-0`}></div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{profile.display_name}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{profile.job_name || 'No Job'}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function MemberCard({
+  profile,
+  isAdmin,
+  isEditMode = false,
+  onClick,
+  onClear,
+}: {
+  profile: Profile
+  isAdmin?: boolean
+  isEditMode?: boolean
+  onClick?: () => void
+  onClear?: (id: string) => void
+}) {
+  const isDraggable = !!isAdmin && isEditMode
+
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: profile.id,
-    disabled: !isAdmin,
+    disabled: !isDraggable,
   })
 
-  const style = {
-    transform: CSS.Translate.toString(transform),
-  }
+  const style = { transform: CSS.Translate.toString(transform) }
 
   const [showPopup, setShowPopup] = useState(false)
   const [coords, setCoords] = useState({ x: 0, y: 0 })
+  const [isMounted, setIsMounted] = useState(false)
   const diskColor = getJobDiskColor(profile.job_name)
   const cardRef = useRef<HTMLDivElement>(null)
+
+  // Gate portal rendering until after hydration to prevent SSR mismatch
+  useEffect(() => { setIsMounted(true) }, [])
 
   const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -57,24 +92,30 @@ export default function MemberCard({ profile, isAdmin, isOverlay = false, onClic
     cardRef.current = node
   }
 
+  // Cursor class based on mode
+  const cursorClass = isDraggable
+    ? 'cursor-grab active:cursor-grabbing'
+    : onClick
+      ? 'cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500'
+      : 'cursor-default'
+
   return (
     <div
       ref={setRefs}
       style={style}
       {...listeners}
       {...attributes}
-      className={`relative group bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 
-        ${isAdmin && !onClick ? 'cursor-grab active:cursor-grabbing touch-none' : ''}
-        ${onClick ? 'cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500' : ''}
-        ${!isAdmin && !onClick ? 'cursor-default' : ''}
-        ${isOverlay ? 'shadow-2xl ring-2 ring-indigo-500 rotate-2' : 'hover:shadow-md'}
-        transition-shadow z-10`}
+      suppressHydrationWarning
+      className={`relative group bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700
+        ${cursorClass}
+        ${isDraggable ? 'touch-none' : ''}
+        hover:shadow-md transition-shadow z-10`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setShowPopup(false)}
       onClick={onClick}
     >
-      {/* 💡 ย้ายปุ่มกากบาทมาไว้ตรงนี้ (ข้างใน div หลัก) */}
-      {isAdmin && profile.party_id && (
+      {/* Red cross (clear) button — only shown in Edit Mode */}
+      {isAdmin && isEditMode && profile.party_id && (
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -86,12 +127,12 @@ export default function MemberCard({ profile, isAdmin, isOverlay = false, onClic
           title="ล้างค่าปาร์ตี้"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 1.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
           </svg>
         </button>
       )}
 
-      {/* ส่วนเนื้อหาของการ์ด (เหมือนเดิม) */}
+      {/* Card content */}
       <div className="flex items-center space-x-3">
         <div className={`w-8 h-8 rounded-full ${diskColor} shrink-0`}></div>
         <div className="flex-1 min-w-0">
@@ -105,7 +146,7 @@ export default function MemberCard({ profile, isAdmin, isOverlay = false, onClic
       </div>
 
       {/* Hover Popup using Portal to escape overflow-hidden containers */}
-      {showPopup && !isOverlay && typeof document !== 'undefined' && createPortal(
+      {showPopup && isMounted && createPortal(
         <div
           className="fixed w-36 p-2 bg-gray-900 text-white rounded shadow-lg z-[9999] pointer-events-none transform -translate-x-1/2 -translate-y-full opacity-100 transition-opacity"
           style={{ top: coords.y, left: coords.x }}

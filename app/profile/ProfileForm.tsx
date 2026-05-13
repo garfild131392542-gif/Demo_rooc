@@ -75,6 +75,7 @@ export default function ProfileForm({ initialProfile }: { initialProfile: Profil
           <option value="Rogue">Rogue</option>
           <option value="Wizard">Wizard</option>
           <option value="Sage">Sage</option>
+          <option value="Summoner">Summoner</option>
         </select>
       </div>
 

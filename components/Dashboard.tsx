@@ -6,7 +6,8 @@ import { updateProfileParty } from '@/app/actions/dashboard'
 import PartyBlock from './PartyBlock'
 import WaitlistBlock from './WaitlistBlock'
 import LeaveListBlock from './LeaveListBlock'
-import MemberCard from './MemberCard'
+import MemberCard, { MemberCardOverlay } from './MemberCard'
+import ExportModal from './ExportModal'
 
 export type Profile = {
   id: string
@@ -27,6 +28,8 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeSlot, setActiveSlot] = useState<{ partyId: number, slotIndex: number } | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -69,7 +72,7 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
     setActiveId(null)
     const { active, over } = event
 
-    if (!over || !isAdmin) return
+    if (!over || !isAdmin || !isEditMode) return
 
     const profileId = active.id as string
     const overId = over.id as string
@@ -169,7 +172,49 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
-      <div className="w-full max-w-7xl mx-auto px-4 lg:px-8">
+      <div className="w-full max-w-14xl mx-auto px-4 ">
+
+        {/* Edit Mode Control Bar — Admin Only */}
+        {isAdmin && (
+          <div className="sticky top-16 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md mb-4 px-4 py-3 rounded-xl border shadow-sm flex items-center justify-between gap-3
+            transition-colors duration-300
+            border-gray-200 dark:border-gray-700">
+
+            {/* Mode label */}
+            <div className={` flex items-center gap-2 text-sm font-semibold transition-colors duration-300 ${isEditMode ? 'text-orange-600 dark:text-orange-400' : 'text-indigo-700 dark:text-indigo-300'}`}>
+              <span className="cursor-pointer text-base">{isEditMode ? '⚠️' : ''}</span>
+              <span>{isEditMode ? 'Edit Mode (Drag to Arrange)' : 'View Mode (Scroll Safely)'}</span>
+            </div>
+
+            {/* Export Button */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowExportModal(true)}
+                className="cursor-pointer flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shrink-0"
+              >
+                Export ตาราง
+              </button>
+
+              {/* Toggle Switch */}
+              <button
+                role="switch"
+                aria-checked={isEditMode}
+                onClick={() => setIsEditMode(prev => !prev)}
+                className={`cursor-pointer relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 shrink-0
+                ${isEditMode
+                    ? 'bg-orange-500 focus-visible:ring-orange-500'
+                    : 'bg-gray-300 dark:bg-gray-600 focus-visible:ring-indigo-500'
+                  }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300
+                  ${isEditMode ? 'translate-x-8' : 'translate-x-1'}`}
+                />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col lg:flex-row gap-6 items-start">
 
           {/* Waitlist & LeaveList (Top on mobile, Right on desktop) - Only visible to admin */}
@@ -181,22 +226,25 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
               <WaitlistBlock
                 profiles={profiles.filter(p => p.party_id === null && !p.is_on_leave)}
                 isAdmin={isAdmin}
+                isEditMode={isEditMode}
               />
               <LeaveListBlock
                 profiles={profiles.filter(p => p.party_id === null && p.is_on_leave)}
+                isEditMode={isEditMode}
               />
             </div>
           )}
 
           {/* Left Side: 16 Parties */}
           <div className="flex-1 w-full order-2 lg:order-1">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {parties.map(partyId => (
                 <PartyBlock
                   key={partyId}
                   partyId={partyId}
                   profiles={profiles.filter(p => p.party_id === partyId)}
                   isAdmin={isAdmin}
+                  isEditMode={isEditMode}
                   onEmptySlotClick={(partyId, slotIndex) => setActiveSlot({ partyId, slotIndex })}
                   onMemberClear={handleClearMember}
                 />
@@ -207,7 +255,7 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
       </div>
 
       <DragOverlay>
-        {activeProfile ? <MemberCard profile={activeProfile} isOverlay /> : null}
+        {activeProfile ? <MemberCardOverlay profile={activeProfile} /> : null}
       </DragOverlay>
 
       {/* Mobile Modal for Waitlist Selection */}
@@ -231,11 +279,19 @@ export default function Dashboard({ initialProfiles, isAdmin }: { initialProfile
               <WaitlistBlock
                 profiles={profiles.filter(p => p.party_id === null && !p.is_on_leave)}
                 isAdmin={isAdmin}
+                isEditMode={isEditMode}
                 onMemberClick={assignMemberToSlot}
               />
             </div>
           </div>
         </div>
+      )}
+      {/* Export Modal */}
+      {showExportModal && (
+        <ExportModal
+          profiles={profiles}
+          onClose={() => setShowExportModal(false)}
+        />
       )}
     </DndContext>
   )

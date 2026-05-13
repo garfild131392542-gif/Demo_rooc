@@ -227,6 +227,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                       <option value="Rogue">Rogue</option>
                       <option value="Wizard">Wizard</option>
                       <option value="Sage">Sage</option>
+                      <option value="Summoner">Summoner</option>
                     </select>
                     <input name="pvp_reduc" type="number" placeholder="PvP Reduc" defaultValue={0} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                     <input name="pvp_dmg" type="number" placeholder="PvP DMG" defaultValue={0} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
@@ -265,6 +266,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                         <option value="Rogue">Rogue</option>
                         <option value="Wizard">Wizard</option>
                         <option value="Sage">Sage</option>
+                        <option value="Summoner">Summoner</option>
                       </select>
                       <input name="pvp_reduc" type="number" placeholder="PvP Reduc" defaultValue={item.pvp_reduc} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                       <input name="pvp_dmg" type="number" placeholder="PvP DMG" defaultValue={item.pvp_dmg} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />

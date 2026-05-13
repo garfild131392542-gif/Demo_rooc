@@ -1,18 +1,28 @@
 'use client'
 
-import { useState } from 'react' // 1. เพิ่ม useState
+import { useState } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { Profile } from './Dashboard'
 import MemberCard from './MemberCard'
 
-export default function WaitlistBlock({ profiles, isAdmin, onMemberClick }: { profiles: Profile[], isAdmin: boolean, onMemberClick?: (memberId: string) => void }) {
-  const [searchTerm, setSearchTerm] = useState('') // 2. สร้าง State สำหรับเก็บคำค้นหา
+export default function WaitlistBlock({
+  profiles,
+  isAdmin,
+  isEditMode = false,
+  onMemberClick,
+}: {
+  profiles: Profile[]
+  isAdmin: boolean
+  isEditMode?: boolean
+  onMemberClick?: (memberId: string) => void
+}) {
+  const [searchTerm, setSearchTerm] = useState('')
 
   const { isOver, setNodeRef } = useDroppable({
     id: 'waitlist',
   })
 
-  // 3. กรองรายชื่อตามชื่อตัวละคร (Display Name) หรือ อาชีพ (Job Name)
+  // Filter by display name or job name
   const filteredProfiles = profiles.filter(p =>
     p.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (p.job_name && p.job_name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -28,7 +38,7 @@ export default function WaitlistBlock({ profiles, isAdmin, onMemberClick }: { pr
           </span>
         </h3>
 
-        {/* 4. เพิ่มช่อง Input สำหรับ Search */}
+        {/* Search input */}
         <div className="relative">
           <input
             type="text"
@@ -59,14 +69,19 @@ export default function WaitlistBlock({ profiles, isAdmin, onMemberClick }: { pr
         ref={setNodeRef}
         className={`flex-1 p-4 overflow-y-auto space-y-3 transition-colors ${isOver ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}
       >
-        {/* 5. เปลี่ยนจาก profiles เป็น filteredProfiles */}
         {filteredProfiles.length === 0 ? (
           <p className="text-sm text-gray-500 text-center mt-10">
             {searchTerm ? 'ไม่พบรายชื่อที่ค้นหา' : 'No members in waitlist.'}
           </p>
         ) : (
           filteredProfiles.map(p => (
-            <MemberCard key={p.id} profile={p} isAdmin={isAdmin} onClick={onMemberClick ? () => onMemberClick(p.id) : undefined} />
+            <MemberCard
+              key={p.id}
+              profile={p}
+              isAdmin={isAdmin}
+              isEditMode={isEditMode}
+              onClick={onMemberClick ? () => onMemberClick(p.id) : undefined}
+            />
           ))
         )}
       </div>

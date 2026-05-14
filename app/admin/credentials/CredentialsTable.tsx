@@ -1,6 +1,7 @@
 'use client'
 //
 import { useState, useTransition } from 'react'
+import * as XLSX from 'xlsx';
 import { resetMemberPassword, changeMemberRole, createMember, updateMember, deleteMember, toggleMemberLeave } from '@/app/actions/admin'
 
 type ManagementItem = {
@@ -130,6 +131,47 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
     })
   }
 
+  const handleExportExcel = () => {
+    // ใช้ filteredProfiles เพื่อให้ Export เฉพาะข้อมูลที่ค้นหา/กรองอยู่
+    if (!filteredProfiles || filteredProfiles.length === 0) {
+      alert("ไม่มีข้อมูลสำหรับ Export");
+      return;
+    }
+
+    const formattedData = filteredProfiles.map((item, index) => ({
+      "ลำดับ": index + 1,
+      "UID (เกม)": item.uid_game || "-",
+      "ชื่อตัวละคร": item.display_name || "-",
+      "อาชีพ": item.job_name || "-",
+      "ระดับสิทธิ์": item.role === 'admin' ? 'ผู้ดูแลระบบ' : 'สมาชิก',
+      "PVP REDUC": item.pvp_reduc || 0,
+      "PVP DMG": item.pvp_dmg || 0,
+      "สถานะรหัสผ่าน": item.isPasswordSet ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้ง",
+      "ลากิจกรรม": item.is_on_leave ? "ลา" : "ปกติ",
+      "อัพเดทล่าสุด": formatUpdatedAt(item.last_stat_update)
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(formattedData);
+    const workbook = XLSX.utils.book_new();
+
+    // จัดความกว้างคอลัมน์ให้สวยงามตอนเปิด Excel
+    worksheet['!cols'] = [
+      { wch: 8 },  // ลำดับ
+      { wch: 15 }, // UID
+      { wch: 20 }, // ชื่อตัวละคร
+      { wch: 15 }, // อาชีพ
+      { wch: 12 }, // ระดับสิทธิ์
+      { wch: 12 }, // PVP REDUC
+      { wch: 12 }, // PVP DMG
+      { wch: 15 }, // สถานะรหัสผ่าน
+      { wch: 10 }, // ลากิจกรรม
+      { wch: 20 }, // อัพเดทล่าสุด
+    ];
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Credentials");
+    XLSX.writeFile(workbook, "รายชื่อสมาชิกกิลด์.xlsx");
+  };
+
   // 3. กรองรายชื่อตามชื่อตัวละคร (Display Name) หรือ อาชีพ (Job Name) และการอัพเดท
   const filteredProfiles = data.filter(p => {
     const matchesSearch = p.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -180,6 +222,21 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
               </button>
             )}
           </div>
+
+          {/* 💡 ปุ่ม Export Excel เพิ่มตรงนี้ */}
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="8" y1="13" x2="16" y2="13"></line>
+              <line x1="8" y1="17" x2="16" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            Export Excel
+          </button>
           <button
             onClick={() => setIsCreating(true)}
             className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium"

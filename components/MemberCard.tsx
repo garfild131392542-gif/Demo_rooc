@@ -5,41 +5,19 @@ import { CSS } from '@dnd-kit/utilities'
 import { Profile } from './Dashboard'
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-
-function getJobDiskColor(jobName: string) {
-  const job = (jobName || '').toLowerCase()
-
-  if (['knight', 'lord knight', 'paladin'].includes(job)) {
-    return 'bg-red-400'
-  }
-  if (['biochemist', 'mastersmith'].includes(job)) {
-    return 'bg-orange-400'
-  }
-  if (['bard', 'gypsy', 'sniper'].includes(job)) {
-    return 'bg-yellow-400'
-  }
-  if (['monk', 'priest'].includes(job)) {
-    return 'bg-green-400'
-  }
-  if (['assasin', 'assassin', 'rogue'].includes(job)) {
-    return 'bg-purple-400'
-  }
-  if (['wizard', 'sage'].includes(job)) {
-    return 'bg-blue-400'
-  }
-  if (job === 'summoner') {
-    return 'bg-pink-400'
-  }
-  return 'bg-gray-300'
-}
+import { getJobIconUrl } from '@/components/helpers'; // ดึงรูปไอคอนมาใช้
 
 /** Pure visual snapshot used inside <DragOverlay> — no dnd hooks, no duplicate ID conflict. */
 export function MemberCardOverlay({ profile }: { profile: Profile }) {
-  const diskColor = getJobDiskColor(profile.job_name)
+  // เปลี่ยนมาดึง URL รูปภาพแทนสี
+  const jobIcon = getJobIconUrl(profile.job_name)
+
   return (
     <div className="relative bg-white dark:bg-gray-800 p-3 rounded-lg shadow-2xl ring-2 ring-indigo-500 rotate-2 border border-gray-200 dark:border-gray-700 cursor-grabbing z-10">
       <div className="flex items-center space-x-3">
-        <div className={`w-8 h-8 rounded-full ${diskColor} shrink-0`}></div>
+        {/* เปลี่ยนจาก div วงกลมสี เป็น img แสดงโลโก้อาชีพ */}
+        <img src={jobIcon} alt={profile.job_name} className="w-8 h-8 object-contain shrink-0 drop-shadow-sm" />
+
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{profile.display_name}</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{profile.job_name || 'No Job'}</p>
@@ -74,7 +52,9 @@ export default function MemberCard({
   const [showPopup, setShowPopup] = useState(false)
   const [coords, setCoords] = useState({ x: 0, y: 0 })
   const [isMounted, setIsMounted] = useState(false)
-  const diskColor = getJobDiskColor(profile.job_name)
+
+  // เปลี่ยนมาดึง URL รูปภาพแทนสี
+  const jobIcon = getJobIconUrl(profile.job_name)
   const cardRef = useRef<HTMLDivElement>(null)
 
   // Gate portal rendering until after hydration to prevent SSR mismatch
@@ -134,7 +114,9 @@ export default function MemberCard({
 
       {/* Card content */}
       <div className="flex items-center space-x-3">
-        <div className={`w-8 h-8 rounded-full ${diskColor} shrink-0`}></div>
+        {/* เปลี่ยนจาก div วงกลมสี เป็น img แสดงโลโก้อาชีพ */}
+        <img src={jobIcon} alt={profile.job_name} className="w-11 h-11 object-contain shrink-0 drop-shadow-sm" />
+
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
             {profile.display_name}
@@ -152,7 +134,9 @@ export default function MemberCard({
           style={{ top: coords.y, left: coords.x }}
         >
           <div className="flex flex-col items-center">
-            <div className={`w-8 h-8 rounded-full ${diskColor} mb-1`}></div>
+            {/* เปลี่ยนใน Popup ด้วยเช่นกัน */}
+            <img src={jobIcon} alt={profile.job_name} className="w-15 h-15 object-contain mb-1 drop-shadow-sm" />
+
             <p className="font-bold text-center text-xs truncate w-full px-1">{profile.display_name}</p>
             <div className="w-full mt-1 text-[10px] grid grid-cols-2 gap-1 text-center border-t border-gray-700 pt-1">
               <div>
@@ -162,6 +146,14 @@ export default function MemberCard({
               <div>
                 <p className="text-gray-400">PvP DMG</p>
                 <p className="font-medium text-rose-400">{profile.pvp_dmg}</p>
+              </div>
+              <div>
+                <p className="text-gray-400">P.DEF</p>
+                <p className="font-medium text-blue-400">{profile.p_def ?? 0}</p>
+              </div>
+              <div>
+                <p className="text-gray-400">M.DEF</p>
+                <p className="font-medium text-purple-400">{profile.m_def ?? 0}</p>
               </div>
             </div>
           </div>

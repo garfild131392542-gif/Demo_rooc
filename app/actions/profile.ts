@@ -14,10 +14,12 @@ export async function updateMyProfile(formData: FormData) {
   const job_name = formData.get('job_name') as string
   const pvp_reduc = parseInt(formData.get('pvp_reduc') as string) || 0
   const pvp_dmg = parseInt(formData.get('pvp_dmg') as string) || 0
+  const p_def = parseInt(formData.get('p_def') as string) || 0
+  const m_def = parseInt(formData.get('m_def') as string) || 0
 
   const { error } = await supabase
     .from('profiles')
-    .update({ display_name, job_name, pvp_reduc, pvp_dmg, updated_at: new Date().toISOString() } as any)
+    .update({ display_name, job_name, pvp_reduc, pvp_dmg, p_def, m_def, updated_at: new Date().toISOString() } as any)
     .eq('id', session.id)
 
   if (error) return { success: false, error: error.message }

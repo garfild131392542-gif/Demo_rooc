@@ -16,6 +16,8 @@ export type Profile = {
   job_name: string
   pvp_reduc: number
   pvp_dmg: number
+  p_def: number
+  m_def: number
   avatar_url: string
   role: 'admin' | 'member'
   party_id: number | null

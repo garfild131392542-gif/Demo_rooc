@@ -22,10 +22,12 @@ export async function createMember(formData: FormData) {
   const role = formData.get('role') as 'admin' | 'member'
   const pvp_reduc = parseInt(formData.get('pvp_reduc') as string) || 0
   const pvp_dmg = parseInt(formData.get('pvp_dmg') as string) || 0
+  const p_def = parseInt(formData.get('p_def') as string) || 0
+  const m_def = parseInt(formData.get('m_def') as string) || 0
 
   const { error } = await supabase
     .from('profiles')
-    .insert([{ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, last_stat_update: new Date().toISOString() }])
+    .insert([{ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, p_def, m_def, last_stat_update: new Date().toISOString() }])
 
   if (error) return { success: false, error: error.message }
 
@@ -45,10 +47,12 @@ export async function updateMember(id: string, formData: FormData) {
   const role = formData.get('role') as 'admin' | 'member'
   const pvp_reduc = parseInt(formData.get('pvp_reduc') as string) || 0
   const pvp_dmg = parseInt(formData.get('pvp_dmg') as string) || 0
+  const p_def = parseInt(formData.get('p_def') as string) || 0
+  const m_def = parseInt(formData.get('m_def') as string) || 0
 
   const { error } = await supabase
     .from('profiles')
-    .update({ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, last_stat_update: new Date().toISOString() } as any)
+    .update({ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, p_def, m_def, last_stat_update: new Date().toISOString() } as any)
     .eq('id', id)
 
   if (error) return { success: false, error: error.message }

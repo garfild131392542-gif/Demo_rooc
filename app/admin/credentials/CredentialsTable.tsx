@@ -12,6 +12,8 @@ type ManagementItem = {
   role: string
   pvp_reduc: number
   pvp_dmg: number
+  p_def: number
+  m_def: number
   isPasswordSet: boolean
   is_on_leave: boolean
   updated_at?: string
@@ -146,9 +148,12 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       "ระดับสิทธิ์": item.role === 'admin' ? 'ผู้ดูแลระบบ' : 'สมาชิก',
       "PVP REDUC": item.pvp_reduc || 0,
       "PVP DMG": item.pvp_dmg || 0,
+      "P.DEF": item.p_def || 0,
+      "M.DEF": item.m_def || 0,
       "สถานะรหัสผ่าน": item.isPasswordSet ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้ง",
       "ลากิจกรรม": item.is_on_leave ? "ลา" : "ปกติ",
-      "อัพเดทล่าสุด": formatUpdatedAt(item.last_stat_update)
+      "อัพเดทล่าสุด": formatUpdatedAt(item.last_stat_update),
+
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(formattedData);
@@ -163,6 +168,8 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       { wch: 12 }, // ระดับสิทธิ์
       { wch: 12 }, // PVP REDUC
       { wch: 12 }, // PVP DMG
+      { wch: 12 }, // P.DEF
+      { wch: 12 }, // M.DEF
       { wch: 15 }, // สถานะรหัสผ่าน
       { wch: 10 }, // ลากิจกรรม
       { wch: 20 }, // อัพเดทล่าสุด
@@ -250,12 +257,15 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-900">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">UID</th>
+
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อตัวละคร</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อาชีพ</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.DEF</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.DEF</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PVP REDUC</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PVP DMG</th>
+
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Password</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ลากิจกรรม</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อัพเดทล่าสุด</th>
@@ -265,7 +275,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {isCreating && (
               <tr>
-                <td colSpan={10} className="p-4 bg-indigo-50 dark:bg-indigo-900/20">
+                <td colSpan={12} className="p-4 bg-indigo-50 dark:bg-indigo-900/20">
                   <form onSubmit={handleCreateSubmit} className="flex items-center space-x-4 flex-wrap gap-y-2">
                     <input name="uid_game" placeholder="UID Game" required className="flex-1 min-w-[120px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                     <input name="display_name" placeholder="ชื่อตัวละคร" required className="flex-1 min-w-[120px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
@@ -278,7 +288,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                       <option value="Bard">Bard</option>
                       <option value="Gypsy">Gypsy</option>
                       <option value="Sniper">Sniper</option>
-                      <option value="Monk">Monk</option>
+                      <option value="Champion">Champion</option>
                       <option value="Priest">Priest</option>
                       <option value="Assassin">Assassin</option>
                       <option value="Rogue">Rogue</option>
@@ -288,6 +298,8 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                     </select>
                     <input name="pvp_reduc" type="number" placeholder="PvP Reduc" defaultValue={0} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                     <input name="pvp_dmg" type="number" placeholder="PvP DMG" defaultValue={0} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                    <input name="p_def" type="number" placeholder="P.DEF" defaultValue={0} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                    <input name="m_def" type="number" placeholder="M.DEF" defaultValue={0} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                     <select name="role" defaultValue="member" className="px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                       <option value="member">Member</option>
                       <option value="admin">Admin</option>
@@ -304,7 +316,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
             {filteredProfiles.map(item => (
               <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 {editingId === item.id ? (
-                  <td colSpan={10} className="p-4">
+                  <td colSpan={12} className="p-4">
                     <form onSubmit={(e) => handleEditSubmit(e, item.id)} className="flex items-center space-x-4 flex-wrap gap-y-2">
                       <input name="uid_game" defaultValue={item.uid_game} required className="flex-1 min-w-[120px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                       <input name="display_name" defaultValue={item.display_name} required className="flex-1 min-w-[120px] px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
@@ -317,7 +329,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                         <option value="Bard">Bard</option>
                         <option value="Gypsy">Gypsy</option>
                         <option value="Sniper">Sniper</option>
-                        <option value="Monk">Monk</option>
+                        <option value="Champion">Champion</option>
                         <option value="Priest">Priest</option>
                         <option value="Assassin">Assassin</option>
                         <option value="Rogue">Rogue</option>
@@ -327,6 +339,8 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                       </select>
                       <input name="pvp_reduc" type="number" placeholder="PvP Reduc" defaultValue={item.pvp_reduc} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                       <input name="pvp_dmg" type="number" placeholder="PvP DMG" defaultValue={item.pvp_dmg} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                      <input name="p_def" type="number" placeholder="P.DEF" defaultValue={item.p_def} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                      <input name="m_def" type="number" placeholder="M.DEF" defaultValue={item.m_def} className="w-24 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                       <select name="role" defaultValue={item.role} className="px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                         <option value="member">Member</option>
                         <option value="admin">Admin</option>
@@ -339,7 +353,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                   </td>
                 ) : (
                   <>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.uid_game}</td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.display_name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.job_name || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -347,17 +361,24 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                         {item.role}
                       </span>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-500 font-semibold">
+                      {item.p_def ?? 0}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-purple-500 font-semibold">
+                      {item.m_def ?? 0}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-emerald-500 font-semibold">
                       {item.pvp_reduc}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-rose-500 font-semibold ">
                       {item.pvp_dmg}
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {item.isPasswordSet ? (
-                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">Set</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">สร้างแล้ว</span>
                       ) : (
-                        <span className="text-rose-600 dark:text-rose-400 font-medium">Null (Pending)</span>
+                        <span className="text-rose-600 dark:text-rose-400 font-medium">ยังไม่สร้างรหัส</span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { Profile } from './Dashboard'
+import { getJobIconUrl } from '@/components/helpers' // อย่าลืม import ฟังก์ชันดึงรูปมาใช้
 
 type Html2Canvas = (el: HTMLElement, opts?: Record<string, unknown>) => Promise<HTMLCanvasElement>
 
@@ -18,23 +19,6 @@ function partyHeaderBg(partyId: number): string {
   return '#fef08a'                     // yellow-200
 }
 
-// ─── Job cell colour ────────────────────────────────────────────────────────
-function jobStyle(jobName: string): React.CSSProperties {
-  const job = (jobName || '').toLowerCase()
-
-  if (job === 'paladin') return { background: '#b91c1c', color: '#fff' }
-  if (['assasin', 'assassin'].includes(job)) return { background: '#d8b4fe' }
-  if (job === 'wizard') return { background: '#93c5fd' }
-  if (['monk', 'priest'].includes(job)) return { background: '#bbf7d0' }
-  if (['bard', 'gypsy', 'sniper'].includes(job)) return { background: '#fef08a' }
-  if (['biochemist', 'mastersmith', 'whitesmith'].includes(job)) return { background: '#ffedd5' }
-  if (job === 'sage') return { background: '#bfdbfe' }
-  if (['knight', 'lord knight'].includes(job)) return { background: '#dc2626', color: '#fff' }
-  if (job === 'rogue') return { background: '#e9d5ff' }
-  if (job === 'summoner') return { background: '#f9a8d4' }  // pink-300
-  return {}
-}
-
 const SLOTS = 5
 const TABLE_WIDTH = 260
 const ROW_HEIGHT = 22   // px — every data row has the same height
@@ -48,6 +32,7 @@ const cellBase: React.CSSProperties = {
   overflow: 'hidden',
   whiteSpace: 'nowrap',
   maxWidth: 0,
+  color: '#000', // บังคับตัวหนังสือสีดำเสมอเพื่อตอน Export
 }
 
 export default function ExportModal({ profiles, onClose }: Props) {
@@ -78,11 +63,11 @@ export default function ExportModal({ profiles, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-start justify-center bg-black/70 overflow-y-auto py-6 px-3">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-[1120px] flex flex-col">
+      <div className="bg-white text-gray-900 rounded-xl shadow-2xl w-full max-w-[1120px] flex flex-col">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 bg-gray-50 rounded-t-xl shrink-0">
-          <h2 className="text-base font-bold text-gray-800">📊 พรีวิว &amp; Export ตาราง Party</h2>
+          <h2 className="text-base font-bold text-gray-800">📊 พรีวิว & Export ตาราง Party</h2>
           <div className="flex items-center gap-3">
             <button
               onClick={handleDownload}
@@ -112,7 +97,7 @@ export default function ExportModal({ profiles, onClose }: Props) {
             style={{
               display: 'grid',
               gridTemplateColumns: `repeat(4, ${TABLE_WIDTH}px)`,
-              gap: 6,
+              gap: 25,
               background: '#ffffff',
               padding: 8,
               width: TABLE_WIDTH * 4 + 6 * 3 + 16,
@@ -181,17 +166,39 @@ export default function ExportModal({ profiles, onClose }: Props) {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((member, idx) => (
-                      <tr key={idx} style={{ height: ROW_HEIGHT }}>
-                        <td style={{ ...cellBase, textAlign: 'left', height: ROW_HEIGHT, ...(member ? {} : { color: '#9ca3af', fontStyle: 'italic' }) }}>
-                          {member?.display_name ?? 'ว่าง'}
-                        </td>
-                        <td style={{ ...cellBase, textAlign: 'center', height: ROW_HEIGHT, ...(member ? jobStyle(member.job_name) : { color: '#9ca3af' }) }}>
-                          {member?.job_name ?? ''}
-                        </td>
-                        <td style={{ ...cellBase, textAlign: 'center', height: ROW_HEIGHT }} />
-                      </tr>
-                    ))}
+                    {rows.map((member, idx) => {
+                      // ตรวจสอบว่าเป็นสล็อตแรก (หัวหน้า) หรือไม่
+                      const isFirstSlot = idx === 0;
+                      const positionText = (member && isFirstSlot) ? 'หัวหน้า' : '';
+
+                      return (
+                        <tr key={idx} style={{ height: ROW_HEIGHT }}>
+                          {/* ชื่อตัวละคร */}
+                          <td style={{ ...cellBase, textAlign: 'left', height: ROW_HEIGHT, ...(member ? {} : { color: '#9ca3af', fontStyle: 'italic' }) }}>
+                            {member?.display_name ?? 'ว่าง'}
+                          </td>
+
+                          {/* อาชีพ (ใช้รูปไอคอน) */}
+                          <td style={{ ...cellBase, textAlign: 'left', height: ROW_HEIGHT }}>
+                            {member ? (
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'left', gap: '2px' }}>
+                                <img
+                                  src={getJobIconUrl(member.job_name)}
+                                  style={{ width: '20px', height: '20px', objectFit: 'contain' }}
+                                  alt=""
+                                />
+                                <span style={{ fontSize: '9px' }}>{member.job_name}</span>
+                              </div>
+                            ) : ''}
+                          </td>
+
+                          {/* ตำแหน่ง (หัวหน้า) */}
+                          <td style={{ ...cellBase, textAlign: 'center', height: ROW_HEIGHT, fontWeight: (member && isFirstSlot) ? 700 : 400 }}>
+                            {positionText}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )

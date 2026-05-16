@@ -69,7 +69,7 @@ export default function ProfileForm({ initialProfile }: { initialProfile: Profil
           <option value="Bard">Bard</option>
           <option value="Gypsy">Gypsy</option>
           <option value="Sniper">Sniper</option>
-          <option value="Monk">Monk</option>
+          <option value="Champion">Champion</option>
           <option value="Priest">Priest</option>
           <option value="Assassin">Assassin</option>
           <option value="Rogue">Rogue</option>
@@ -78,8 +78,30 @@ export default function ProfileForm({ initialProfile }: { initialProfile: Profil
           <option value="Summoner">Summoner</option>
         </select>
       </div>
-
       <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="p_def" className="block text-sm font-medium text-gray-700 dark:text-gray-300">P.DEF</label>
+          <input
+            id="p_def"
+            name="p_def"
+            type="number"
+            min="0"
+            defaultValue={initialProfile.p_def}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          />
+        </div>
+        <div>
+          <label htmlFor="m_def" className="block text-sm font-medium text-gray-700 dark:text-gray-300">M.DEF</label>
+          <input
+            id="m_def"
+            name="m_def"
+            type="number"
+            min="0"
+            defaultValue={initialProfile.m_def}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          />
+        </div>
+
         <div>
           <label htmlFor="pvp_reduc" className="block text-sm font-medium text-gray-700 dark:text-gray-300">PvP Reduc</label>
           <input
@@ -102,6 +124,7 @@ export default function ProfileForm({ initialProfile }: { initialProfile: Profil
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           />
         </div>
+
       </div>
 
 

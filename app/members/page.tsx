@@ -9,7 +9,7 @@ export default async function MembersPage() {
   // Fetch all profiles
   const { data: profiles, error } = await supabase
     .from('profiles')
-    .select('id, display_name, job_name, pvp_reduc, pvp_dmg')
+    .select('id, display_name, job_name, pvp_reduc, pvp_dmg, p_def, m_def')
     .order('pvp_dmg', { ascending: false })
 
   if (error) {

@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { Profile } from './Dashboard'
 import { getJobIconUrl } from '@/components/helpers' // อย่าลืม import ฟังก์ชันดึงรูปมาใช้
+import { toJpeg } from 'html-to-image'
 
 type Html2Canvas = (el: HTMLElement, opts?: Record<string, unknown>) => Promise<HTMLCanvasElement>
 
@@ -44,18 +45,23 @@ export default function ExportModal({ profiles, onClose }: Props) {
   async function handleDownload() {
     if (!gridRef.current) return
     setExporting(true)
+
     try {
-      const html2canvas: Html2Canvas = (await import('html2canvas')).default
-      const canvas = await html2canvas(gridRef.current, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        useCORS: true,
-        logging: false,
+      // ใช้ html-to-image แทน html2canvas
+      const dataUrl = await toJpeg(gridRef.current, {
+        quality: 0.95, // ความชัด 95%
+        backgroundColor: '#ffffff', // พื้นหลังสีขาว
+        pixelRatio: 2, // ความคมชัด x2 (เหมือน scale: 2 ของเดิม)
       })
+
       const link = document.createElement('a')
-      link.href = canvas.toDataURL('image/jpeg', 0.95)
+      link.href = dataUrl
       link.download = 'party-lineup.jpg'
       link.click()
+
+    } catch (error) {
+      console.error('Export Error:', error)
+      alert('เกิดข้อผิดพลาดในการ Export รูปภาพ กรุณาลองใหม่อีกครั้งครับ')
     } finally {
       setExporting(false)
     }
@@ -63,7 +69,7 @@ export default function ExportModal({ profiles, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-start justify-center bg-black/70 overflow-y-auto py-6 px-3">
-      <div className="bg-white text-gray-900 rounded-xl shadow-2xl w-full max-w-[1120px] flex flex-col">
+      <div className="bg-white text-gray-900 rounded-xl shadow-2xl w-full max-w-[1180px] flex flex-col">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 bg-gray-50 rounded-t-xl shrink-0">
@@ -72,7 +78,7 @@ export default function ExportModal({ profiles, onClose }: Props) {
             <button
               onClick={handleDownload}
               disabled={exporting}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors"
+              className="cursor-pointer flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors"
             >
               {exporting ? (
                 <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
@@ -96,11 +102,11 @@ export default function ExportModal({ profiles, onClose }: Props) {
             ref={gridRef}
             style={{
               display: 'grid',
-              gridTemplateColumns: `repeat(4, ${TABLE_WIDTH}px)`,
-              gap: 25,
+              gridTemplateColumns: 'repeat(4, 1fr)', // 💡 แบ่งความกว้างเป็น 4 ส่วนเท่าๆ กันอัตโนมัติ
+              gap: 16,
               background: '#ffffff',
-              padding: 8,
-              width: TABLE_WIDTH * 4 + 6 * 3 + 16,
+              padding: 16,
+              minWidth: '1000px', // 💡 บังคับความกว้างขั้นต่ำ เพื่อไม่ให้ตารางบี้เกินไปในจอเล็ก
             }}
           >
             {parties.map(partyId => {
@@ -118,7 +124,7 @@ export default function ExportModal({ profiles, onClose }: Props) {
                 <table
                   key={partyId}
                   style={{
-                    width: TABLE_WIDTH,
+                    width: '100%', // 💡 เปลี่ยนจาก TABLE_WIDTH เป็น '100%' เพื่อให้มันขยายเต็มช่อง 1fr โดยอัตโนมัติ
                     borderCollapse: 'collapse',
                     tableLayout: 'fixed',
                     fontFamily: 'Arial, sans-serif',

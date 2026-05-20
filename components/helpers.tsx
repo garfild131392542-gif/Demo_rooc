@@ -10,7 +10,7 @@ export function getJobIconUrl(jobName: string): string {
     if (['champion'].includes(job)) return '/icons/jobs/Champion.png';
     if (job === 'priest') return '/icons/jobs/Priest.png';
     if (job === 'bard') return '/icons/jobs/Minstrel.png';
-    if (job === 'gypsy') return '/icons/jobs/gypsy.png';
+    if (job === 'gypsy') return '/icons/jobs/Gypsy.png';
     if (job === 'sniper') return '/icons/jobs/Sniper.png';
     if (['biochemist', 'creator'].includes(job)) return '/icons/jobs/Biochemist.png';
     if (['mastersmith', 'whitesmith'].includes(job)) return '/icons/jobs/Mastersmith.png';

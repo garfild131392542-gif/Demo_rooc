@@ -23,21 +23,28 @@ type ManagementItem = {
 function needsUpdate(last_stat_update?: string) {
   if (!last_stat_update) return true;
 
-  const updatedDate = new Date(last_stat_update);
-  const now = new Date();
+  // 1. ดึงวันที่อัปเดตล่าสุด และรีเซ็ตเวลาเป็น 00:00:00 (เที่ยงคืน) เพื่อให้คำนวณง่าย
+  const updateDate = new Date(last_stat_update);
+  updateDate.setHours(0, 0, 0, 0);
 
-  let daysSinceTuesday = now.getDay() - 2;
-  if (daysSinceTuesday < 0) {
-    daysSinceTuesday += 7;
+  // 2. บวกโควต้าพื้นฐานไป 7 วัน
+  const expirationDate = new Date(updateDate);
+  expirationDate.setDate(expirationDate.getDate() + 7);
+
+  // 3. ปัดเศษวันหมดอายุให้ไปตกที่ "วันอังคาร" เสมอ (ใน JavaScript วันอังคาร = 2)
+  const dayOfWeek = expirationDate.getDay();
+  if (dayOfWeek !== 2) {
+    const daysToTuesday = (2 - dayOfWeek + 7) % 7;
+    expirationDate.setDate(expirationDate.getDate() + daysToTuesday);
   }
 
-  const mostRecentTuesday = new Date(now);
-  mostRecentTuesday.setDate(now.getDate() - daysSinceTuesday);
-  mostRecentTuesday.setHours(0, 0, 0, 0);
+  // 4. เทียบกับวันปัจจุบัน (รีเซ็ตเวลาปัจจุบันเป็นเที่ยงคืนเช่นกัน)
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
 
-  return updatedDate < mostRecentTuesday;
+  // ถ้านำหน้า หรือเท่ากับ วันหมดอายุ (วันอังคาร 00:00 น.) = ต้องอัปเดต
+  return now >= expirationDate;
 }
-
 function formatUpdatedAt(last_stat_update?: string) {
   if (!last_stat_update) return '-';
   const d = new Date(last_stat_update);

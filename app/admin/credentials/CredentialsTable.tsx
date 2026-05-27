@@ -204,7 +204,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                 
                 checked={showOnlyNotUpdated}
                 onChange={(e) => setShowOnlyNotUpdated(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="cursor-pointerw-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
               />
               <span>📌 คัดกรองคนที่ยังไม่อัพเดท</span>
             </label>

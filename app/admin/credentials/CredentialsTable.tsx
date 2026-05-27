@@ -91,7 +91,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
   }
 
   const handleDelete = (id: string) => {
-    if (!confirm('Are you sure you want to delete this member?')) return
+    if (!confirm('คุณต้องการลบสมาชิกคนนี้หรือไม่?')) return
     startTransition(async () => {
       const result = await deleteMember(id)
       if (result?.success) {

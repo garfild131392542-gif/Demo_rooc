@@ -356,7 +356,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/30">
               <h3 className="text-lg font-bold text-indigo-900 dark:text-indigo-100">
-                ✨ เพิ่มสมาชิกใหม่
+                 เพิ่มสมาชิกใหม่
               </h3>
             </div>
             <form onSubmit={handleCreateSubmit} className="p-6">

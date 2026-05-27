@@ -76,7 +76,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-8 rounded-2xl bg-white p-8 shadow-xl dark:bg-gray-800">
           <div className="text-center">
             <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-              ระบบจัดการสมาชิกกิล - เข้าสู่ระบบ
+              ระบบจัดการสมาชิกกิล
             </h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               ลงชื่อเข้าสู่ระบบ
@@ -159,6 +159,7 @@ export default function LoginPage() {
 
             <div>
               สำหรับทดลอง
+              <br />
               admin = uid: ADM001, password: 123456
               <br />
               user = uid: MEM004, password: 123456

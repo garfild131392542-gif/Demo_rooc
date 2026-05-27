@@ -201,9 +201,10 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
             <label className="flex items-center space-x-2 text-sm cursor-pointer text-gray-700 dark:text-gray-300">
               <input
                 type="checkbox"
+                
                 checked={showOnlyNotUpdated}
                 onChange={(e) => setShowOnlyNotUpdated(e.target.checked)}
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
               />
               <span>📌 คัดกรองคนที่ยังไม่อัพเดท</span>
             </label>

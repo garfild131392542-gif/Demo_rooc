@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Explorer ROOC",
-  description: "ROOC Explore Management System",
+  title: "ระบบจัดการสมาชิกกิล",
+  description: "ROOC Management System Demo",
 };
 
 export default function RootLayout({

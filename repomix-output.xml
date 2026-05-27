@@ -1,0 +1,3585 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+AGENTS.md
+app/actions/admin.ts
+app/actions/auth.ts
+app/actions/dashboard.ts
+app/actions/profile.ts
+app/admin/credentials/CredentialsTable.tsx
+app/admin/credentials/loading.tsx
+app/admin/credentials/page.tsx
+app/admin/members/MembersTable.tsx
+app/admin/members/page.tsx
+app/favicon.ico
+app/globals.css
+app/layout.tsx
+app/loading.tsx
+app/login/page.tsx
+app/members/LeaderboardTable.tsx
+app/members/loading.tsx
+app/members/page.tsx
+app/page.tsx
+app/profile/loading.tsx
+app/profile/page.tsx
+app/profile/ProfileForm.tsx
+CLAUDE.md
+components/Dashboard.tsx
+components/ExportModal.tsx
+components/helpers.tsx
+components/LeaveListBlock.tsx
+components/MemberCard.tsx
+components/NavbarClient.tsx
+components/Navbar.tsx
+components/PartyBlock.tsx
+components/ThemeProvider.tsx
+components/WaitlistBlock.tsx
+eslint.config.mjs
+.gitignore
+lib/supabase/client.ts
+lib/supabase/server.ts
+middleware.ts
+next.config.ts
+package.json
+postcss.config.mjs
+public/file.svg
+public/globe.svg
+public/icons/jobs/Assassin.png
+public/icons/jobs/Biochemist.png
+public/icons/jobs/Champion.png
+public/icons/jobs/gypsy.png
+public/icons/jobs/High Wizard.png
+public/icons/jobs/Lord Knight.png
+public/icons/jobs/Mastersmith.png
+public/icons/jobs/Minstrel.png
+public/icons/jobs/Paladin.png
+public/icons/jobs/Priest.png
+public/icons/jobs/Professor.png
+public/icons/jobs/Sniper.png
+public/icons/jobs/Stalker.png
+public/icons/jobs/Summoner.png
+public/next.svg
+public/vercel.svg
+public/window.svg
+README.md
+tsconfig.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="AGENTS.md">
+<!-- BEGIN:nextjs-agent-rules -->
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+<!-- END:nextjs-agent-rules -->
+</file>
+
+<file path="app/actions/dashboard.ts">
+'use server'
+
+import { createClient } from '@/lib/supabase/server'
+import { getSession } from './auth'
+
+export async function updateProfileParty(
+  profileId: string, 
+  partyId: number | null, 
+  slotIndex: number | null
+) {
+  const session = await getSession()
+  if (session?.role !== 'admin') {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ 
+      party_id: partyId,
+      slot_index: slotIndex 
+    } as any)
+    .eq('id', profileId)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true }
+}
+</file>
+
+<file path="app/admin/credentials/loading.tsx">
+export default function AdminCredentialsLoading() {
+    return (
+        <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
+
+            {/* ส่วนหัวข้อหน้า */}
+            <div className="h-10 w-64 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse mb-8" />
+
+            {/* แถบเครื่องมือจัดการ (Filter, Search, Add Button) */}
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="h-6 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {/* Checkbox Filter */}
+                    <div className="flex items-center space-x-2">
+                        <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                        <div className="h-4 w-32 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+                    </div>
+                    {/* Search Input */}
+                    <div className="h-10 w-64 bg-gray-100 dark:bg-gray-700/50 rounded-lg animate-pulse" />
+                    {/* Add Member Button */}
+                    <div className="h-10 w-32 bg-indigo-200 dark:bg-indigo-900/30 rounded-lg animate-pulse" />
+                </div>
+            </div>
+
+            {/* ตารางจัดการสมาชิก (Table Skeleton) */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-x-auto">
+                <div className="min-w-[1200px]">
+                    {/* หัวตาราง */}
+                    <div className="grid grid-cols-10 bg-gray-50 dark:bg-gray-900/50 p-4 border-b border-gray-100 dark:border-gray-700 text-xs uppercase">
+                        {[...Array(10)].map((_, i) => (
+                            <div key={i} className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                        ))}
+                    </div>
+
+                    {/* แถวข้อมูล (จำลอง 8 แถว) */}
+                    <div className="divide-y divide-gray-50 dark:divide-gray-700">
+                        {[...Array(8)].map((_, i) => (
+                            <div key={i} className="grid grid-cols-10 p-4 items-center gap-2">
+                                <div className="h-4 w-12 bg-gray-100 dark:bg-gray-700/50 rounded animate-pulse" /> {/* UID */}
+                                <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /> {/* Name */}
+                                <div className="h-4 w-16 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" /> {/* Job */}
+                                <div className="h-5 w-16 bg-gray-100 dark:bg-gray-700 rounded-full animate-pulse" /> {/* Role */}
+                                <div className="h-4 w-12 bg-emerald-100 dark:bg-emerald-900/20 rounded animate-pulse" /> {/* PvP R */}
+                                <div className="h-4 w-12 bg-rose-100 dark:bg-rose-900/20 rounded animate-pulse" /> {/* PvP D */}
+                                <div className="h-4 w-24 bg-gray-100 dark:bg-gray-700/50 rounded animate-pulse" /> {/* Password */}
+                                <div className="h-6 w-10 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" /> {/* Toggle */}
+                                <div className="h-8 w-24 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" /> {/* Last Update */}
+
+                                {/* Actions Buttons Group */}
+                                <div className="flex space-x-1">
+                                    <div className="h-8 w-12 bg-indigo-100 dark:bg-indigo-900/20 rounded animate-pulse" />
+                                    <div className="h-8 w-20 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
+                                    <div className="h-8 w-16 bg-red-100 dark:bg-red-900/20 rounded animate-pulse" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+</file>
+
+<file path="app/admin/members/MembersTable.tsx">
+'use client'
+
+import { useState, useTransition } from 'react'
+import { Profile } from '@/components/Dashboard'
+import { createMember, updateMember, deleteMember } from '@/app/actions/admin'
+
+export default function MembersTable({ initialProfiles }: { initialProfiles: Profile[] }) {
+  const [profiles, setProfiles] = useState(initialProfiles)
+  const [isPending, startTransition] = useTransition()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+
+  const handleDelete = (id: string) => {
+    if (!confirm('Are you sure you want to delete this member?')) return
+    startTransition(async () => {
+      await deleteMember(id)
+      setProfiles(prev => prev.filter(p => p.id !== id))
+    })
+  }
+
+  const handleEditSubmit = (e: React.FormEvent<HTMLFormElement>, id: string) => {
+    e.preventDefault()
+    const formData = new FormData(e.currentTarget)
+    startTransition(async () => {
+      await updateMember(id, formData)
+      setEditingId(null)
+      // Since revalidatePath runs, the page will refresh with new data. 
+      // But we can eagerly update local state too. For simplicity, let server sync handle it.
+      window.location.reload()
+    })
+  }
+
+  const handleCreateSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const formData = new FormData(e.currentTarget)
+    startTransition(async () => {
+      await createMember(formData)
+      setIsCreating(false)
+      window.location.reload()
+    })
+  }
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <h2 className="text-xl font-semibold">รายชื่อสมาชิก</h2>
+        <button
+          onClick={() => setIsCreating(true)}
+          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium"
+        >
+          + เพิ่มสมาชิก
+        </button>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-900">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">UID</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อตัวละคร</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อาชีพ</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            {isCreating && (
+              <tr>
+                <td colSpan={5} className="p-4 bg-indigo-50 dark:bg-indigo-900/20">
+                  <form onSubmit={handleCreateSubmit} className="flex items-center space-x-4">
+                    <input name="uid_game" placeholder="UID Game" required className="flex-1 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                    <input name="display_name" placeholder="Display Name" required className="flex-1 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                    <input name="job_name" placeholder="Job Name" className="flex-1 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                    <select name="role" defaultValue="member" className="px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                      <option value="member">Member</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                    <div className="flex space-x-2">
+                      <button type="submit" disabled={isPending} className="bg-green-600 text-white px-3 py-1 rounded text-sm">Save</button>
+                      <button type="button" onClick={() => setIsCreating(false)} className="bg-gray-400 text-white px-3 py-1 rounded text-sm">Cancel</button>
+                    </div>
+                  </form>
+                </td>
+              </tr>
+            )}
+
+            {profiles.map(profile => (
+              <tr key={profile.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                {editingId === profile.id ? (
+                  <td colSpan={5} className="p-4">
+                    <form onSubmit={(e) => handleEditSubmit(e, profile.id)} className="flex items-center space-x-4">
+                      <input name="uid_game" defaultValue={profile.uid_game} required className="flex-1 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                      <input name="display_name" defaultValue={profile.display_name} required className="flex-1 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                      <input name="job_name" defaultValue={profile.job_name} className="flex-1 px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                      <select name="role" defaultValue={profile.role} className="px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                        <option value="member">Member</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                      <div className="flex space-x-2">
+                        <button type="submit" disabled={isPending} className="bg-green-600 text-white px-3 py-1 rounded text-sm">Save</button>
+                        <button type="button" onClick={() => setEditingId(null)} className="bg-gray-400 text-white px-3 py-1 rounded text-sm">Cancel</button>
+                      </div>
+                    </form>
+                  </td>
+                ) : (
+                  <>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{profile.uid_game}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{profile.display_name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{profile.job_name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${profile.role === 'admin' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>
+                        {profile.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
+                      <button onClick={() => setEditingId(profile.id)} className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">Edit</button>
+                      <button onClick={() => handleDelete(profile.id)} disabled={isPending} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">Delete</button>
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+</file>
+
+<file path="app/admin/members/page.tsx">
+import { createClient } from '@/lib/supabase/server'
+import MembersTable from './MembersTable'
+
+export default async function AdminMembersPage() {
+  const supabase = await createClient()
+
+  const { data: profiles, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('id', { ascending: true })
+
+  if (error) {
+    return <div className="p-8 text-red-500">Error loading members.</div>
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-6">Manage Members</h1>
+      <MembersTable initialProfiles={profiles || []} />
+    </div>
+  )
+}
+</file>
+
+<file path="app/loading.tsx">
+export default function DashboardLoading() {
+    return (
+        <div className="w-full max-w-7xl mx-auto p-4 md:p-6 space-y-8">
+
+            {/* 1. Header Section */}
+            <div className="space-y-2">
+                <div className="h-9 w-72 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+                <div className="h-5 w-48 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-6 items-start">
+
+                {/* 2. Main Party Grid (ด้านซ้าย) */}
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 order-2 lg:order-1 w-full">
+                    {[...Array(6)].map((_, partyIndex) => (
+                        <div key={partyIndex} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+                            {/* Header ของแต่ละตี้ */}
+                            <div className="p-3 border-b border-gray-50 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30">
+                                <div className="h-5 w-20 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
+                            </div>
+
+                            {/* Slots ภายในตี้ */}
+                            <div className="p-4 space-y-3">
+                                {[...Array(5)].map((_, slotIndex) => (
+                                    <div
+                                        key={slotIndex}
+                                        className={`flex items-center space-x-3 p-2 rounded-xl border ${slotIndex < 2
+                                                ? 'border-transparent bg-gray-50 dark:bg-gray-700/30' // จำลองช่องที่มีคน
+                                                : 'border-dashed border-gray-200 dark:border-gray-700' // จำลองช่องว่าง Slot
+                                            }`}
+                                    >
+                                        {/* วงกลมสีอาชีพ */}
+                                        <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 shrink-0 animate-pulse" />
+                                        {/* ชื่อและอาชีพ */}
+                                        <div className="flex-1 space-y-2">
+                                            <div className="h-3 w-20 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
+                                            <div className="h-2 w-12 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* 3. Sidebar (ด้านขวา) */}
+                <div className="w-full lg:w-80 space-y-6 order-1 lg:order-2">
+                    {/* รอจัดปาร์ตี้ */}
+                    <div className="bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl p-4 border border-indigo-100/50 dark:border-indigo-500/10 space-y-4">
+                        <div className="flex justify-between items-center">
+                            <div className="h-5 w-24 bg-indigo-200 dark:bg-indigo-800 rounded animate-pulse" />
+                            <div className="h-6 w-6 bg-indigo-100 dark:bg-indigo-900 rounded-full animate-pulse" />
+                        </div>
+                        {/* Search Bar Placeholder */}
+                        <div className="h-10 w-full bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 animate-pulse" />
+                        {/* รายชื่อคนใน Waitlist */}
+                        {[...Array(3)].map((_, i) => (
+                            <div key={i} className="h-16 w-full bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 animate-pulse" />
+                        ))}
+                    </div>
+
+                    {/* ลากิจกรรม */}
+                    <div className="bg-rose-50/50 dark:bg-rose-900/10 rounded-2xl p-4 border border-rose-100/50 dark:border-rose-500/10">
+                        <div className="h-5 w-24 bg-rose-200 dark:bg-rose-800 rounded animate-pulse" />
+                        <div className="mt-4 h-32 w-full bg-white/50 dark:bg-gray-800/50 rounded-xl border border-dashed border-rose-200 dark:border-rose-800/30 flex items-center justify-center">
+                            <div className="h-3 w-32 bg-rose-100 dark:bg-rose-900/30 rounded animate-pulse" />
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    )
+}
+</file>
+
+<file path="app/members/loading.tsx">
+// 💡 ต้องมีคำว่า "export default" นำหน้าเสมอ
+export default function MembersLoading() {
+    return (
+        <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
+
+            {/* Header Skeleton */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="h-10 w-64 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse" />
+                <div className="flex items-center space-x-2">
+                    <div className="h-5 w-20 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+                    <div className="h-9 w-40 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+                </div>
+            </div>
+
+            {/* Table Skeleton */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="grid grid-cols-5 bg-gray-50 dark:bg-gray-900/50 p-4 border-b border-gray-100 dark:border-gray-700">
+                    {[...Array(5)].map((_, i) => (
+                        <div key={i} className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    ))}
+                </div>
+
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {[...Array(10)].map((_, i) => (
+                        <div key={i} className="grid grid-cols-5 p-4 items-center">
+                            <div className="h-4 w-8 bg-gray-100 dark:bg-gray-700/50 rounded animate-pulse" />
+                            <div className="h-5 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                            <div className="h-6 w-24 bg-gray-100 dark:bg-gray-700 rounded-full animate-pulse" />
+                            <div className="h-4 w-16 bg-emerald-100 dark:bg-emerald-900/20 rounded animate-pulse" />
+                            <div className="h-4 w-16 bg-rose-100 dark:bg-rose-900/20 rounded animate-pulse" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    )
+}
+</file>
+
+<file path="app/profile/loading.tsx">
+export default function ProfileLoading() {
+    return (
+        <div className="w-full max-w-7xl mx-auto p-6">
+            <div className="flex flex-col items-center space-y-8">
+
+                {/* หัวข้อ My Profile */}
+                <div className="h-10 w-40 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse" />
+
+                {/* การ์ดแบบฟอร์ม (จำลองขนาดจากหน้าจริง) */}
+                <div className="w-full max-w-2xl bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-6">
+
+                    {/* แถวที่ 1: UID */}
+                    <div className="space-y-2">
+                        <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                        <div className="h-12 w-full bg-gray-100 dark:bg-gray-700/50 rounded-lg animate-pulse" />
+                    </div>
+
+                    {/* แถวที่ 2: Display Name */}
+                    <div className="space-y-2">
+                        <div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                        <div className="h-12 w-full bg-gray-100 dark:bg-gray-700/50 rounded-lg animate-pulse" />
+                    </div>
+
+                    {/* แถวที่ 3: Job Name */}
+                    <div className="space-y-2">
+                        <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                        <div className="h-12 w-full bg-gray-100 dark:bg-gray-700/50 rounded-lg animate-pulse" />
+                    </div>
+
+                    {/* แถวที่ 4: PvP Stats (แบ่ง 2 คอลัมน์) */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                            <div className="h-12 w-full bg-gray-100 dark:bg-gray-700/50 rounded-lg animate-pulse" />
+                        </div>
+                        <div className="space-y-2">
+                            <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                            <div className="h-12 w-full bg-gray-100 dark:bg-gray-700/50 rounded-lg animate-pulse" />
+                        </div>
+                    </div>
+
+                    {/* แถวสุดท้าย: ปุ่มบันทึก */}
+                    <div className="pt-4">
+                        <div className="h-12 w-full bg-indigo-200 dark:bg-indigo-900/30 rounded-lg animate-pulse" />
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    )
+}
+</file>
+
+<file path="CLAUDE.md">
+@AGENTS.md
+</file>
+
+<file path="components/ThemeProvider.tsx">
+'use client'
+
+import * as React from 'react'
+import { ThemeProvider as NextThemesProvider } from 'next-themes'
+
+export function ThemeProvider({ children, ...props }: React.ComponentProps<typeof NextThemesProvider>) {
+  return <NextThemesProvider {...props}>{children}</NextThemesProvider>
+}
+</file>
+
+<file path="eslint.config.mjs">
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+  ]),
+]);
+
+export default eslintConfig;
+</file>
+
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+</file>
+
+<file path="lib/supabase/client.ts">
+import { createBrowserClient } from '@supabase/ssr'
+
+export function createClient() {
+    return createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+}
+</file>
+
+<file path="lib/supabase/server.ts">
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+
+// สังเกตว่าเราต้องเพิ่ม async เข้าไปที่ฟังก์ชันนี้
+export async function createClient() {
+    // เพิ่ม await เพื่อรอให้ cookies ทำงานเสร็จ
+    const cookieStore = await cookies()
+
+    return createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                getAll() {
+                    return cookieStore.getAll()
+                },
+                setAll(cookiesToSet) {
+                    try {
+                        cookiesToSet.forEach(({ name, value, options }) =>
+                            cookieStore.set(name, value, options)
+                        )
+                    } catch (error) {
+                        // โค้ดนี้ถูกเรียกใช้ใน Server Component จึงข้าม error ไปได้เลย
+                    }
+                },
+            },
+        }
+    )
+}
+
+export async function createAdminClient() {
+    const cookieStore = await cookies()
+
+    // Using service role key if available to bypass RLS for admin operations
+    const adminKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+    return createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        adminKey,
+        {
+            cookies: {
+                getAll() {
+                    return cookieStore.getAll()
+                },
+                setAll(cookiesToSet) {
+                    try {
+                        cookiesToSet.forEach(({ name, value, options }) =>
+                            cookieStore.set(name, value, options)
+                        )
+                    } catch (error) {
+                    }
+                },
+            },
+        }
+    )
+}
+</file>
+
+<file path="middleware.ts">
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+export function middleware(request: NextRequest) {
+  const sessionCookie = request.cookies.get('auth_session')?.value
+  const { pathname } = request.nextUrl
+
+  // Check if session exists
+  let session = null
+  if (sessionCookie) {
+    try {
+      const jsonStr = Buffer.from(sessionCookie, 'base64').toString('utf-8')
+      session = JSON.parse(jsonStr)
+    } catch (e) {
+      session = null
+    }
+  }
+
+  // 1. Redirect to /login if no auth cookie exists (except /login itself)
+  if (!session && !pathname.startsWith('/login')) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  // 2. Redirect away from /login if already logged in
+  if (session && pathname.startsWith('/login')) {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
+
+  // 3. Redirect to / if a user with role 'member' tries to access /admin/*
+  if (session && pathname.startsWith('/admin') && session.role !== 'admin') {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
+
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
+  ],
+}
+</file>
+
+<file path="next.config.ts">
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+</file>
+
+<file path="postcss.config.mjs">
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+
+export default config;
+</file>
+
+<file path="public/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
+
+<file path="public/globe.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+</file>
+
+<file path="public/next.svg">
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+</file>
+
+<file path="public/vercel.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+</file>
+
+<file path="public/window.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path="README.md">
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+</file>
+
+<file path="app/actions/auth.ts">
+'use server'
+
+import { cookies } from 'next/headers'
+import { createClient } from '@/lib/supabase/server'
+
+// กำหนด Type ให้ชัดเจนเพื่อป้องกันความสับสน
+type SessionData = {
+  id: string;
+  uid_game: string;
+  role: 'admin' | 'member';
+  display_name: string; // เพิ่มตัวนี้เข้ามา
+}
+
+export async function loginAction(uid: string, password: string) {
+  try {
+    const supabase = await createClient()
+
+    if (!password || password.trim() === '') {
+      return { success: false, error: 'รหัสผ่านต้องไม่เป็นค่าว่าง' }
+    }
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('uid_game', uid)
+      .single()
+
+    if (error || !profile) {
+      return { success: false, error: 'ไม่พบ UID นี้ในระบบ โปรดติดต่อ Admin' }
+    }
+
+    if (profile.password_game === null) {
+      const { data: updatedProfile, error: updateError } = await supabase
+        .from('profiles')
+        .update({ password_game: password } as any)
+        .eq('uid_game', uid)
+        .select()
+        .single()
+
+      if (updateError || !updatedProfile) {
+        return { success: false, error: 'เกิดข้อผิดพลาดในการตั้งรหัสผ่าน กรุณาติดต่อ Admin' }
+      }
+    } else {
+      if (profile.password_game !== password) {
+        return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' }
+      }
+    }
+
+    // 💡 4. On success: เพิ่ม display_name ลงไปใน Session ทันที
+    const sessionData: SessionData = {
+      id: profile.id,
+      uid_game: profile.uid_game,
+      role: profile.role,
+      display_name: profile.display_name || 'No Name', // ดึงจากฐานข้อมูลมาใส่
+    }
+
+    const cookieValue = Buffer.from(JSON.stringify(sessionData)).toString('base64')
+
+    const cookieStore = await cookies()
+    cookieStore.set('auth_session', cookieValue, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 7, // 1 week
+      path: '/',
+    })
+
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ' }
+  }
+}
+
+export async function logoutAction() {
+  const cookieStore = await cookies()
+  cookieStore.delete('auth_session')
+}
+
+export async function getSession() {
+  const cookieStore = await cookies()
+  const sessionCookie = cookieStore.get('auth_session')
+
+  if (!sessionCookie?.value) return null
+
+  try {
+    const jsonStr = Buffer.from(sessionCookie.value, 'base64').toString('utf-8')
+    // 💡 แค่ถอดรหัส JSON ออกมา ข้อมูล display_name ก็จะติดออกมาด้วยเลย ไม่ต้อง Query ซ้ำ
+    return JSON.parse(jsonStr) as SessionData
+  } catch (e) {
+    return null
+  }
+}
+</file>
+
+<file path="app/layout.tsx">
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import Navbar from "@/components/Navbar";
+import { ThemeProvider } from "@/components/ThemeProvider";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "ระบบจัดการสมาชิกกิล",
+  description: "ROOC Management System Demo",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
+      <body className="min-h-full flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-x-hidden">
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <Navbar />
+          <main className="flex-1">
+            {children}
+          </main>
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+</file>
+
+<file path="app/login/page.tsx">
+'use client'
+
+import { createClient } from '@/lib/supabase/client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { loginAction } from '@/app/actions/auth'
+
+export default function LoginPage() {
+  const router = useRouter()
+
+  const [uid, setUid] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+
+  // ฟังก์ชันแยกสำหรับการกดล็อกอินหรือบันทึกรหัสผ่านจริงๆ
+  const executeLogin = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await loginAction(uid.trim(), password)
+
+      if (!result.success) {
+        setError(result.error || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ')
+        setLoading(false)
+        return
+      }
+
+      // On successful login, redirect to home
+      router.push('/')
+      router.refresh()
+    } catch (err: any) {
+      setError(err.message || 'เกิดข้อผิดพลาดที่ไม่รู้จัก โปรดลองอีกครั้ง')
+      setLoading(false)
+    }
+  }
+
+  // ฟังก์ชันสำหรับเช็คตอนกดปุ่ม Sign In ครั้งแรก
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+
+    setError(null)
+    setLoading(true)
+
+    const supabase = createClient();
+
+    // 1. ดึงข้อมูลมาเช็คก่อนว่ารหัสผ่านเป็น null ไหม
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('password_game')
+      .eq('uid_game', uid.trim())
+      .single();
+
+    setLoading(false);
+
+    if (error || !data) {
+      // กรณีหาไอดีไม่เจอ ให้รันฟังก์ชันล็อกอินหลักไปเลย เพื่อให้มันแจ้ง Error ไปตามปกติ
+      executeLogin();
+      return;
+    }
+
+    if (data.password_game === null) {
+      // ถ้ารหัสผ่านเป็น null ให้เปิดหน้าต่างแจ้งเตือน Modal
+      setShowConfirmModal(true);
+    } else {
+      // ถ้ามีรหัสผ่านแล้ว ให้ข้ามไปล็อกอินเลย
+      executeLogin();
+    }
+  }
+
+  return (
+    <>
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 dark:bg-gray-900">
+        <div className="w-full max-w-md space-y-8 rounded-2xl bg-white p-8 shadow-xl dark:bg-gray-800">
+          <div className="text-center">
+            <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+              Explorers Guild Login
+            </h2>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              ลงชื่อเข้าสู่ระบบ
+            </p>
+          </div>
+
+          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+            {error && (
+              <div className="rounded-md bg-red-50 p-4 shadow-sm border border-red-200 dark:bg-red-900/20 dark:border-red-900/50">
+                <div className="flex">
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-red-800 dark:text-red-400">
+                      {error}
+                    </h3>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4 rounded-md shadow-sm">
+              <div>
+                <label
+                  htmlFor="uid"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  UID (Game)
+                </label>
+                <input
+                  id="uid"
+                  name="uid"
+                  type="text"
+                  required
+                  value={uid}
+                  onChange={(e) => setUid(e.target.value)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                  placeholder="Enter your UID"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">รหัสผ่าน</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                    placeholder="กรอกรหัสผ่าน..."
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700 focus:outline-none dark:text-gray-400 dark:hover:text-gray-300 mt-1"
+                  >
+                    {showPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="group relative flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-indigo-500 transition-colors"
+              >
+                {loading ? 'Processing...' : 'Sign In'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {/* Modal ยืนยันรหัสผ่าน */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden border border-gray-200 dark:border-gray-700">
+            <div className="p-6">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                ยืนยันการตั้งรหัสผ่าน 🔒
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+                รหัสผ่านที่ท่านกรอกในครั้งนี้ <span className="font-semibold text-indigo-600 dark:text-indigo-400">จะถูกตั้งเป็นรหัสผ่านถาวร</span> สำหรับการเข้าสู่ระบบในครั้งต่อๆ ไป
+              </p>
+              <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-900/50">
+                <p className="text-xs font-medium text-red-600 dark:text-red-400">
+                  ⚠️ หากลืมรหัสผ่านในภายหลัง โปรดติดต่อหัวกิลด์เพื่อทำการรีเซ็ต
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 dark:bg-gray-900/50 px-6 py-4 flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors"
+              >
+                ยกเลิกแก้ไข
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  executeLogin(); // พอกดยืนยัน ก็สั่งให้รันการตั้งรหัสผ่านเลย
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-sm transition-colors"
+              >
+                ยืนยันการตั้งรหัส
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+</file>
+
+<file path="app/members/page.tsx">
+import { createClient } from '@/lib/supabase/server'
+import { getSession } from '@/app/actions/auth'
+import LeaderboardTable from './LeaderboardTable'
+
+export default async function MembersPage() {
+  const session = await getSession()
+  const supabase = await createClient()
+
+  // Fetch all profiles
+  const { data: profiles, error } = await supabase
+    .from('profiles')
+    .select('id, display_name, job_name, pvp_reduc, pvp_dmg, p_def, m_def')
+    .order('pvp_dmg', { ascending: false })
+
+  if (error) {
+    return <div className="p-8 text-red-500">Error loading leaderboard.</div>
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-2">รายชื่อสมาชิก Explorers</h1>
+      <div>
+
+      </div>
+      <LeaderboardTable profiles={profiles || []} />
+    </div>
+  )
+}
+</file>
+
+<file path="app/profile/page.tsx">
+import { getSession } from '@/app/actions/auth'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import ProfileForm from './ProfileForm'
+
+export default async function ProfilePage() {
+  const session = await getSession()
+  if (!session) redirect('/login')
+
+  const supabase = await createClient()
+
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', session.id)
+    .single()
+
+  if (error || !profile) {
+    return <div className="p-8 text-red-500">Error loading profile data.</div>
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-8">
+      <h1 className="flex justify-center items-center text-3xl font-bold mb-6">My Profile</h1>
+      <ProfileForm initialProfile={profile} />
+    </div>
+  )
+}
+</file>
+
+<file path="components/LeaveListBlock.tsx">
+'use client'
+
+import { Profile } from './Dashboard'
+import MemberCard from './MemberCard'
+
+export default function LeaveListBlock({
+  profiles,
+  isEditMode = false,
+}: {
+  profiles: Profile[]
+  isEditMode?: boolean
+}) {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col flex-1 min-h-[300px]">
+      <div className="bg-rose-50 dark:bg-rose-900/30 p-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 className="font-bold text-lg text-rose-900 dark:text-rose-100 flex items-center justify-between">
+          <span>ลากิจกรรม</span>
+          <span className="bg-rose-200 dark:bg-rose-800 text-rose-800 dark:text-rose-200 text-xs px-2 py-1 rounded-full">
+            {profiles.length}
+          </span>
+        </h3>
+      </div>
+
+      <div className="flex-1 p-4 overflow-y-auto space-y-3">
+        {profiles.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center mt-10">No members on leave.</p>
+        ) : (
+          profiles.map(p => (
+            // isAdmin=false forces non-draggable regardless of isEditMode
+            <MemberCard key={p.id} profile={p} isAdmin={false} isEditMode={isEditMode} />
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+</file>
+
+<file path="components/NavbarClient.tsx">
+'use client'
+
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useRouter, usePathname } from 'next/navigation'
+import { logoutAction } from '@/app/actions/auth'
+import { useTheme } from 'next-themes'
+import { motion, AnimatePresence } from 'framer-motion'
+import { SunIcon, MoonIcon } from '@heroicons/react/24/outline'
+
+type SessionType = {
+    uid_game: string;
+    role: string;
+    display_name: string;
+}
+
+export default function NavbarClient({ enrichedSession }: { enrichedSession: SessionType }) {
+    const [isOpen, setIsOpen] = useState(false)
+    const { resolvedTheme, setTheme } = useTheme()
+    const [mounted, setMounted] = useState(false)
+    const router = useRouter()
+    const pathname = usePathname()
+
+    useEffect(() => {
+        setMounted(true)
+        setIsOpen(false) // ปิดเมนูทุกครั้งที่ pathname เปลี่ยน หรือตอนโหลดหน้าครั้งแรก
+    }, [pathname]) // <--- ตะกร้านี้ต้องมีขนาดคงที่ (มีแค่ pathname ตัวเดียว)
+
+    if (!mounted) {
+        return null; // หรือ return Navbar แบบที่เป็นสีกลางๆ ไปก่อน
+    }
+
+    const isDarkMode = mounted && resolvedTheme === 'dark'
+
+
+    const handleLogout = async (e: React.FormEvent) => {
+        e.preventDefault()
+        await logoutAction()
+        router.push('/login')
+    }
+
+
+
+
+    const toggleDarkMode = () => {
+        setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
+    }
+
+    // Variants สำหรับการทำ Animation ของเมนูมือถือ
+    const menuVariants = {
+        closed: {
+            opacity: 0,
+            height: 0,
+            transition: { duration: 0.1, ease: 'easeInOut', when: "afterChildren" }
+        },
+        open: {
+            opacity: 1,
+            height: 'auto',
+            transition: { duration: 0.2, ease: 'easeInOut', when: "beforeChildren" }
+        }
+    } as any
+
+    const itemVariants = {
+        closed: { x: -20, opacity: 0 },
+        open: { x: 0, opacity: 1 }
+    } as any
+
+    return (
+        <nav className="sticky top-0 z-[100] bg-indigo-600/90 dark:bg-gray-900/90 backdrop-blur-md text-white shadow-lg transition-colors border-b border-white/10">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex justify-between h-16">
+
+                    <div className="flex items-center">
+                        <Link href="/" className="gap-2 font-bold text-xl tracking-tighter hover:scale-105 transition-transform">
+                            Explorers<span className="gap-2 ml-1 text-indigo-200">Guild</span>
+                        </Link>
+
+                        <div className="hidden md:flex ml-10 space-x-1">
+                            {['Dashboard', 'Profile', 'Members'].map((item) => (
+                                <Link
+                                    key={item}
+                                    href={item === 'Dashboard' ? '/' : `/${item.toLowerCase().replace(' ', '')}`}
+                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-white/10 ${pathname === (item === 'Dashboard' ? '/' : `/${item.toLowerCase().replace(' ', '')}`) ? 'bg-white/20' : ''}`}
+                                >
+                                    {item}
+                                </Link>
+                            ))}
+                            {enrichedSession.role === 'admin' && (
+                                <Link href="/admin/credentials" className="px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-white/10 bg-indigo-500/30 border border-white/20">
+                                    จัดการข้อมูลสมาชิกกิล
+                                </Link>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2 md:space-x-4  pl-4">
+                        {/* Dark Mode Switch */}
+                        <button
+                            type="button"
+                            onClick={toggleDarkMode}
+                            className="cursor-pointer relative p-2 rounded-full hover:bg-white/10 dark:hover:bg-gray-800 transition-colors focus:outline-none active:scale-95"
+                            aria-label="Toggle Dark Mode"
+                        >
+                            <span className="sr-only">Toggle Dark Mode</span>
+
+                            {/* ส่วนแสดงไอคอนพร้อม Animation (หมุนตัว) */}
+                            <div className="relative h-6 w-6">
+                                {/* ไอคอนพระอาทิตย์ (โชว์ตอน Light Mode) */}
+                                <div className={`absolute inset-0 transition-transform duration-500 ease-in-out ${isDarkMode ? 'rotate-[180deg] opacity-0 scale-50' : 'rotate-0 opacity-100 scale-100'
+                                    }`}>
+                                    <SunIcon className="h-6 w-6 text-yellow-300" />
+                                </div>
+
+                                {/* ไอคอนพระจันทร์ (โชว์ตอน Dark Mode) */}
+                                <div className={`absolute inset-0 transition-transform duration-500 ease-in-out ${isDarkMode ? 'rotate-0 opacity-100 scale-100' : 'rotate-[-180deg] opacity-0 scale-50'
+                                    }`}>
+                                    <MoonIcon className="h-6 w-6 text-indigo-300" />
+                                </div>
+                            </div>
+                        </button>
+
+                        <div className="hidden md:flex items-center space-x-4 border-l border-white/20 pl-4">
+                            <div className="flex items-center space-x-1">
+                                <span className="text-xs font-mono opacity-80 bg-black/20 px-2 py-1 rounded-md border border-white/5">
+                                    <span className="text-indigo-200">{enrichedSession.display_name}</span>
+                                    <span className="mx-1 opacity-40">|</span>
+                                    <span>{enrichedSession.uid_game}</span>
+                                </span>
+                            </div>
+                            <form onSubmit={handleLogout}>
+                                <button type="submit" className="hover cursor-pointer text-sm bg-red-600/95 py-1 px-2 rounded font-semibold text-red-200 hover:text-white hover:bg-red-600/10 transition-colors">
+                                    Logout
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* Animated Hamburger Button */}
+                        <button
+                            onClick={() => setIsOpen(!isOpen)}
+                            className="md:hidden p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all active:scale-95"
+                        >
+                            <div className="w-6 h-5 relative flex flex-col justify-between items-center">
+                                <motion.span
+                                    animate={isOpen ? { rotate: 45, y: 8 } : { rotate: 0, y: 0 }}
+                                    className="w-full h-0.5 bg-white rounded-full origin-center"
+                                />
+                                <motion.span
+                                    animate={isOpen ? { opacity: 0, x: -10 } : { opacity: 1, x: 0 }}
+                                    className="w-full h-0.5 bg-white rounded-full"
+                                />
+                                <motion.span
+                                    animate={isOpen ? { rotate: -45, y: -10 } : { rotate: 0, y: 0 }}
+                                    className="w-full h-0.5 bg-white rounded-full origin-center"
+                                />
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Mobile Menu with Framer Motion */}
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial="closed"
+                        animate="open"
+                        exit="closed"
+                        variants={menuVariants}
+                        className="md:hidden overflow-hidden bg-indigo-700/95 dark:bg-gray-950/95 backdrop-blur-xl border-t border-white/10"
+                    >
+                        <div className="px-4 pt-2 pb-6 space-y-2">
+                            {[
+                                { name: 'Dashboard', href: '/' },
+                                { name: 'My Profile', href: '/profile' },
+                                { name: 'Members', href: '/members' },
+                                ...(enrichedSession.role === 'admin' ? [{ name: 'จัดการข้อมูลสมาชิกกิล', href: '/admin/credentials' }] : [])
+                            ].map((item) => (
+                                <motion.div key={item.name} variants={itemVariants}>
+                                    <Link
+                                        href={item.href}
+                                        className="block px-4 py-3 rounded-xl text-lg font-medium hover:bg-white/10 active:bg-white/20 transition-colors"
+                                    >
+                                        {item.name}
+                                    </Link>
+                                </motion.div>
+                            ))}
+
+                            <motion.div variants={itemVariants} className="pt-4 mt-4 border-t border-white/10">
+                                <div className="px-4 text-xs opacity-50 mb-4">
+                                    Logged in as: {enrichedSession.uid_game} ({enrichedSession.role})
+                                </div>
+                                <form onSubmit={handleLogout}>
+                                    <button type="submit" className="cursor-pointer w-[100px] py-4 rounded-xl bg-red-500 text-white font-bold border border-red-500 active:scale-95 transition-all">
+                                        Logout
+                                    </button>
+                                </form>
+                            </motion.div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </nav>
+    )
+}
+</file>
+
+<file path="app/actions/profile.ts">
+'use server'
+
+import { createClient } from '@/lib/supabase/server'
+import { getSession } from './auth'
+import { revalidatePath } from 'next/cache'
+
+export async function updateMyProfile(formData: FormData) {
+  const session = await getSession()
+  if (!session) return { success: false, error: 'Not authenticated' }
+
+  const supabase = await createClient()
+  
+  const display_name = formData.get('display_name') as string
+  const job_name = formData.get('job_name') as string
+  const pvp_reduc = parseInt(formData.get('pvp_reduc') as string) || 0
+  const pvp_dmg = parseInt(formData.get('pvp_dmg') as string) || 0
+  const p_def = parseInt(formData.get('p_def') as string) || 0
+  const m_def = parseInt(formData.get('m_def') as string) || 0
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ display_name, job_name, pvp_reduc, pvp_dmg, p_def, m_def, updated_at: new Date().toISOString() } as any)
+    .eq('id', session.id)
+
+  if (error) return { success: false, error: error.message }
+  
+  revalidatePath('/profile')
+  revalidatePath('/')
+  return { success: true }
+}
+</file>
+
+<file path="app/globals.css">
+@import "tailwindcss";
+/* หัวใจสำคัญของ v4: คำสั่งนี้จะบอกให้ระบบรู้ว่าเราใช้ปุ่มกดเพื่อเปลี่ยนโหมดมืด */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* ตั้งค่าสีกระดาษแผ่นล่างสุดเวลาเปิดโหมดมืด */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Remove number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+</file>
+
+<file path="app/members/LeaderboardTable.tsx">
+'use client'
+
+import { useState } from 'react'
+import { getJobIconUrl } from '@/components/helpers'
+
+// 1. เพิ่ม p_def และ m_def เข้ามาใน Type
+type LeaderboardProfile = {
+  id: string
+  display_name: string
+  job_name: string
+  pvp_reduc: number
+  pvp_dmg: number
+  p_def: number
+  m_def: number
+}
+
+export default function LeaderboardTable({ profiles }: { profiles: LeaderboardProfile[] }) {
+  const [selectedJob, setSelectedJob] = useState<string>('All')
+
+  const JOB_OPTIONS = [
+    'Lord Knight', 'Paladin', 'Biochemist', 'Mastersmith', 'Bard', 'Gypsy',
+    'Sniper', 'Champion', 'Priest', 'Assassin', 'Rogue', 'Wizard', 'Sage', 'Summoner'
+  ]
+
+  const JOB_ORDER: Record<string, number> = {
+    'knight': 1,
+    'lord knight': 1,
+    'paladin': 2,
+    'biochemist': 3,
+    'mastersmith': 4,
+    'whitesmith': 4,
+    'bard': 5,
+    'gypsy': 6,
+    'sniper': 7,
+    'champion': 8,
+    'priest': 9,
+    'assassin': 10,
+    'assaain': 10,
+    'rogue': 11,
+    'rough': 11,
+    'wizard': 12,
+    'sage': 13,
+    'summoner': 14
+  }
+
+  const sortedProfiles = [...profiles].sort((a, b) => {
+    const jobA = (a.job_name || '').toLowerCase()
+    const jobB = (b.job_name || '').toLowerCase()
+    const orderA = JOB_ORDER[jobA] || 99
+    const orderB = JOB_ORDER[jobB] || 99
+
+    if (orderA !== orderB) {
+      return orderA - orderB
+    }
+    // ถ้าอาชีพเดียวกัน ให้เรียงตาม pvp_dmg จากมากไปน้อย
+    return (b.pvp_dmg || 0) - (a.pvp_dmg || 0)
+  })
+
+  const filteredProfiles = selectedJob === 'All'
+    ? sortedProfiles
+    : sortedProfiles.filter(p => (p.job_name || '').toLowerCase() === selectedJob.toLowerCase())
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end items-center gap-2">
+        <label htmlFor="jobFilter" className="text-sm font-medium text-gray-700 dark:text-gray-300">กรองอาชีพ:</label>
+        <select
+          id="jobFilter"
+          value={selectedJob}
+          onChange={(e) => setSelectedJob(e.target.value)}
+          className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1.5 bg-white dark:bg-gray-800 text-sm focus:ring-indigo-500 focus:border-indigo-500 dark:text-white"
+        >
+          <option value="All">-- ทุกอาชีพ --</option>
+          {JOB_OPTIONS.map(job => (
+            <option key={job} value={job}>{job}</option>
+          ))}
+        </select>
+      </div>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-900">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ลำดับ</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อตัวละคร</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อาชีพ</th>
+                {/* 2. เพิ่มหัวตารางสำหรับ P.DEF และ M.DEF */}
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.DEF</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.DEF</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PvP Reduc</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PvP DMG</th>
+
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {filteredProfiles.map((profile, index) => (
+                <tr key={profile.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                    #{index + 1}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
+                    {profile.display_name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    {profile.job_name ? (
+                      <div className="flex justify-center items-center">
+                        <img
+                          src={getJobIconUrl(profile.job_name)}
+                          alt={profile.job_name}
+                          className="w-8 h-8 object-contain drop-shadow-sm"
+                          title={profile.job_name}
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 dark:text-gray-500">None</span>
+                    )}
+                  </td>
+                  {/* 3. เพิ่มข้อมูล P.DEF และ M.DEF */}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-500 dark:text-blue-400">
+                    {profile.p_def ?? 0}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-purple-500 dark:text-purple-400">
+                    {profile.m_def ?? 0}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                    {profile.pvp_reduc ?? 0}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-rose-600 dark:text-rose-400">
+                    {profile.pvp_dmg ?? 0}
+                  </td>
+
+                </tr>
+              ))}
+              {filteredProfiles.length === 0 && (
+                <tr>
+                  {/* 4. ปรับ colSpan จาก 5 เป็น 7 ให้ครอบคลุมคอลัมน์ใหม่ */}
+                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                    No members found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+</file>
+
+<file path="components/ExportModal.tsx">
+'use client'
+
+import { useRef, useState } from 'react'
+import { Profile } from './Dashboard'
+import { getJobIconUrl } from '@/components/helpers' // อย่าลืม import ฟังก์ชันดึงรูปมาใช้
+import { toJpeg } from 'html-to-image'
+
+type Html2Canvas = (el: HTMLElement, opts?: Record<string, unknown>) => Promise<HTMLCanvasElement>
+
+interface Props {
+  profiles: Profile[]
+  onClose: () => void
+}
+
+// ─── Party header colour (inline style, not Tailwind — safer for html2canvas) ─
+function partyHeaderBg(partyId: number): string {
+  if (partyId <= 4) return '#e9d5ff'  // purple-200
+  if (partyId <= 8) return '#fdba74'  // orange-300
+  if (partyId <= 12) return '#86efac'  // green-300
+  return '#fef08a'                     // yellow-200
+}
+
+const SLOTS = 5
+const TABLE_WIDTH = 260
+const ROW_HEIGHT = 22   // px — every data row has the same height
+const COL_W = { name: '44%', job: '34%', pos: '22%' }
+
+const cellBase: React.CSSProperties = {
+  border: '1px solid #000',
+  padding: '2px 4px',
+  fontSize: 10,
+  fontFamily: 'Arial, sans-serif',
+  overflow: 'hidden',
+  whiteSpace: 'nowrap',
+  maxWidth: 0,
+  color: '#000', // บังคับตัวหนังสือสีดำเสมอเพื่อตอน Export
+}
+
+export default function ExportModal({ profiles, onClose }: Props) {
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [exporting, setExporting] = useState(false)
+
+  const parties = Array.from({ length: 16 }, (_, i) => i + 1)
+
+  async function handleDownload() {
+    if (!gridRef.current) return
+    setExporting(true)
+
+    try {
+      // ใช้ html-to-image แทน html2canvas
+      const dataUrl = await toJpeg(gridRef.current, {
+        quality: 0.95, // ความชัด 95%
+        backgroundColor: '#ffffff', // พื้นหลังสีขาว
+        pixelRatio: 2, // ความคมชัด x2 (เหมือน scale: 2 ของเดิม)
+      })
+
+      const link = document.createElement('a')
+      link.href = dataUrl
+      link.download = 'party-lineup.jpg'
+      link.click()
+
+    } catch (error) {
+      console.error('Export Error:', error)
+      alert('เกิดข้อผิดพลาดในการ Export รูปภาพ กรุณาลองใหม่อีกครั้งครับ')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-start justify-center bg-black/70 overflow-y-auto py-6 px-3">
+      <div className="bg-white text-gray-900 rounded-xl shadow-2xl w-full max-w-[1180px] flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 bg-gray-50 rounded-t-xl shrink-0">
+          <h2 className="text-base font-bold text-gray-800">📊 พรีวิว & Export ตาราง Party</h2>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleDownload}
+              disabled={exporting}
+              className="cursor-pointer flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors"
+            >
+              {exporting ? (
+                <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>กำลัง Export…</>
+              ) : <>⬇️ Download JPEG</>}
+            </button>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable preview */}
+        <div className="overflow-auto p-4">
+          {/* ── Captured element ── */}
+          <div
+            ref={gridRef}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)', // 💡 แบ่งความกว้างเป็น 4 ส่วนเท่าๆ กันอัตโนมัติ
+              gap: 16,
+              background: '#ffffff',
+              padding: 16,
+              minWidth: '1000px', // 💡 บังคับความกว้างขั้นต่ำ เพื่อไม่ให้ตารางบี้เกินไปในจอเล็ก
+            }}
+          >
+            {parties.map(partyId => {
+              const members = profiles
+                .filter(p => p.party_id === partyId)
+                .sort((a, b) => (a.slot_index ?? 99) - (b.slot_index ?? 99))
+
+              const rows: (Profile | null)[] = Array.from({ length: SLOTS }, (_, i) =>
+                members.find(m => m.slot_index === i) ?? null
+              )
+
+              const hdrBg = partyHeaderBg(partyId)
+
+              return (
+                <table
+                  key={partyId}
+                  style={{
+                    width: '100%', // 💡 เปลี่ยนจาก TABLE_WIDTH เป็น '100%' เพื่อให้มันขยายเต็มช่อง 1fr โดยอัตโนมัติ
+                    borderCollapse: 'collapse',
+                    tableLayout: 'fixed',
+                    fontFamily: 'Arial, sans-serif',
+                  }}
+                >
+                  <colgroup>
+                    <col style={{ width: COL_W.name }} />
+                    <col style={{ width: COL_W.job }} />
+                    <col style={{ width: COL_W.pos }} />
+                  </colgroup>
+                  <thead>
+                    {/* Party name row */}
+                    <tr>
+                      <th
+                        colSpan={3}
+                        style={{
+                          ...cellBase,
+                          background: hdrBg,
+                          textAlign: 'center',
+                          fontWeight: 700,
+                          fontSize: 11,
+                          padding: '3px 4px',
+                          maxWidth: 'none',
+                        }}
+                      >
+                        Party {partyId}
+                      </th>
+                    </tr>
+                    {/* Column header row */}
+                    <tr>
+                      {(['ชื่อตัวละคร', 'อาชีพ', 'ตำแหน่ง'] as const).map(h => (
+                        <th
+                          key={h}
+                          style={{
+                            ...cellBase,
+                            background: '#f3f4f6',
+                            textAlign: 'center',
+                            fontWeight: 600,
+                            maxWidth: 'none',
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((member, idx) => {
+                      // ตรวจสอบว่าเป็นสล็อตแรก (หัวหน้า) หรือไม่
+                      const isFirstSlot = idx === 0;
+                      const positionText = (member && isFirstSlot) ? 'หัวหน้า' : '';
+
+                      return (
+                        <tr key={idx} style={{ height: ROW_HEIGHT }}>
+                          {/* ชื่อตัวละคร */}
+                          <td style={{ ...cellBase, textAlign: 'left', height: ROW_HEIGHT, ...(member ? {} : { color: '#9ca3af', fontStyle: 'italic' }) }}>
+                            {member?.display_name ?? 'ว่าง'}
+                          </td>
+
+                          {/* อาชีพ (ใช้รูปไอคอน) */}
+                          <td style={{ ...cellBase, textAlign: 'left', height: ROW_HEIGHT }}>
+                            {member ? (
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'left', gap: '2px' }}>
+                                <img
+                                  src={getJobIconUrl(member.job_name)}
+                                  style={{ width: '20px', height: '20px', objectFit: 'contain' }}
+                                  alt=""
+                                />
+                                <span style={{ fontSize: '9px' }}>{member.job_name}</span>
+                              </div>
+                            ) : ''}
+                          </td>
+
+                          {/* ตำแหน่ง (หัวหน้า) */}
+                          <td style={{ ...cellBase, textAlign: 'center', height: ROW_HEIGHT, fontWeight: (member && isFirstSlot) ? 700 : 400 }}>
+                            {positionText}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )
+            })}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+</file>
+
+<file path="components/Navbar.tsx">
+import { getSession } from '@/app/actions/auth'
+import NavbarClient from './NavbarClient'
+import { createClient } from '@/lib/supabase/server'
+
+export default async function Navbar() {
+  const session = await getSession()
+  if (!session) return null
+
+  const supabase = await createClient()
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('display_name')
+    .eq('id', session.id) // หรือ .eq('uid_game', session.uid_game) ตามโครงสร้างตารางคุณ
+    .single()
+
+  const enrichedSession = {
+    ...session,
+    display_name: profile?.display_name || 'Unknown' // ถ้าไม่มีชื่อให้ขึ้น Unknown
+  }
+  // โยนข้อมูล session ไปให้ Navbar ฝั่ง Client จัดการต่อ
+  return <NavbarClient enrichedSession={enrichedSession} />
+}
+</file>
+
+<file path="app/admin/credentials/page.tsx">
+import { createClient } from '@/lib/supabase/server'
+import CredentialsTable from './CredentialsTable'
+
+export default async function AdminCredentialsPage() {
+  const supabase = await createClient()
+
+  const { data: profiles, error } = await supabase
+    .from('profiles')
+    .select('id, uid_game, display_name, job_name, role, password_game, pvp_reduc, pvp_dmg, is_on_leave, updated_at, last_stat_update, p_def, m_def')
+    .order('id', { ascending: true })
+
+  if (error) {
+    return <div className="p-8 text-red-500">Error loading credentials.</div>
+  }
+
+  // We map profiles to only expose what's necessary
+  const managementData = profiles.map(p => ({
+    id: p.id,
+    uid_game: p.uid_game,
+    display_name: p.display_name,
+    job_name: p.job_name,
+    role: p.role,
+    pvp_reduc: p.pvp_reduc,
+    pvp_dmg: p.pvp_dmg,
+    isPasswordSet: p.password_game !== null,
+    is_on_leave: p.is_on_leave || false,
+    updated_at: p.updated_at,
+    last_stat_update: p.last_stat_update,
+    p_def: p.p_def,
+    m_def: p.m_def
+  }))
+
+  return (
+    <div className="max-w-[1400px] mx-auto px-4 py-8 ">
+      <h1 className="text-3xl font-bold mb-6">รายชื่อสมาชิกในกิล</h1>
+
+      <CredentialsTable initialData={managementData} />
+    </div>
+  )
+}
+</file>
+
+<file path="app/profile/ProfileForm.tsx">
+'use client'
+
+import { useState, useTransition } from 'react'
+import { updateMyProfile } from '@/app/actions/profile'
+import { Profile } from '@/components/Dashboard'
+
+export default function ProfileForm({ initialProfile }: { initialProfile: Profile }) {
+  const [isPending, startTransition] = useTransition()
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setMessage(null)
+    const formData = new FormData(e.currentTarget)
+
+    startTransition(async () => {
+      const result = await updateMyProfile(formData)
+      if (result.success) {
+        setMessage({ type: 'success', text: 'อัปเดตข้อมูลสำเร็จ!' })
+      } else {
+        setMessage({ type: 'error', text: result.error || 'ไม่สามารถอัปเดตข้อมูลได้' })
+      }
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 space-y-6">
+      {message && (
+        <div className={`p-4 rounded-md ${message.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+          {message.text}
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">UID (Game) - อ่านได้อย่างเดียว</label>
+        <input
+          type="text"
+          value={initialProfile.uid_game}
+          disabled
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-gray-900 dark:border-gray-600 dark:text-gray-400"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="display_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">ชื่อตัวละคร (Display Name)</label>
+        <input
+          id="display_name"
+          name="display_name"
+          type="text"
+          defaultValue={initialProfile.display_name}
+          required
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="job_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">อาชีพ (Job Name)</label>
+        <select
+          id="job_name"
+          name="job_name"
+          defaultValue={initialProfile.job_name || ""}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+        >
+          <option value="" disabled>-- กรุณาเลือกอาชีพ --</option>
+          <option value="Lord Knight">Lord Knight</option>
+          <option value="Paladin">Paladin</option>
+          <option value="Biochemist">Biochemist</option>
+          <option value="Mastersmith">Mastersmith</option>
+          <option value="Bard">Bard</option>
+          <option value="Gypsy">Gypsy</option>
+          <option value="Sniper">Sniper</option>
+          <option value="Champion">Champion</option>
+          <option value="Priest">Priest</option>
+          <option value="Assassin">Assassin</option>
+          <option value="Rogue">Rogue</option>
+          <option value="Wizard">Wizard</option>
+          <option value="Sage">Sage</option>
+          <option value="Summoner">Summoner</option>
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="p_def" className="block text-sm font-medium text-gray-700 dark:text-gray-300">P.DEF</label>
+          <input
+            id="p_def"
+            name="p_def"
+            type="number"
+            min="0"
+            defaultValue={initialProfile.p_def}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          />
+        </div>
+        <div>
+          <label htmlFor="m_def" className="block text-sm font-medium text-gray-700 dark:text-gray-300">M.DEF</label>
+          <input
+            id="m_def"
+            name="m_def"
+            type="number"
+            min="0"
+            defaultValue={initialProfile.m_def}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="pvp_reduc" className="block text-sm font-medium text-gray-700 dark:text-gray-300">PvP Reduc</label>
+          <input
+            id="pvp_reduc"
+            name="pvp_reduc"
+            type="number"
+            min="0"
+            defaultValue={initialProfile.pvp_reduc}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          />
+        </div>
+        <div>
+          <label htmlFor="pvp_dmg" className="block text-sm font-medium text-gray-700 dark:text-gray-300">PvP DMG</label>
+          <input
+            id="pvp_dmg"
+            name="pvp_dmg"
+            type="number"
+            min="0"
+            defaultValue={initialProfile.pvp_dmg}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          />
+        </div>
+
+      </div>
+
+
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <button
+          type="submit"
+          disabled={isPending}
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isPending ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
+        </button>
+      </div>
+    </form>
+  )
+}
+</file>
+
+<file path="components/PartyBlock.tsx">
+'use client'
+
+import { useDroppable } from '@dnd-kit/core'
+import { Profile } from './Dashboard'
+import MemberCard from './MemberCard'
+
+function PartySlot({
+  partyId,
+  slotIndex,
+  profile,
+  isAdmin,
+  isEditMode,
+  onEmptySlotClick,
+  onMemberClear,
+}: {
+  partyId: number
+  slotIndex: number
+  profile?: Profile
+  isAdmin: boolean
+  isEditMode: boolean
+  onEmptySlotClick?: (partyId: number, slotIndex: number) => void
+  onMemberClear?: (memberId: string) => void
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `party-${partyId}-slot-${slotIndex}`,
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`h-[4.5rem] rounded-lg border-2 border-dashed transition-colors flex items-center justify-center p-2
+        ${isOver ? 'border-indigo-400 bg-indigo-50 dark:border-indigo-500 dark:bg-indigo-900/30' : 'border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'}
+        ${profile ? 'border-none p-0' : ''}`}
+    >
+      {profile ? (
+        <div className="w-full h-full">
+          <MemberCard
+            profile={profile}
+            isAdmin={isAdmin}
+            isEditMode={isEditMode}
+            onClear={onMemberClear ? () => onMemberClear(profile.id) : undefined}
+          />
+        </div>
+      ) : (
+        <div
+          className={`w-full h-full flex flex-col items-center justify-center rounded-lg transition-colors ${isAdmin ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50' : ''}`}
+          onClick={isAdmin && onEmptySlotClick ? () => onEmptySlotClick(partyId, slotIndex) : undefined}
+        >
+          <span className={`text-sm font-medium text-gray-400 dark:text-gray-500 ${isAdmin ? 'hidden lg:block' : ''}`}>Slot {slotIndex + 1}</span>
+          {isAdmin && (
+            <span className="text-sm font-medium text-indigo-500 dark:text-indigo-400 lg:hidden flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-md">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function PartyBlock({
+  partyId,
+  profiles,
+  isAdmin,
+  isEditMode,
+  onEmptySlotClick,
+  onMemberClear,
+}: {
+  partyId: number
+  profiles: Profile[]
+  isAdmin: boolean
+  isEditMode: boolean
+  onEmptySlotClick?: (partyId: number, slotIndex: number) => void
+  onMemberClear?: (memberId: string) => void
+}) {
+  const slots = Array.from({ length: 5 }, (_, i) => i)
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-gray-100 dark:bg-gray-900 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <h3 className="font-bold text-gray-800 dark:text-gray-200">Party {partyId}</h3>
+      </div>
+      <div className="p-4 space-y-3">
+        {slots.map(slotIndex => {
+          const profile = profiles.find(p => p.slot_index === slotIndex)
+          return (
+            <PartySlot
+              key={slotIndex}
+              partyId={partyId}
+              slotIndex={slotIndex}
+              profile={profile}
+              isAdmin={isAdmin}
+              isEditMode={isEditMode}
+              onEmptySlotClick={onEmptySlotClick}
+              onMemberClear={onMemberClear}
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+</file>
+
+<file path="components/WaitlistBlock.tsx">
+'use client'
+
+import { useState } from 'react'
+import { useDroppable } from '@dnd-kit/core'
+import { Profile } from './Dashboard'
+import MemberCard from './MemberCard'
+
+export default function WaitlistBlock({
+  profiles,
+  isAdmin,
+  isEditMode = false,
+  onMemberClick,
+}: {
+  profiles: Profile[]
+  isAdmin: boolean
+  isEditMode?: boolean
+  onMemberClick?: (memberId: string) => void
+}) {
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const { isOver, setNodeRef } = useDroppable({
+    id: 'waitlist',
+  })
+
+  // Filter by display name or job name
+  const filteredProfiles = profiles.filter(p =>
+    p.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.job_name && p.job_name.toLowerCase().includes(searchTerm.toLowerCase()))
+  )
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col flex-1 min-h-[300px]">
+      <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
+        <h3 className="font-bold text-lg text-indigo-900 dark:text-indigo-100 flex items-center justify-between">
+          <span>รอจัดปาร์ตี้</span>
+          <span className="bg-indigo-200 dark:bg-indigo-800 text-indigo-800 dark:text-indigo-200 text-xs px-2 py-1 rounded-full">
+            {profiles.length}
+          </span>
+        </h3>
+
+        {/* Search input */}
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="ค้นหาชื่อหรืออาชีพ..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+          />
+          <div className="absolute left-3 top-2 text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div
+        ref={setNodeRef}
+        className={`flex-1 p-4 overflow-y-auto space-y-3 transition-colors ${isOver ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}
+      >
+        {filteredProfiles.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center mt-10">
+            {searchTerm ? 'ไม่พบรายชื่อที่ค้นหา' : 'No members in waitlist.'}
+          </p>
+        ) : (
+          filteredProfiles.map(p => (
+            <MemberCard
+              key={p.id}
+              profile={p}
+              isAdmin={isAdmin}
+              isEditMode={isEditMode}
+              onClick={onMemberClick ? () => onMemberClick(p.id) : undefined}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+</file>
+
+<file path="app/actions/admin.ts">
+'use server'
+
+import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { getSession } from './auth'
+import { revalidatePath } from 'next/cache'
+
+async function checkAdmin() {
+  const session = await getSession()
+  if (!session || session.role !== 'admin') {
+    throw new Error('Unauthorized')
+  }
+}
+
+// ---- Members CRUD ----
+export async function createMember(formData: FormData) {
+  await checkAdmin()
+  const supabase = await createAdminClient()
+
+  const uid_game = formData.get('uid_game') as string
+  const display_name = formData.get('display_name') as string
+  const job_name = formData.get('job_name') as string
+  const role = formData.get('role') as 'admin' | 'member'
+  const pvp_reduc = parseInt(formData.get('pvp_reduc') as string) || 0
+  const pvp_dmg = parseInt(formData.get('pvp_dmg') as string) || 0
+  const p_def = parseInt(formData.get('p_def') as string) || 0
+  const m_def = parseInt(formData.get('m_def') as string) || 0
+
+  const { error } = await supabase
+    .from('profiles')
+    .insert([{ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, p_def, m_def, last_stat_update: new Date().toISOString() }])
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/admin/credentials')
+  revalidatePath('/members')
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function updateMember(id: string, formData: FormData) {
+  await checkAdmin()
+  const supabase = await createAdminClient()
+
+  const uid_game = formData.get('uid_game') as string
+  const display_name = formData.get('display_name') as string
+  const job_name = formData.get('job_name') as string
+  const role = formData.get('role') as 'admin' | 'member'
+  const pvp_reduc = parseInt(formData.get('pvp_reduc') as string) || 0
+  const pvp_dmg = parseInt(formData.get('pvp_dmg') as string) || 0
+  const p_def = parseInt(formData.get('p_def') as string) || 0
+  const m_def = parseInt(formData.get('m_def') as string) || 0
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, p_def, m_def, last_stat_update: new Date().toISOString() } as any)
+    .eq('id', id)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/admin/credentials')
+  revalidatePath('/members')
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function deleteMember(id: string) {
+  await checkAdmin()
+  const supabase = await createAdminClient()
+
+  const { error } = await supabase
+    .from('profiles')
+    .delete()
+    .eq('id', id)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/admin/credentials')
+  revalidatePath('/members')
+  revalidatePath('/')
+  return { success: true }
+}
+
+// ---- Credentials ----
+export async function resetMemberPassword(id: string) {
+  await checkAdmin()
+  const supabase = await createAdminClient()
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ password_game: null } as any)
+    .eq('id', id)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/admin/credentials')
+  return { success: true }
+}
+
+export async function clearMemberParty(id: string) {
+  await checkAdmin()
+  const supabase = await createAdminClient()
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      party_id: null,
+      slot_index: null // หรือชื่อคอลัมน์ตำแหน่งในปาร์ตี้ของคุณ
+    } as any)
+    .eq('id', id)
+
+  if (error) return { success: false, error: error.message }
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function changeMemberRole(id: string, newRole: 'admin' | 'member') {
+  await checkAdmin()
+  const supabase = await createAdminClient()
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ role: newRole } as any)
+    .eq('id', id)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/admin/credentials')
+  revalidatePath('/members')
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function toggleMemberLeave(id: string, is_on_leave: boolean) {
+  await checkAdmin()
+  const supabase = await createAdminClient()
+
+  // Logic: ถ้าสถานะลาเป็น true ให้ล้างค่าปาร์ตี้และตำแหน่งทันที
+  const updateData: any = { is_on_leave };
+  if (is_on_leave === true) {
+    updateData.party_id = null;
+    updateData.slot_index = null;
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update(updateData)
+    .eq('id', id)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/admin/credentials')
+  revalidatePath('/')
+  return { success: true }
+}
+</file>
+
+<file path="app/page.tsx">
+import { getSession } from '@/app/actions/auth'
+import { createClient } from '@/lib/supabase/server'
+import Dashboard from '@/components/Dashboard'
+
+export default async function HomePage() {
+  const session = await getSession()
+  const supabase = await createClient()
+
+  // Fetch all profiles
+  const { data: profiles, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('id', { ascending: true })
+
+  if (error) {
+    console.error('Error fetching profiles:', error)
+  }
+
+  return (
+    <div className="w-full mt-10 max-w-[1450px] mx-auto px-4 ">
+      <header className="mb-8 mx-10">
+        <h1 className="text-3xl font-bold">Explorers จัดทีมลงกิจกรรม</h1>
+        <p className="text-lg text-gray-500 dark:text-gray-400 mt-2">
+          {session?.role === 'admin'
+            ? 'ลากและวางสมาชิก เพื่อจัดปาร์ตี้'
+            : 'ดูรายชื่อสมาชิกและปาร์ตี้'}
+        </p>
+      </header>
+
+      <Dashboard
+        initialProfiles={profiles || []}
+        isAdmin={session?.role === 'admin'}
+      />
+    </div>
+  )
+}
+</file>
+
+<file path="components/helpers.tsx">
+// ฟังก์ชันสำหรับแปลงชื่ออาชีพเป็น URL ของรูปภาพ
+export function getJobIconUrl(jobName: string): string {
+    const job = (jobName || '').toLowerCase().trim();
+
+    // ตรวจสอบชื่ออาชีพและส่งคืนชื่อไฟล์รูปภาพที่ตรงกัน
+    // รองรับการพิมพ์ผิดเล็กน้อย หรือชื่อเรียกที่ต่างกัน
+    if (job === 'paladin') return '/icons/jobs/Paladin.png';
+    if (['assassin'].includes(job)) return '/icons/jobs/Assassin.png';
+    if (job === 'wizard') return '/icons/jobs/High Wizard.png';
+    if (['champion'].includes(job)) return '/icons/jobs/Champion.png';
+    if (job === 'priest') return '/icons/jobs/Priest.png';
+    if (job === 'bard') return '/icons/jobs/Minstrel.png';
+    if (job === 'gypsy') return '/icons/jobs/gypsy.png';
+    if (job === 'sniper') return '/icons/jobs/Sniper.png';
+    if (['biochemist', 'creator'].includes(job)) return '/icons/jobs/Biochemist.png';
+    if (['mastersmith', 'whitesmith'].includes(job)) return '/icons/jobs/Mastersmith.png';
+    if (job === 'sage') return '/icons/jobs/Professor.png';
+    if (['lord knight'].includes(job)) return '/icons/jobs/Lord Knight.png';
+    if (job === 'rogue') return '/icons/jobs/Stalker.png';
+    if (job === 'summoner') return '/icons/jobs/Summoner.png';
+
+    // รูปภาพ Default กรณีสะกดชื่ออาชีพไม่ตรงหรือไม่พบรูป
+    return '/icons/jobs/default.png';
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "rooc_management",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@heroicons/react": "^2.2.0",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.105.4",
+    "framer-motion": "^12.38.0",
+    "html-to-image": "^1.11.13",
+    "html2canvas": "^1.4.1",
+    "next": "16.2.6",
+    "next-themes": "^0.4.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.6",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+</file>
+
+<file path="components/Dashboard.tsx">
+'use client'
+
+import { useState, useTransition } from 'react'
+import { DndContext, DragEndEvent, DragStartEvent, closestCenter, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor } from '@dnd-kit/core'
+import { updateProfileParty } from '@/app/actions/dashboard'
+import PartyBlock from './PartyBlock'
+import WaitlistBlock from './WaitlistBlock'
+import LeaveListBlock from './LeaveListBlock'
+import MemberCard, { MemberCardOverlay } from './MemberCard'
+import ExportModal from './ExportModal'
+
+export type Profile = {
+  id: string
+  uid_game: string
+  display_name: string
+  job_name: string
+  pvp_reduc: number
+  pvp_dmg: number
+  p_def: number
+  m_def: number
+  avatar_url: string
+  role: 'admin' | 'member'
+  party_id: number | null
+  slot_index: number | null
+  is_on_leave: boolean
+}
+
+export default function Dashboard({ initialProfiles, isAdmin }: { initialProfiles: Profile[], isAdmin: boolean }) {
+  const [profiles, setProfiles] = useState<Profile[]>(initialProfiles)
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeSlot, setActiveSlot] = useState<{ partyId: number, slotIndex: number } | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    })
+  )
+
+
+  const handleClearMember = (memberId: string) => {
+    if (!isAdmin) return
+
+    // 1. Optimistic Update: แก้ไข State ในหน้าจอทันทีเพื่อให้ UI เปลี่ยนไวที่สุด
+    setProfiles((prev) =>
+      prev.map(p =>
+        p.id === memberId
+          ? { ...p, party_id: null, slot_index: null }
+          : p
+      )
+    )
+
+    // 2. Sync to DB in the background
+    startTransition(() => {
+      updateProfileParty(memberId, null, null)
+    })
+  }
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveId(null)
+    const { active, over } = event
+
+    if (!over || !isAdmin || !isEditMode) return
+
+    const profileId = active.id as string
+    const overId = over.id as string
+
+
+    let targetPartyId: number | null = null
+    let targetSlotIndex: number | null = null
+
+    if (overId === 'waitlist') {
+      targetPartyId = null
+      targetSlotIndex = null
+    } else if (overId.startsWith('party-')) {
+      const parts = overId.split('-')
+      targetPartyId = parseInt(parts[1])
+      targetSlotIndex = parseInt(parts[3])
+    } else {
+      return
+    }
+
+    const sourceProfile = profiles.find(p => p.id === profileId)
+    if (!sourceProfile) return
+
+    // If dropped on the same slot, do nothing
+    if (sourceProfile.party_id === targetPartyId && sourceProfile.slot_index === targetSlotIndex) {
+      return
+    }
+
+    // Find if there is an occupant in the target slot
+    const occupant = targetPartyId !== null && targetSlotIndex !== null
+      ? profiles.find(p => p.party_id === targetPartyId && p.slot_index === targetSlotIndex)
+      : null
+
+    // Optimistic Update
+    setProfiles((prev) =>
+      prev.map(p => {
+        if (p.id === profileId) {
+          return { ...p, party_id: targetPartyId, slot_index: targetSlotIndex }
+        }
+        if (occupant && p.id === occupant.id) {
+          // Push occupant to waitlist
+          return { ...p, party_id: null, slot_index: null }
+        }
+        return p
+      })
+    )
+
+    // Sync to server
+    startTransition(() => {
+      if (occupant) {
+        updateProfileParty(occupant.id, null, null)
+      }
+      updateProfileParty(profileId, targetPartyId, targetSlotIndex)
+    })
+  }
+
+  const assignMemberToSlot = (memberId: string) => {
+    if (!activeSlot || !isAdmin) return
+    const { partyId: targetPartyId, slotIndex: targetSlotIndex } = activeSlot
+
+    const sourceProfile = profiles.find(p => p.id === memberId)
+    if (!sourceProfile) return
+
+    // If dropped on the same slot, do nothing
+    if (sourceProfile.party_id === targetPartyId && sourceProfile.slot_index === targetSlotIndex) {
+      setActiveSlot(null)
+      return
+    }
+
+    const occupant = profiles.find(p => p.party_id === targetPartyId && p.slot_index === targetSlotIndex)
+
+    setProfiles((prev) =>
+      prev.map(p => {
+        if (p.id === memberId) {
+          return { ...p, party_id: targetPartyId, slot_index: targetSlotIndex }
+        }
+        if (occupant && p.id === occupant.id) {
+          return { ...p, party_id: null, slot_index: null }
+        }
+        return p
+      })
+    )
+
+    startTransition(() => {
+      if (occupant) {
+        updateProfileParty(occupant.id, null, null)
+      }
+      updateProfileParty(memberId, targetPartyId, targetSlotIndex)
+    })
+
+    setActiveSlot(null)
+  }
+
+  const activeProfile = profiles.find(p => p.id === activeId)
+
+  // Generate Party Arrays
+  const parties = Array.from({ length: 16 }, (_, i) => i + 1)
+
+  return (
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
+      <div className="w-full max-w-14xl mx-auto px-4 ">
+
+        {/* Edit Mode Control Bar — Admin Only */}
+        {isAdmin && (
+          <div className="sticky top-16 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md mb-4 px-4 py-3 rounded-xl border shadow-sm flex items-center justify-between gap-3
+            transition-colors duration-300
+            border-gray-200 dark:border-gray-700">
+
+            {/* Mode label */}
+            <div className={` flex items-center gap-2 text-sm font-semibold transition-colors duration-300 ${isEditMode ? 'text-orange-600 dark:text-orange-400' : 'text-indigo-700 dark:text-indigo-300'}`}>
+              <span className="cursor-pointer text-base">{isEditMode ? '⚠️' : ''}</span>
+              <span>{isEditMode ? 'Edit Mode (Drag to Arrange)' : 'View Mode (Scroll Safely)'}</span>
+            </div>
+
+            {/* Export Button */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowExportModal(true)}
+                className="cursor-pointer flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shrink-0"
+              >
+                Export ตาราง
+              </button>
+
+              {/* Toggle Switch */}
+              <button
+                role="switch"
+                aria-checked={isEditMode}
+                onClick={() => setIsEditMode(prev => !prev)}
+                className={`cursor-pointer relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 shrink-0
+                ${isEditMode
+                    ? 'bg-orange-500 focus-visible:ring-orange-500'
+                    : 'bg-gray-300 dark:bg-gray-600 focus-visible:ring-indigo-500'
+                  }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300
+                  ${isEditMode ? 'translate-x-8' : 'translate-x-1'}`}
+                />
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+
+          {/* Waitlist & LeaveList (Top on mobile, Right on desktop) - Only visible to admin */}
+          {isAdmin && (
+            <div className="sm:block hidden w-full lg:w-80 shrink-0 flex flex-col gap-4 
+      order-1 lg:order-2 
+      lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)] lg:overflow-y-auto"
+            >
+              <WaitlistBlock
+                profiles={profiles.filter(p => p.party_id === null && !p.is_on_leave)}
+                isAdmin={isAdmin}
+                isEditMode={isEditMode}
+              />
+              <LeaveListBlock
+                profiles={profiles.filter(p => p.party_id === null && p.is_on_leave)}
+                isEditMode={isEditMode}
+              />
+            </div>
+          )}
+
+          {/* Left Side: 16 Parties */}
+          <div className="flex-1 w-full order-2 lg:order-1">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {parties.map(partyId => (
+                <PartyBlock
+                  key={partyId}
+                  partyId={partyId}
+                  profiles={profiles.filter(p => p.party_id === partyId)}
+                  isAdmin={isAdmin}
+                  isEditMode={isEditMode}
+                  onEmptySlotClick={(partyId, slotIndex) => setActiveSlot({ partyId, slotIndex })}
+                  onMemberClear={handleClearMember}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <DragOverlay>
+        {activeProfile ? <MemberCardOverlay profile={activeProfile} /> : null}
+      </DragOverlay>
+
+      {/* Mobile Modal for Waitlist Selection */}
+      {activeSlot && isAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 lg:hidden p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-h-[90vh] flex flex-col overflow-hidden relative">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-indigo-50 dark:bg-indigo-900/30">
+              <h2 className="text-lg font-bold text-indigo-900 dark:text-indigo-100">
+                Select Member for Party {activeSlot.partyId}
+              </h2>
+              <button
+                onClick={() => setActiveSlot(null)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden p-2 flex flex-col">
+              <WaitlistBlock
+                profiles={profiles.filter(p => p.party_id === null && !p.is_on_leave)}
+                isAdmin={isAdmin}
+                isEditMode={isEditMode}
+                onMemberClick={assignMemberToSlot}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Export Modal */}
+      {showExportModal && (
+        <ExportModal
+          profiles={profiles}
+          onClose={() => setShowExportModal(false)}
+        />
+      )}
+    </DndContext>
+  )
+}
+</file>
+
+<file path="components/MemberCard.tsx">
+'use client'
+
+import { useDraggable } from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
+import { Profile } from './Dashboard'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import { getJobIconUrl } from '@/components/helpers'; // ดึงรูปไอคอนมาใช้
+
+/** Pure visual snapshot used inside <DragOverlay> — no dnd hooks, no duplicate ID conflict. */
+export function MemberCardOverlay({ profile }: { profile: Profile }) {
+  // เปลี่ยนมาดึง URL รูปภาพแทนสี
+  const jobIcon = getJobIconUrl(profile.job_name)
+
+  return (
+    <div className="relative bg-white dark:bg-gray-800 p-3 rounded-lg shadow-2xl ring-2 ring-indigo-500 rotate-2 border border-gray-200 dark:border-gray-700 cursor-grabbing z-10">
+      <div className="flex items-center space-x-3">
+        {/* เปลี่ยนจาก div วงกลมสี เป็น img แสดงโลโก้อาชีพ */}
+        <img src={jobIcon} alt={profile.job_name} className="w-8 h-8 object-contain shrink-0 drop-shadow-sm" />
+
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{profile.display_name}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{profile.job_name || 'No Job'}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function MemberCard({
+  profile,
+  isAdmin,
+  isEditMode = false,
+  onClick,
+  onClear,
+}: {
+  profile: Profile
+  isAdmin?: boolean
+  isEditMode?: boolean
+  onClick?: () => void
+  onClear?: (id: string) => void
+}) {
+  const isDraggable = !!isAdmin && isEditMode
+
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: profile.id,
+    disabled: !isDraggable,
+  })
+
+  const style = { transform: CSS.Translate.toString(transform) }
+
+  const [showPopup, setShowPopup] = useState(false)
+  const [coords, setCoords] = useState({ x: 0, y: 0 })
+  const [isMounted, setIsMounted] = useState(false)
+
+  // เปลี่ยนมาดึง URL รูปภาพแทนสี
+  const jobIcon = getJobIconUrl(profile.job_name)
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  // Gate portal rendering until after hydration to prevent SSR mismatch
+  useEffect(() => { setIsMounted(true) }, [])
+
+  const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    // Position TOP horizontally centered
+    setCoords({ x: rect.left + (rect.width / 2), y: rect.top - 8 })
+    setShowPopup(true)
+  }
+
+  const setRefs = (node: HTMLDivElement | null) => {
+    setNodeRef(node)
+    cardRef.current = node
+  }
+
+  // Cursor class based on mode
+  const cursorClass = isDraggable
+    ? 'cursor-grab active:cursor-grabbing'
+    : onClick
+      ? 'cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500'
+      : 'cursor-default'
+
+  return (
+    <div
+      ref={setRefs}
+      style={style}
+      {...listeners}
+      {...attributes}
+      suppressHydrationWarning
+      className={`relative group bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700
+        ${cursorClass}
+        ${isDraggable ? 'touch-none' : ''}
+        hover:shadow-md transition-shadow z-10`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setShowPopup(false)}
+      onClick={onClick}
+    >
+      {/* Red cross (clear) button — only shown in Edit Mode */}
+      {isAdmin && isEditMode && profile.party_id && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm(`ต้องการนำคุณ ${profile.display_name} ออกจากปาร์ตี้ใช่หรือไม่?`)) {
+              if (onClear) onClear(profile.id);
+            }
+          }}
+          className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-lg z-[50] opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+          title="ล้างค่าปาร์ตี้"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        </button>
+      )}
+
+      {/* Card content */}
+      <div className="flex items-center space-x-3">
+        {/* เปลี่ยนจาก div วงกลมสี เป็น img แสดงโลโก้อาชีพ */}
+        <img src={jobIcon} alt={profile.job_name} className="w-11 h-11 object-contain shrink-0 drop-shadow-sm" />
+
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+            {profile.display_name}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+            {profile.job_name || 'No Job'}
+          </p>
+        </div>
+      </div>
+
+      {/* Hover Popup using Portal to escape overflow-hidden containers */}
+      {showPopup && isMounted && createPortal(
+        <div
+          className="fixed w-36 p-2 bg-gray-900 text-white rounded shadow-lg z-[9999] pointer-events-none transform -translate-x-1/2 -translate-y-full opacity-100 transition-opacity"
+          style={{ top: coords.y, left: coords.x }}
+        >
+          <div className="flex flex-col items-center">
+            {/* เปลี่ยนใน Popup ด้วยเช่นกัน */}
+            <img src={jobIcon} alt={profile.job_name} className="w-15 h-15 object-contain mb-1 drop-shadow-sm" />
+
+            <p className="font-bold text-center text-xs truncate w-full px-1">{profile.display_name}</p>
+            <div className="w-full mt-1 text-[10px] grid grid-cols-2 gap-1 text-center border-t border-gray-700 pt-1">
+              <div>
+                <p className="text-gray-400">PvP Reduc</p>
+                <p className="font-medium text-emerald-400">{profile.pvp_reduc}</p>
+              </div>
+              <div>
+                <p className="text-gray-400">PvP DMG</p>
+                <p className="font-medium text-rose-400">{profile.pvp_dmg}</p>
+              </div>
+              <div>
+                <p className="text-gray-400">P.DEF</p>
+                <p className="font-medium text-blue-400">{profile.p_def ?? 0}</p>
+              </div>
+              <div>
+                <p className="text-gray-400">M.DEF</p>
+                <p className="font-medium text-purple-400">{profile.m_def ?? 0}</p>
+              </div>
+            </div>
+          </div>
+          {/* Arrow pointing down */}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+        </div>,
+        document.body
+      )}
+    </div>
+  )
+}
+</file>
+
+<file path="app/admin/credentials/CredentialsTable.tsx">
+'use client'
+
+import { useState, useTransition } from 'react'
+import * as XLSX from 'xlsx';
+import { resetMemberPassword, changeMemberRole, createMember, updateMember, deleteMember, toggleMemberLeave } from '@/app/actions/admin'
+
+type ManagementItem = {
+  id: string
+  uid_game: string
+  display_name: string
+  job_name: string
+  role: string
+  pvp_reduc: number
+  pvp_dmg: number
+  p_def: number
+  m_def: number
+  isPasswordSet: boolean
+  is_on_leave: boolean
+  updated_at?: string
+  last_stat_update?: string;
+}
+
+function needsUpdate(last_stat_update?: string) {
+  if (!last_stat_update) return true;
+
+  // 1. ดึงวันที่อัปเดตล่าสุด และรีเซ็ตเวลาเป็น 00:00:00 (เที่ยงคืน) เพื่อให้คำนวณง่าย
+  const updateDate = new Date(last_stat_update);
+  updateDate.setHours(0, 0, 0, 0);
+
+  // 2. บวกโควต้าพื้นฐานไป 7 วัน
+  const expirationDate = new Date(updateDate);
+  expirationDate.setDate(expirationDate.getDate() + 7);
+
+  // 3. ปัดเศษวันหมดอายุให้ไปตกที่ "วันอังคาร" เสมอ (ใน JavaScript วันอังคาร = 2)
+  const dayOfWeek = expirationDate.getDay();
+  if (dayOfWeek !== 2) {
+    const daysToTuesday = (2 - dayOfWeek + 7) % 7;
+    expirationDate.setDate(expirationDate.getDate() + daysToTuesday);
+  }
+
+  // 4. เทียบกับวันปัจจุบัน (รีเซ็ตเวลาปัจจุบันเป็นเที่ยงคืนเช่นกัน)
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  // ถ้านำหน้า หรือเท่ากับ วันหมดอายุ (วันอังคาร 00:00 น.) = ต้องอัปเดต
+  return now >= expirationDate;
+}
+function formatUpdatedAt(last_stat_update?: string) {
+  if (!last_stat_update) return '-';
+  const d = new Date(last_stat_update);
+  return d.toLocaleString('th-TH', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+export default function CredentialsTable({ initialData }: { initialData: ManagementItem[] }) {
+  const [data, setData] = useState(initialData)
+  const [isPending, startTransition] = useTransition()
+
+  // 💡 เปลี่ยนจากการเก็บแค่ ID มาเก็บข้อมูลทั้งก้อน เพื่อใช้แสดงใน Modal
+  const [editingMember, setEditingMember] = useState<ManagementItem | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showOnlyNotUpdated, setShowOnlyNotUpdated] = useState(false)
+
+  const handleResetPassword = (id: string, uid_game: string) => {
+    if (!confirm(`Are you sure you want to reset the password for ${uid_game}? They will need to set a new password on their next login.`)) return
+
+    startTransition(async () => {
+      const result = await resetMemberPassword(id)
+      if (result?.success) {
+        setData(prev => prev.map(p => p.id === id ? { ...p, isPasswordSet: false } : p))
+      }
+    })
+  }
+
+  const handleRoleChange = (id: string, currentRole: string) => {
+    const newRole = currentRole === 'admin' ? 'member' : 'admin'
+    if (!confirm(`Are you sure you want to change this user's role to ${newRole.toUpperCase()}?`)) return
+
+    startTransition(async () => {
+      const result = await changeMemberRole(id, newRole as 'admin' | 'member')
+      if (result?.success) {
+        setData(prev => prev.map(p => p.id === id ? { ...p, role: newRole } : p))
+      }
+    })
+  }
+
+  const handleDelete = (id: string) => {
+    if (!confirm('Are you sure you want to delete this member?')) return
+    startTransition(async () => {
+      const result = await deleteMember(id)
+      if (result?.success) {
+        setData(prev => prev.filter(p => p.id !== id))
+      }
+    })
+  }
+
+  const handleEditSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!editingMember) return
+    const formData = new FormData(e.currentTarget)
+
+    startTransition(async () => {
+      const result = await updateMember(editingMember.id, formData)
+      if (result?.success) {
+        setEditingMember(null)
+        window.location.reload()
+      } else {
+        alert(result?.error || 'Failed to update member')
+      }
+    })
+  }
+
+  const handleCreateSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const formData = new FormData(e.currentTarget)
+    startTransition(async () => {
+      const result = await createMember(formData)
+      if (result?.success) {
+        setIsCreating(false)
+        window.location.reload()
+      } else {
+        alert(result?.error || 'Failed to create member')
+      }
+    })
+  }
+
+  const handleToggleLeave = (id: string, currentStatus: boolean) => {
+    startTransition(async () => {
+      setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: !currentStatus } : p))
+      const result = await toggleMemberLeave(id, !currentStatus)
+      if (!result?.success) {
+        setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: currentStatus } : p))
+        alert(result?.error || 'Failed to update leave status')
+      }
+    })
+  }
+
+  const handleExportExcel = () => {
+    if (!filteredProfiles || filteredProfiles.length === 0) {
+      alert("ไม่มีข้อมูลสำหรับ Export");
+      return;
+    }
+
+    const formattedData = filteredProfiles.map((item, index) => ({
+      "ลำดับ": index + 1,
+      "UID (เกม)": item.uid_game || "-",
+      "ชื่อตัวละคร": item.display_name || "-",
+      "อาชีพ": item.job_name || "-",
+      "ระดับสิทธิ์": item.role === 'admin' ? 'ผู้ดูแลระบบ' : 'สมาชิก',
+      "PVP REDUC": item.pvp_reduc || 0,
+      "PVP DMG": item.pvp_dmg || 0,
+      "P.DEF": item.p_def || 0,
+      "M.DEF": item.m_def || 0,
+      "สถานะรหัสผ่าน": item.isPasswordSet ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้ง",
+      "ลากิจกรรม": item.is_on_leave ? "ลา" : "ปกติ",
+      "อัพเดทล่าสุด": formatUpdatedAt(item.last_stat_update),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(formattedData);
+    const workbook = XLSX.utils.book_new();
+
+    worksheet['!cols'] = [
+      { wch: 8 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 12 },
+      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 },
+      { wch: 10 }, { wch: 20 },
+    ];
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Credentials");
+    XLSX.writeFile(workbook, "รายชื่อสมาชิกกิลด์.xlsx");
+  };
+
+  const filteredProfiles = data.filter(p => {
+    const matchesSearch = p.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.uid_game.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.job_name && p.job_name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    if (showOnlyNotUpdated) {
+      return matchesSearch && needsUpdate(p.last_stat_update); // แก้บั๊ก: ใช้ last_stat_update แทน updated_at
+    }
+    return matchesSearch;
+  })
+
+  // 💡 สร้าง List ของอาชีพไว้ใช้ซ้ำใน Modal
+  const JOB_OPTIONS = [
+    "Lord Knight", "Paladin", "Biochemist", "Mastersmith", "Bard", "Gypsy",
+    "Sniper", "Champion", "Priest", "Assassin", "Rogue", "Wizard", "Sage", "Summoner"
+  ];
+
+  return (
+    <>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden relative z-10">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+          <h2 className="text-xl font-semibold">จัดการสมาชิกในกิล</h2>
+          <div className='flex items-center space-x-4'>
+            <label className="flex items-center space-x-2 text-sm cursor-pointer text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={showOnlyNotUpdated}
+                onChange={(e) => setShowOnlyNotUpdated(e.target.checked)}
+                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span>📌 คัดกรองคนที่ยังไม่อัพเดท</span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="ค้นหาชื่อหรืออาชีพ..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+              />
+              <div className="absolute left-3 top-2 text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={handleExportExcel}
+              className="cursor-pointer flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="8" y1="13" x2="16" y2="13"></line>
+                <line x1="8" y1="17" x2="16" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+              Export Excel
+            </button>
+            <button
+              onClick={() => setIsCreating(true)}
+              className="cursor-pointer flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium"
+            >
+              + เพิ่มสมาชิก
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-900">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อตัวละคร</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อาชีพ</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.DEF</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.DEF</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PVP REDUC</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PVP DMG</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Password</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ลากิจกรรม</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อัพเดทล่าสุด</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {filteredProfiles.map(item => (
+                <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.display_name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.job_name || '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-80 transition-opacity ${item.role === 'admin' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`} onClick={() => handleRoleChange(item.id, item.role)}>
+                      {item.role}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-500 font-semibold">{item.p_def ?? 0}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-purple-500 font-semibold">{item.m_def ?? 0}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-emerald-500 font-semibold">{item.pvp_reduc}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-rose-500 font-semibold ">{item.pvp_dmg}</td>
+
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {item.isPasswordSet ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">สร้างแล้ว</span>
+                    ) : (
+                      <span className="text-rose-600 dark:text-rose-400 font-medium">ยังไม่สร้างรหัส</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={!!item.is_on_leave}
+                        onChange={() => handleToggleLeave(item.id, !!item.is_on_leave)}
+                        disabled={isPending}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-rose-500 disabled:opacity-50"></div>
+                    </label>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <div className="flex flex-col space-y-1">
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">{formatUpdatedAt(item.last_stat_update)}</span>
+                      {needsUpdate(item.last_stat_update) ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 w-fit">
+                          🔴 ยังไม่อัพเดท
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 w-fit">
+                          🟢 อัพเดทแล้ว
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                    <button
+                      onClick={() => setEditingMember(item)} // 💡 เรียกเปิด Modal
+                      className="cursor-pointer inline-flex items-center justify-center px-3 py-1.5 rounded-md bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-800/50 dark:border-indigo-700"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleResetPassword(item.id, item.uid_game)}
+                      disabled={isPending || !item.isPasswordSet}
+                      className="cursor-pointer inline-flex items-center justify-center px-3 py-1.5 rounded-md bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-orange-50 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-800/50 dark:border-orange-700 dark:disabled:hover:bg-orange-900/30"
+                    >
+                      Reset PW
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      disabled={isPending}
+                      className="cursor-pointer inline-flex items-center justify-center px-3 py-1.5 rounded-md bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-50 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-800/50 dark:border-red-700 dark:disabled:hover:bg-red-900/30"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ───────────────────────────────────────────────────────── */}
+      {/* 💡 Modal สำหรับ เพิ่มสมาชิก (Create Modal) */}
+      {/* ───────────────────────────────────────────────────────── */}
+      {isCreating && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/30">
+              <h3 className="text-lg font-bold text-indigo-900 dark:text-indigo-100">
+                ✨ เพิ่มสมาชิกใหม่
+              </h3>
+            </div>
+            <form onSubmit={handleCreateSubmit} className="p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UID Game <span className="text-red-500">*</span></label>
+                  <input name="uid_game" required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อตัวละคร <span className="text-red-500">*</span></label>
+                  <input name="display_name" required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">อาชีพ</label>
+                  <select name="job_name" defaultValue="" className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="" disabled>-- กรุณาเลือก --</option>
+                    {JOB_OPTIONS.map(job => <option key={job} value={job}>{job}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ระดับสิทธิ์ (Role)</label>
+                  <select name="role" defaultValue="member" className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-blue-600 dark:text-blue-400">P.DEF</label>
+                  <input name="p_def" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-blue-600 dark:text-blue-400">M.DEF</label>
+                  <input name="m_def" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-emerald-600 dark:text-emerald-400">PvP Reduc</label>
+                  <input name="pvp_reduc" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-emerald-600 dark:text-emerald-400">PvP DMG</label>
+                  <input name="pvp_dmg" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+
+              </div>
+              <div className="mt-6 flex justify-end space-x-3">
+                <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">ยกเลิก</button>
+                <button type="submit" disabled={isPending} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-50">บันทึกข้อมูล</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────── */}
+      {/* 💡 Modal สำหรับ แก้ไขข้อมูล (Edit Modal) */}
+      {/* ───────────────────────────────────────────────────────── */}
+      {editingMember && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/30">
+              <h3 className="text-lg font-bold text-indigo-900 dark:text-indigo-100">
+                ✏️ แก้ไขข้อมูล: {editingMember.display_name}
+              </h3>
+            </div>
+            <form onSubmit={handleEditSubmit} className="p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UID Game <span className="text-red-500">*</span></label>
+                  <input name="uid_game" defaultValue={editingMember.uid_game} required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อตัวละคร <span className="text-red-500">*</span></label>
+                  <input name="display_name" defaultValue={editingMember.display_name} required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">อาชีพ</label>
+                  <select name="job_name" defaultValue={editingMember.job_name || ''} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="" disabled>-- กรุณาเลือก --</option>
+                    {JOB_OPTIONS.map(job => <option key={job} value={job}>{job}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ระดับสิทธิ์ (Role)</label>
+                  <select name="role" defaultValue={editingMember.role} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-blue-600 dark:text-blue-400">P.DEF</label>
+                  <input name="p_def" type="number" defaultValue={editingMember.p_def ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-blue-600 dark:text-blue-400">M.DEF</label>
+                  <input name="m_def" type="number" defaultValue={editingMember.m_def ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-emerald-600 dark:text-emerald-400">PvP Reduc</label>
+                  <input name="pvp_reduc" type="number" defaultValue={editingMember.pvp_reduc} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-emerald-600 dark:text-emerald-400">PvP DMG</label>
+                  <input name="pvp_dmg" type="number" defaultValue={editingMember.pvp_dmg} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+
+              </div>
+              <div className="mt-6 flex justify-end space-x-3">
+                <button type="button" onClick={() => setEditingMember(null)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">ยกเลิก</button>
+                <button type="submit" disabled={isPending} className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:opacity-50">บันทึกการแก้ไข</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+</file>
+
+</files>

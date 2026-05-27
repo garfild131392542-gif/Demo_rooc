@@ -131,24 +131,36 @@ export async function changeMemberRole(id: string, newRole: 'admin' | 'member') 
 }
 
 export async function toggleMemberLeave(id: string, is_on_leave: boolean) {
-  await checkAdmin()
-  const supabase = await createAdminClient()
+  try {
+    await checkAdmin()
+    const supabase = await createAdminClient()
 
-  // Logic: ถ้าสถานะลาเป็น true ให้ล้างค่าปาร์ตี้และตำแหน่งทันที
-  const updateData: any = { is_on_leave };
-  if (is_on_leave === true) {
-    updateData.party_id = null;
-    updateData.slot_index = null;
+    // ล้างค่าปาร์ตี้และตำแหน่งทันทีเมื่อกดลา
+    const updateData: any = { is_on_leave };
+    if (is_on_leave === true) {
+      updateData.party_id = null;
+      updateData.slot_index = null;
+    }
+
+    // เพิ่ม .select() เพื่อให้ Supabase คืนข้อมูลแถวที่ถูกอัปเดตกลับมา
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updateData)
+      .eq('id', id)
+      .select() 
+
+    if (error) return { success: false, error: error.message }
+    
+    // ดักจับ Silent Failure (อัปเดตไม่ได้เพราะติด RLS)
+    if (!data || data.length === 0) {
+      return { success: false, error: "อัปเดตไม่สำเร็จ: ข้อมูลอาจถูกบล็อกด้วยระบบ Security (RLS)" }
+    }
+
+    revalidatePath('/admin/credentials')
+    revalidatePath('/')
+    return { success: true }
+    
+  } catch (e: any) {
+    return { success: false, error: e.message || "เกิดข้อผิดพลาดในระบบหลังบ้าน" }
   }
-
-  const { error } = await supabase
-    .from('profiles')
-    .update(updateData)
-    .eq('id', id)
-
-  if (error) return { success: false, error: error.message }
-
-  revalidatePath('/admin/credentials')
-  revalidatePath('/')
-  return { success: true }
 }

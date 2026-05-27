@@ -131,15 +131,26 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
   }
 
   const handleToggleLeave = (id: string, currentStatus: boolean) => {
-    startTransition(async () => {
+  startTransition(async () => {
+    try {
+      // 1. ให้ UI เปลี่ยนไปก่อน (Optimistic update)
       setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: !currentStatus } : p))
+      
+      // 2. เรียก API ไปหลังบ้าน
       const result = await toggleMemberLeave(id, !currentStatus)
+      
+      // 3. ถ้าหลังบ้านบอกว่าไม่สำเร็จ (success เป็น false) ให้ถอย UI กลับไปค่าเดิม
       if (!result?.success) {
         setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: currentStatus } : p))
         alert(result?.error || 'Failed to update leave status')
       }
-    })
-  }
+    } catch (err) {
+      // ดักจับกรณีที่โค้ดพังรุนแรง
+      setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: currentStatus } : p))
+      alert('ระบบหลังบ้านขัดข้อง กรุณาลองใหม่อีกครั้ง')
+    }
+  })
+}
 
   const handleExportExcel = () => {
     if (!filteredProfiles || filteredProfiles.length === 0) {

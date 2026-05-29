@@ -72,7 +72,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
 
                     <div className="flex items-center">
                         <Link href="/" className="gap-2 font-bold text-xl tracking-tighter hover:scale-105 transition-transform">
-                            Neila<span className="gap-2 ml-1 text-indigo-200">Guild</span>
+                            ชื่อกิล<span className="gap-2 ml-1 text-indigo-200">Guild</span>
                         </Link>
 
                         <div className="hidden md:flex ml-10 space-x-1">

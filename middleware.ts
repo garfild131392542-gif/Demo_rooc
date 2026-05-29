@@ -16,13 +16,13 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 1. Redirect to /login if no auth cookie exists (except /login itself)
-  if (!session && !pathname.startsWith('/login')) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  // 1. Redirect to /login if no auth cookie exists (except /login and /register)
+  if (!session && !pathname.startsWith('/login') && !pathname.startsWith('/register')) {
+    return NextResponse.redirect(new URL('/register', request.url))
   }
 
-  // 2. Redirect away from /login if already logged in
-  if (session && pathname.startsWith('/login')) {
+  // 2. Redirect away from /login or /register if already logged in
+  if (session && (pathname.startsWith('/login') || pathname.startsWith('/register'))) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 

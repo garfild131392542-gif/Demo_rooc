@@ -14,6 +14,13 @@ type ManagementItem = {
   pvp_dmg: number
   p_def: number
   m_def: number
+  // เพิ่ม 6 ค่าใหม่
+  p_atk: number
+  m_atk: number
+  p_dmg: number
+  m_dmg: number
+  p_reduc: number
+  m_reduc: number
   isPasswordSet: boolean
   is_on_leave: boolean
   updated_at?: string
@@ -23,26 +30,21 @@ type ManagementItem = {
 function needsUpdate(last_stat_update?: string) {
   if (!last_stat_update) return true;
 
-  // 1. ดึงวันที่อัปเดตล่าสุด และรีเซ็ตเวลาเป็น 00:00:00 (เที่ยงคืน) เพื่อให้คำนวณง่าย
   const updateDate = new Date(last_stat_update);
   updateDate.setHours(0, 0, 0, 0);
 
-  // 2. บวกโควต้าพื้นฐานไป 7 วัน
   const expirationDate = new Date(updateDate);
   expirationDate.setDate(expirationDate.getDate() + 7);
 
-  // 3. ปัดเศษวันหมดอายุให้ไปตกที่ "วันอังคาร" เสมอ (ใน JavaScript วันอังคาร = 2)
   const dayOfWeek = expirationDate.getDay();
   if (dayOfWeek !== 2) {
     const daysToTuesday = (2 - dayOfWeek + 7) % 7;
     expirationDate.setDate(expirationDate.getDate() + daysToTuesday);
   }
 
-  // 4. เทียบกับวันปัจจุบัน (รีเซ็ตเวลาปัจจุบันเป็นเที่ยงคืนเช่นกัน)
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
-  // ถ้านำหน้า หรือเท่ากับ วันหมดอายุ (วันอังคาร 00:00 น.) = ต้องอัปเดต
   return now >= expirationDate;
 }
 function formatUpdatedAt(last_stat_update?: string) {
@@ -61,7 +63,6 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
   const [data, setData] = useState(initialData)
   const [isPending, startTransition] = useTransition()
 
-  // 💡 เปลี่ยนจากการเก็บแค่ ID มาเก็บข้อมูลทั้งก้อน เพื่อใช้แสดงใน Modal
   const [editingMember, setEditingMember] = useState<ManagementItem | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -133,19 +134,13 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
   const handleToggleLeave = (id: string, currentStatus: boolean) => {
   startTransition(async () => {
     try {
-      // 1. ให้ UI เปลี่ยนไปก่อน (Optimistic update)
       setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: !currentStatus } : p))
-      
-      // 2. เรียก API ไปหลังบ้าน
       const result = await toggleMemberLeave(id, !currentStatus)
-      
-      // 3. ถ้าหลังบ้านบอกว่าไม่สำเร็จ (success เป็น false) ให้ถอย UI กลับไปค่าเดิม
       if (!result?.success) {
         setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: currentStatus } : p))
         alert(result?.error || 'Failed to update leave status')
       }
     } catch (err) {
-      // ดักจับกรณีที่โค้ดพังรุนแรง
       setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: currentStatus } : p))
       alert('ระบบหลังบ้านขัดข้อง กรุณาลองใหม่อีกครั้ง')
     }
@@ -164,10 +159,16 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       "ชื่อตัวละคร": item.display_name || "-",
       "อาชีพ": item.job_name || "-",
       "ระดับสิทธิ์": item.role === 'admin' ? 'ผู้ดูแลระบบ' : 'สมาชิก',
-      "PVP REDUC": item.pvp_reduc || 0,
-      "PVP DMG": item.pvp_dmg || 0,
+      "P.ATK": item.p_atk || 0,
+      "M.ATK": item.m_atk || 0,
       "P.DEF": item.p_def || 0,
       "M.DEF": item.m_def || 0,
+      "P.DMG": item.p_dmg || 0,
+      "M.DMG": item.m_dmg || 0,
+      "P.REDUC": item.p_reduc || 0,
+      "M.REDUC": item.m_reduc || 0,
+      "PVP DMG": item.pvp_dmg || 0,
+      "PVP REDUC": item.pvp_reduc || 0,
       "สถานะรหัสผ่าน": item.isPasswordSet ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้ง",
       "ลากิจกรรม": item.is_on_leave ? "ลา" : "ปกติ",
       "อัพเดทล่าสุด": formatUpdatedAt(item.last_stat_update),
@@ -178,8 +179,8 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
 
     worksheet['!cols'] = [
       { wch: 8 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 12 },
-      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 },
-      { wch: 10 }, { wch: 20 },
+      { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
+      { wch: 15 }, { wch: 10 }, { wch: 20 },
     ];
 
     XLSX.utils.book_append_sheet(workbook, worksheet, "Credentials");
@@ -192,12 +193,11 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       (p.job_name && p.job_name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     if (showOnlyNotUpdated) {
-      return matchesSearch && needsUpdate(p.last_stat_update); // แก้บั๊ก: ใช้ last_stat_update แทน updated_at
+      return matchesSearch && needsUpdate(p.last_stat_update);
     }
     return matchesSearch;
   })
 
-  // 💡 สร้าง List ของอาชีพไว้ใช้ซ้ำใน Modal
   const JOB_OPTIONS = [
     "Lord Knight", "Paladin", "Biochemist", "Mastersmith", "Bard", "Gypsy",
     "Sniper", "Champion", "Priest", "Assassin", "Rogue", "Wizard", "Sage", "Summoner"
@@ -212,10 +212,9 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
             <label className="flex items-center space-x-2 text-sm cursor-pointer text-gray-700 dark:text-gray-300">
               <input
                 type="checkbox"
-                
                 checked={showOnlyNotUpdated}
                 onChange={(e) => setShowOnlyNotUpdated(e.target.checked)}
-                className="cursor-pointerw-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="cursor-pointer w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
               />
               <span>📌 คัดกรองคนที่ยังไม่อัพเดท</span>
             </label>
@@ -273,10 +272,16 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อตัวละคร</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อาชีพ</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.ATK</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.ATK</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.DEF</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.DEF</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PVP REDUC</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.DMG</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.DMG</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.REDUC</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.REDUC</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PVP DMG</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PVP REDUC</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Password</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ลากิจกรรม</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อัพเดทล่าสุด</th>
@@ -293,10 +298,16 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                       {item.role}
                     </span>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-red-500 font-semibold">{item.p_atk ?? 0}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-500 font-semibold">{item.m_atk ?? 0}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-500 font-semibold">{item.p_def ?? 0}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-purple-500 font-semibold">{item.m_def ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-emerald-500 font-semibold">{item.pvp_reduc}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-semibold">{item.p_dmg ?? 0}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600 font-semibold">{item.m_dmg ?? 0}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-semibold">{item.p_reduc ?? 0}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-purple-600 font-semibold">{item.m_reduc ?? 0}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-rose-500 font-semibold ">{item.pvp_dmg}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-emerald-500 font-semibold">{item.pvp_reduc}</td>
 
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {item.isPasswordSet ? (
@@ -333,7 +344,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                     <button
-                      onClick={() => setEditingMember(item)} // 💡 เรียกเปิด Modal
+                      onClick={() => setEditingMember(item)}
                       className="cursor-pointer inline-flex items-center justify-center px-3 py-1.5 rounded-md bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-800/50 dark:border-indigo-700"
                     >
                       Edit
@@ -365,59 +376,86 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       {/* ───────────────────────────────────────────────────────── */}
       {isCreating && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/30">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/30 shrink-0">
               <h3 className="text-lg font-bold text-indigo-900 dark:text-indigo-100">
                  เพิ่มสมาชิกใหม่
               </h3>
             </div>
-            <form onSubmit={handleCreateSubmit} className="p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UID Game <span className="text-red-500">*</span></label>
-                  <input name="uid_game" required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+            <div className="overflow-y-auto p-6">
+              <form onSubmit={handleCreateSubmit} id="create-form">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="sm:col-span-2 lg:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UID Game <span className="text-red-500">*</span></label>
+                    <input name="uid_game" required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อตัวละคร <span className="text-red-500">*</span></label>
+                    <input name="display_name" required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">อาชีพ</label>
+                    <select name="job_name" defaultValue="" className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                      <option value="" disabled>-- กรุณาเลือก --</option>
+                      {JOB_OPTIONS.map(job => <option key={job} value={job}>{job}</option>)}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ระดับสิทธิ์ (Role)</label>
+                    <select name="role" defaultValue="member" className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                      <option value="member">Member</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  
+                  {/* Stats Inputs */}
+                  <div>
+                    <label className="block text-sm font-medium text-red-600 dark:text-red-400 mb-1">P.ATK</label>
+                    <input name="p_atk" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">M.ATK</label>
+                    <input name="m_atk" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">P.DEF</label>
+                    <input name="p_def" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-purple-600 dark:text-purple-400 mb-1">M.DEF</label>
+                    <input name="m_def" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-red-600 dark:text-red-400 mb-1">P.DMG</label>
+                    <input name="p_dmg" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">M.DMG</label>
+                    <input name="m_dmg" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">P.Reduc</label>
+                    <input name="p_reduc" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-purple-600 dark:text-purple-400 mb-1">M.Reduc</label>
+                    <input name="m_reduc" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-emerald-600 dark:text-emerald-400 mb-1">PvP Reduc</label>
+                    <input name="pvp_reduc" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-rose-600 dark:text-rose-400 mb-1">PvP DMG</label>
+                    <input name="pvp_dmg" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อตัวละคร <span className="text-red-500">*</span></label>
-                  <input name="display_name" required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">อาชีพ</label>
-                  <select name="job_name" defaultValue="" className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="" disabled>-- กรุณาเลือก --</option>
-                    {JOB_OPTIONS.map(job => <option key={job} value={job}>{job}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ระดับสิทธิ์ (Role)</label>
-                  <select name="role" defaultValue="member" className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="member">Member</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-blue-600 dark:text-blue-400">P.DEF</label>
-                  <input name="p_def" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-blue-600 dark:text-blue-400">M.DEF</label>
-                  <input name="m_def" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-emerald-600 dark:text-emerald-400">PvP Reduc</label>
-                  <input name="pvp_reduc" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-emerald-600 dark:text-emerald-400">PvP DMG</label>
-                  <input name="pvp_dmg" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
-                </div>
-
-              </div>
-              <div className="mt-6 flex justify-end space-x-3">
-                <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">ยกเลิก</button>
-                <button type="submit" disabled={isPending} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-50">บันทึกข้อมูล</button>
-              </div>
-            </form>
+              </form>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3 shrink-0 bg-gray-50 dark:bg-gray-900/50">
+              <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors">ยกเลิก</button>
+              <button type="submit" form="create-form" disabled={isPending} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-50">บันทึกข้อมูล</button>
+            </div>
           </div>
         </div>
       )}
@@ -427,59 +465,86 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       {/* ───────────────────────────────────────────────────────── */}
       {editingMember && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/30">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/30 shrink-0">
               <h3 className="text-lg font-bold text-indigo-900 dark:text-indigo-100">
                 ✏️ แก้ไขข้อมูล: {editingMember.display_name}
               </h3>
             </div>
-            <form onSubmit={handleEditSubmit} className="p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UID Game <span className="text-red-500">*</span></label>
-                  <input name="uid_game" defaultValue={editingMember.uid_game} required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+            <div className="overflow-y-auto p-6">
+              <form onSubmit={handleEditSubmit} id="edit-form">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="sm:col-span-2 lg:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UID Game <span className="text-red-500">*</span></label>
+                    <input name="uid_game" defaultValue={editingMember.uid_game} required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อตัวละคร <span className="text-red-500">*</span></label>
+                    <input name="display_name" defaultValue={editingMember.display_name} required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">อาชีพ</label>
+                    <select name="job_name" defaultValue={editingMember.job_name || ''} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                      <option value="" disabled>-- กรุณาเลือก --</option>
+                      {JOB_OPTIONS.map(job => <option key={job} value={job}>{job}</option>)}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ระดับสิทธิ์ (Role)</label>
+                    <select name="role" defaultValue={editingMember.role} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                      <option value="member">Member</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  
+                  {/* Stats Inputs */}
+                  <div>
+                    <label className="block text-sm font-medium text-red-600 dark:text-red-400 mb-1">P.ATK</label>
+                    <input name="p_atk" type="number" defaultValue={editingMember.p_atk ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">M.ATK</label>
+                    <input name="m_atk" type="number" defaultValue={editingMember.m_atk ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">P.DEF</label>
+                    <input name="p_def" type="number" defaultValue={editingMember.p_def ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-purple-600 dark:text-purple-400 mb-1">M.DEF</label>
+                    <input name="m_def" type="number" defaultValue={editingMember.m_def ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-red-600 dark:text-red-400 mb-1">P.DMG</label>
+                    <input name="p_dmg" type="number" defaultValue={editingMember.p_dmg ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">M.DMG</label>
+                    <input name="m_dmg" type="number" defaultValue={editingMember.m_dmg ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">P.Reduc</label>
+                    <input name="p_reduc" type="number" defaultValue={editingMember.p_reduc ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-purple-600 dark:text-purple-400 mb-1">M.Reduc</label>
+                    <input name="m_reduc" type="number" defaultValue={editingMember.m_reduc ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-emerald-600 dark:text-emerald-400 mb-1">PvP Reduc</label>
+                    <input name="pvp_reduc" type="number" defaultValue={editingMember.pvp_reduc} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-rose-600 dark:text-rose-400 mb-1">PvP DMG</label>
+                    <input name="pvp_dmg" type="number" defaultValue={editingMember.pvp_dmg} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อตัวละคร <span className="text-red-500">*</span></label>
-                  <input name="display_name" defaultValue={editingMember.display_name} required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">อาชีพ</label>
-                  <select name="job_name" defaultValue={editingMember.job_name || ''} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="" disabled>-- กรุณาเลือก --</option>
-                    {JOB_OPTIONS.map(job => <option key={job} value={job}>{job}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ระดับสิทธิ์ (Role)</label>
-                  <select name="role" defaultValue={editingMember.role} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="member">Member</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-blue-600 dark:text-blue-400">P.DEF</label>
-                  <input name="p_def" type="number" defaultValue={editingMember.p_def ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-blue-600 dark:text-blue-400">M.DEF</label>
-                  <input name="m_def" type="number" defaultValue={editingMember.m_def ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-emerald-600 dark:text-emerald-400">PvP Reduc</label>
-                  <input name="pvp_reduc" type="number" defaultValue={editingMember.pvp_reduc} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-emerald-600 dark:text-emerald-400">PvP DMG</label>
-                  <input name="pvp_dmg" type="number" defaultValue={editingMember.pvp_dmg} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
-                </div>
-
-              </div>
-              <div className="mt-6 flex justify-end space-x-3">
-                <button type="button" onClick={() => setEditingMember(null)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">ยกเลิก</button>
-                <button type="submit" disabled={isPending} className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:opacity-50">บันทึกการแก้ไข</button>
-              </div>
-            </form>
+              </form>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3 shrink-0 bg-gray-50 dark:bg-gray-900/50">
+              <button type="button" onClick={() => setEditingMember(null)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors">ยกเลิก</button>
+              <button type="submit" form="edit-form" disabled={isPending} className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:opacity-50">บันทึกการแก้ไข</button>
+            </div>
           </div>
         </div>
       )}

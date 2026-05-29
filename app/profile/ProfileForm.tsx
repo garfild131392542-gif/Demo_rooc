@@ -78,53 +78,59 @@ export default function ProfileForm({ initialProfile }: { initialProfile: Profil
           <option value="Summoner">Summoner</option>
         </select>
       </div>
+      {/* ใช้วิธีจัด Grid 2 คอลัมน์ให้ดูสวยงาม */}
       <div className="grid grid-cols-2 gap-4">
+        
+        {/* คู่ P.ATK / M.ATK */}
+        <div>
+          <label htmlFor="p_atk" className="block text-sm font-medium text-gray-700 dark:text-gray-300">P.ATK</label>
+          <input id="p_atk" name="p_atk" type="number" min="0" defaultValue={initialProfile.p_atk} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+        </div>
+        <div>
+          <label htmlFor="m_atk" className="block text-sm font-medium text-gray-700 dark:text-gray-300">M.ATK</label>
+          <input id="m_atk" name="m_atk" type="number" min="0" defaultValue={initialProfile.m_atk} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+        </div>
+
+        {/* คู่ P.DEF / M.DEF (ของเดิม) */}
         <div>
           <label htmlFor="p_def" className="block text-sm font-medium text-gray-700 dark:text-gray-300">P.DEF</label>
-          <input
-            id="p_def"
-            name="p_def"
-            type="number"
-            min="0"
-            defaultValue={initialProfile.p_def}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          />
+          <input id="p_def" name="p_def" type="number" min="0" defaultValue={initialProfile.p_def} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
         </div>
         <div>
           <label htmlFor="m_def" className="block text-sm font-medium text-gray-700 dark:text-gray-300">M.DEF</label>
-          <input
-            id="m_def"
-            name="m_def"
-            type="number"
-            min="0"
-            defaultValue={initialProfile.m_def}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          />
+          <input id="m_def" name="m_def" type="number" min="0" defaultValue={initialProfile.m_def} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
         </div>
 
+        {/* คู่ P.DMG / M.DMG */}
         <div>
-          <label htmlFor="pvp_reduc" className="block text-sm font-medium text-gray-700 dark:text-gray-300">PvP Reduc</label>
-          <input
-            id="pvp_reduc"
-            name="pvp_reduc"
-            type="number"
-            min="0"
-            defaultValue={initialProfile.pvp_reduc}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          />
+          <label htmlFor="p_dmg" className="block text-sm font-medium text-gray-700 dark:text-gray-300">P.DMG</label>
+          <input id="p_dmg" name="p_dmg" type="number" min="0" defaultValue={initialProfile.p_dmg} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
         </div>
+        <div>
+          <label htmlFor="m_dmg" className="block text-sm font-medium text-gray-700 dark:text-gray-300">M.DMG</label>
+          <input id="m_dmg" name="m_dmg" type="number" min="0" defaultValue={initialProfile.m_dmg} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+        </div>
+
+        {/* คู่ P.Reduc / M.Reduc */}
+        <div>
+          <label htmlFor="p_reduc" className="block text-sm font-medium text-gray-700 dark:text-gray-300">P.Reduc</label>
+          <input id="p_reduc" name="p_reduc" type="number" min="0" defaultValue={initialProfile.p_reduc} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+        </div>
+        <div>
+          <label htmlFor="m_reduc" className="block text-sm font-medium text-gray-700 dark:text-gray-300">M.Reduc</label>
+          <input id="m_reduc" name="m_reduc" type="number" min="0" defaultValue={initialProfile.m_reduc} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+        </div>
+
+        {/* คู่ PVP DMG / PVP Reduc (ของเดิม) */}
         <div>
           <label htmlFor="pvp_dmg" className="block text-sm font-medium text-gray-700 dark:text-gray-300">PvP DMG</label>
-          <input
-            id="pvp_dmg"
-            name="pvp_dmg"
-            type="number"
-            min="0"
-            defaultValue={initialProfile.pvp_dmg}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          />
+          <input id="pvp_dmg" name="pvp_dmg" type="number" min="0" defaultValue={initialProfile.pvp_dmg} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
         </div>
-
+        <div>
+          <label htmlFor="pvp_reduc" className="block text-sm font-medium text-gray-700 dark:text-gray-300">PvP Reduc</label>
+          <input id="pvp_reduc" name="pvp_reduc" type="number" min="0" defaultValue={initialProfile.pvp_reduc} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+        </div>
+        
       </div>
 
 

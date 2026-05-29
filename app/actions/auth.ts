@@ -1,7 +1,8 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
+
 
 // กำหนด Type ให้ชัดเจนเพื่อป้องกันความสับสน
 type SessionData = {

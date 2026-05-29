@@ -24,6 +24,12 @@ export async function createMember(formData: FormData) {
   const pvp_dmg = parseInt(formData.get('pvp_dmg') as string) || 0
   const p_def = parseInt(formData.get('p_def') as string) || 0
   const m_def = parseInt(formData.get('m_def') as string) || 0
+  const p_atk = parseInt(formData.get('p_atk') as string) || 0
+  const m_atk = parseInt(formData.get('m_atk') as string) || 0
+  const p_dmg = parseInt(formData.get('p_dmg') as string) || 0
+  const m_dmg = parseInt(formData.get('m_dmg') as string) || 0
+  const p_reduc = parseInt(formData.get('p_reduc') as string) || 0
+  const m_reduc = parseInt(formData.get('m_reduc') as string) || 0
 
   const { error } = await supabase
     .from('profiles')

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { loginAction } from '@/app/actions/auth'
+import Link from 'next/link'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -102,7 +103,7 @@ export default function LoginPage() {
                   htmlFor="uid"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
-                  UID (Game)
+                  User name
                 </label>
                 <input
                   id="uid"
@@ -155,6 +156,15 @@ export default function LoginPage() {
               >
                 {loading ? 'Processing...' : 'Sign In'}
               </button>
+            </div>
+
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                ยังไม่ได้ลงทะเบียนข้อมูล?{' '}
+                <Link href="/register" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 hover:underline">
+                  สร้างข้อมูลสมาชิกที่นี่
+                </Link>
+              </p>
             </div>
 
             

@@ -24,10 +24,21 @@ export type Profile = {
   uid_game: string;
   display_name: string;
   job_name: string;
+  
+  // ของเดิม
   pvp_reduc: number;
   pvp_dmg: number;
   p_def: number;
   m_def: number;
+
+  // 👇 เพิ่ม 6 บรรทัดนี้เข้าไป 👇
+  p_atk: number;
+  m_atk: number;
+  p_dmg: number;
+  m_dmg: number;
+  p_reduc: number;
+  m_reduc: number;
+
   avatar_url: string;
   role: "admin" | "member";
   party_id: number | null;

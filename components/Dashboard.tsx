@@ -5,7 +5,7 @@ import {
   DndContext,
   DragEndEvent,
   DragStartEvent,
-  closestCenter,
+  pointerWithin,
   DragOverlay,
   useSensor,
   useSensors,
@@ -215,7 +215,7 @@ export default function Dashboard({
       sensors={sensors}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      collisionDetection={closestCenter}
+      collisionDetection={pointerWithin}
     >
       <div className="w-full max-w-14xl mx-auto px-4 ">
         {/* Edit Mode Control Bar — Admin Only */}
@@ -234,8 +234,8 @@ export default function Dashboard({
               </span>
               <span>
                 {isEditMode
-                  ? "Edit Mode (Drag to Arrange)"
-                  : "View Mode (Scroll Safely)"}
+                  ? "โหมดแก้ไข - ลากแล้วปล่อยเพื่อจัดสมาชิกเข้าปาร์ตี้ หรือย้ายไป Waitlist"
+                  : "แสดงปกติ"}
               </span>
             </div>
 

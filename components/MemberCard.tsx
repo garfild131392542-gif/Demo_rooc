@@ -130,23 +130,30 @@ export default function MemberCard({
       {/* Hover Popup using Portal to escape overflow-hidden containers */}
       {showPopup && isMounted && createPortal(
         <div
-          className="fixed w-36 p-2 bg-gray-900 text-white rounded shadow-lg z-[9999] pointer-events-none transform -translate-x-1/2 -translate-y-full opacity-100 transition-opacity"
+          // 💡 ขยายความกว้างเป็น w-56 และเพิ่ม padding เป็น p-3
+          className=" fixed w-56 p-3 bg-gray-900 text-white rounded shadow-lg z-[9999] pointer-events-none transform -translate-x-1/2 -translate-y-full opacity-100 transition-opacity"
           style={{ top: coords.y, left: coords.x }}
         >
           <div className="flex flex-col items-center">
-            {/* เปลี่ยนใน Popup ด้วยเช่นกัน */}
-            <img src={jobIcon} alt={profile.job_name} className="w-15 h-15 object-contain mb-1 drop-shadow-sm" />
+            <img src={jobIcon} alt={profile.job_name} className="w-16 h-16 object-contain mb-2 drop-shadow-sm" />
 
-            <p className="font-bold text-center text-xs truncate w-full px-1">{profile.display_name}</p>
-            <div className="w-full mt-1 text-[10px] grid grid-cols-2 gap-1 text-center border-t border-gray-700 pt-1">
+            {/* 💡 ขยายชื่อเป็น text-sm */}
+            <p className="font-bold text-center text-sm truncate w-full px-1">{profile.display_name}</p>
+            
+            {/* 💡 เปลี่ยนขนาดจาก text-[10px] เป็น text-xs และเพิ่มระยะห่างบรรทัด (gap-y-2) */}
+            <div className="w-full mt-2 text-xs grid grid-cols-2 gap-x-2 gap-y-2 text-center border-t border-gray-700 pt-2">
+              
+              {/* คู่ ATK */}
               <div>
-                <p className="text-gray-400">PvP Reduc</p>
-                <p className="font-medium text-emerald-400">{profile.pvp_reduc}</p>
+                <p className="text-gray-400">P.ATK</p>
+                <p className="font-medium text-red-400">{profile.p_atk ?? 0}</p>
               </div>
               <div>
-                <p className="text-gray-400">PvP DMG</p>
-                <p className="font-medium text-rose-400">{profile.pvp_dmg}</p>
+                <p className="text-gray-400">M.ATK</p>
+                <p className="font-medium text-orange-400">{profile.m_atk ?? 0}</p>
               </div>
+              
+              {/* คู่ DEF */}
               <div>
                 <p className="text-gray-400">P.DEF</p>
                 <p className="font-medium text-blue-400">{profile.p_def ?? 0}</p>
@@ -155,6 +162,37 @@ export default function MemberCard({
                 <p className="text-gray-400">M.DEF</p>
                 <p className="font-medium text-purple-400">{profile.m_def ?? 0}</p>
               </div>
+
+              {/* คู่ DMG */}
+              <div>
+                <p className="text-gray-400">P.DMG</p>
+                <p className="font-medium text-red-500">{profile.p_dmg ?? 0}</p>
+              </div>
+              <div>
+                <p className="text-gray-400">M.DMG</p>
+                <p className="font-medium text-orange-500">{profile.m_dmg ?? 0}</p>
+              </div>
+
+              {/* คู่ Reduc */}
+              <div>
+                <p className="text-gray-400">P.Reduc</p>
+                <p className="font-medium text-blue-500">{profile.p_reduc ?? 0}</p>
+              </div>
+              <div>
+                <p className="text-gray-400">M.Reduc</p>
+                <p className="font-medium text-purple-500">{profile.m_reduc ?? 0}</p>
+              </div>
+
+              {/* คู่ PvP */}
+              <div>
+                <p className="text-gray-400">PvP DMG</p>
+                <p className="font-medium text-rose-400">{profile.pvp_dmg}</p>
+              </div>
+              <div>
+                <p className="text-gray-400">PvP Reduc</p>
+                <p className="font-medium text-emerald-400">{profile.pvp_reduc}</p>
+              </div>
+              
             </div>
           </div>
           {/* Arrow pointing down */}

@@ -29,7 +29,12 @@ export default function WaitlistBlock({
   )
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col flex-1 min-h-[300px]">
+    <div 
+      ref={setNodeRef} // 💡 ย้าย setNodeRef มาไว้ที่ div กล่องนอกสุดเลย
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-md border overflow-hidden flex flex-col flex-1 min-h-[300px] transition-colors ${
+        isOver ? 'border-indigo-400 ring-2 ring-indigo-500/50 bg-indigo-50/30' : 'border-gray-200 dark:border-gray-700'
+      }`}
+    >
       <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
         <h3 className="font-bold text-lg text-indigo-900 dark:text-indigo-100 flex items-center justify-between">
           <span>รอจัดปาร์ตี้</span>
@@ -65,10 +70,7 @@ export default function WaitlistBlock({
         </div>
       </div>
 
-      <div
-        ref={setNodeRef}
-        className={`flex-1 p-4 overflow-y-auto space-y-3 transition-colors ${isOver ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}
-      >
+      <div className="flex-1 p-4 overflow-y-auto space-y-3">
         {filteredProfiles.length === 0 ? (
           <p className="text-sm text-gray-500 text-center mt-10">
             {searchTerm ? 'ไม่พบรายชื่อที่ค้นหา' : 'No members in waitlist.'}

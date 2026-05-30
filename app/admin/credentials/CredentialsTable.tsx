@@ -266,31 +266,24 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อตัวละคร</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อาชีพ</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.ATK</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.ATK</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.DEF</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.DEF</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.DMG</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.DMG</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.REDUC</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.REDUC</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PVP DMG</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PVP REDUC</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Password</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ลากิจกรรม</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อัพเดทล่าสุด</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                {/* 💡 เพิ่ม w-[เปอร์เซ็นต์] เพื่อควบคุมความกว้างของแต่ละคอลัมน์ให้คงที่ */}
+                <th className="w-[12%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">User name</th>
+                <th className="w-[15%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อตัวละคร</th>
+                <th className="w-[13%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อาชีพ</th>
+                <th className="w-[10%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
+                <th className="w-[10%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Password</th>
+                <th className="w-[10%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ลากิจกรรม</th>
+                <th className="w-[10%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อัพเดทล่าสุด</th>
+                <th className="w-[20%] px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredProfiles.map(item => (
                 <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.uid_game}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.display_name}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.job_name || '-'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -298,16 +291,8 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                       {item.role}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-red-500 font-semibold">{item.p_atk ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-500 font-semibold">{item.m_atk ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-500 font-semibold">{item.p_def ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-purple-500 font-semibold">{item.m_def ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-semibold">{item.p_dmg ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600 font-semibold">{item.m_dmg ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-semibold">{item.p_reduc ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-purple-600 font-semibold">{item.m_reduc ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-rose-500 font-semibold ">{item.pvp_dmg}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-emerald-500 font-semibold">{item.pvp_reduc}</td>
+                  
+                  {/* 💡 (ลบช่องว่างบรรทัดในโค้ดตรงนี้ออก เพื่อให้ดูเป็นระเบียบขึ้นได้เลยครับ) */}
 
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {item.isPasswordSet ? (
@@ -342,7 +327,9 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+
+                  {/* 💡 เปลี่ยน text-right เป็น text-center เพื่อดึงกลุ่มปุ่มกลับมาไว้ตรงกลางของคอลัมน์ */}
+                  <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium space-x-2">
                     <button
                       onClick={() => setEditingMember(item)}
                       className="cursor-pointer inline-flex items-center justify-center px-3 py-1.5 rounded-md bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-800/50 dark:border-indigo-700"

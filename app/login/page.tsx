@@ -84,6 +84,8 @@ export default function LoginPage() {
             </p>
           </div>
 
+          
+
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="rounded-md bg-red-50 p-4 shadow-sm border border-red-200 dark:bg-red-900/20 dark:border-red-900/50">
@@ -148,6 +150,8 @@ export default function LoginPage() {
               </div>
             </div>
 
+            
+
             <div>
               <button
                 type="submit"
@@ -157,6 +161,14 @@ export default function LoginPage() {
                 {loading ? 'Processing...' : 'Sign In'}
               </button>
             </div>
+
+            <div className="justify-center text-sm text-gray-600 dark:text-gray-400">
+            ทดสอบฝั่งแอดมิน
+            <br />
+            User name = ADMIN
+            <br />
+            PASSWORD = 123456
+          </div>
 
             <div className="mt-4 text-center">
               <p className="text-sm text-gray-600 dark:text-gray-400">

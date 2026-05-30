@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { getJobIconUrl } from '@/components/helpers'
 
-// 1. เพิ่ม p_def และ m_def เข้ามาใน Type
+// 1. เพิ่ม 6 ค่าใหม่เข้ามาใน Type
 type LeaderboardProfile = {
   id: string
   display_name: string
@@ -12,6 +12,12 @@ type LeaderboardProfile = {
   pvp_dmg: number
   p_def: number
   m_def: number
+  p_atk: number
+  m_atk: number
+  p_dmg: number
+  m_dmg: number
+  p_reduc: number
+  m_reduc: number
 }
 
 export default function LeaderboardTable({ profiles }: { profiles: LeaderboardProfile[] }) {
@@ -84,12 +90,17 @@ export default function LeaderboardTable({ profiles }: { profiles: LeaderboardPr
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ลำดับ</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อตัวละคร</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อาชีพ</th>
-                {/* 2. เพิ่มหัวตารางสำหรับ P.DEF และ M.DEF */}
+                {/* 2. เพิ่มหัวตารางให้ครบ 10 ค่า */}
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.ATK</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.ATK</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.DEF</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.DEF</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PvP Reduc</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.DMG</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.DMG</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P.Reduc</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">M.Reduc</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PvP DMG</th>
-
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PvP Reduc</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -115,26 +126,43 @@ export default function LeaderboardTable({ profiles }: { profiles: LeaderboardPr
                       <span className="text-gray-400 dark:text-gray-500">None</span>
                     )}
                   </td>
-                  {/* 3. เพิ่มข้อมูล P.DEF และ M.DEF */}
+                  {/* 3. เพิ่มข้อมูลให้ครบ 10 ค่าพร้อมกำหนดสีให้ดูง่าย */}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-500 dark:text-red-400">
+                    {profile.p_atk ?? 0}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-orange-500 dark:text-orange-400">
+                    {profile.m_atk ?? 0}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-500 dark:text-blue-400">
                     {profile.p_def ?? 0}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-purple-500 dark:text-purple-400">
                     {profile.m_def ?? 0}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                    {profile.pvp_reduc ?? 0}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600 dark:text-red-500">
+                    {profile.p_dmg ?? 0}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-orange-600 dark:text-orange-500">
+                    {profile.m_dmg ?? 0}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-500">
+                    {profile.p_reduc ?? 0}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-purple-600 dark:text-purple-500">
+                    {profile.m_reduc ?? 0}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-rose-600 dark:text-rose-400">
                     {profile.pvp_dmg ?? 0}
                   </td>
-
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                    {profile.pvp_reduc ?? 0}
+                  </td>
                 </tr>
               ))}
               {filteredProfiles.length === 0 && (
                 <tr>
-                  {/* 4. ปรับ colSpan จาก 5 เป็น 7 ให้ครอบคลุมคอลัมน์ใหม่ */}
-                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                  {/* 4. ปรับ colSpan เป็น 13 ให้ครอบคลุมทุกคอลัมน์ */}
+                  <td colSpan={13} className="px-6 py-4 text-center text-sm text-gray-500">
                     No members found.
                   </td>
                 </tr>

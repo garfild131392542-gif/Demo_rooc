@@ -9,7 +9,8 @@ export async function middleware(request: NextRequest) {
   // Public routes that don't require authentication
   const publicRoutes = ['/login', '/register', '/api/auth/callback']
   const isInviteRoute = pathname.startsWith('/g/')
-  const isPublicRoute = isInviteRoute || publicRoutes.some(route => pathname.startsWith(route))
+  const isBillingRoute = pathname.startsWith('/billing')
+  const isPublicRoute = isInviteRoute || publicRoutes.some(route => pathname.startsWith(route)) || isBillingRoute
   
   // Try to get the session
   const supabaseResponse = NextResponse.next({
@@ -47,7 +48,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // 2. If user is authenticated but has NO guild yet, redirect to /onboarding
-  if (session && !pathname.startsWith('/onboarding')) {
+  if (session && !pathname.startsWith('/onboarding') && !pathname.startsWith('/admin')) {
     try {
       const adminKey =
         process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -79,17 +80,43 @@ export async function middleware(request: NextRequest) {
       if (!(profile as any)?.guild_id) {
         return NextResponse.redirect(new URL('/onboarding', request.url))
       }
-    } catch {
+
+      // 3. Check if guild's trial has expired and redirect to /billing if needed
+      // Skip this check for /billing, /login, /register, and public invite pages
+      if (!isPublicRoute) {
+        try {
+          const { data: guild } = await (supabaseAdmin as any)
+            .from('guilds')
+            .select('trial_ends_at')
+            .eq('id', (profile as any)?.guild_id)
+            .maybeSingle()
+
+          if (guild?.trial_ends_at) {
+            const trialEndsAt = new Date(guild.trial_ends_at)
+            const now = new Date()
+
+            // If trial has expired, redirect to /billing
+            if (now > trialEndsAt) {
+              return NextResponse.redirect(new URL('/billing', request.url))
+            }
+          }
+        } catch (trialError) {
+          // If trial check fails, continue anyway (don't block user)
+          console.error('Trial check error:', trialError)
+        }
+      }
+    } catch (err) {
       // If guild_id check fails for any reason, avoid blocking the request.
+      console.error('Middleware error:', err)
     }
   }
 
-  // 2. If user is NOT authenticated and tries to access protected routes, redirect to /register
+  // 4. If user is NOT authenticated and tries to access protected routes, redirect to /register
   if (!session && !isPublicRoute) {
     return NextResponse.redirect(new URL('/register', request.url))
   }
 
-  // 3. Refresh the session cookie on every request (as per Supabase SSR best practices)
+  // 5. Refresh the session cookie on every request (as per Supabase SSR best practices)
   return supabaseResponse
 }
 

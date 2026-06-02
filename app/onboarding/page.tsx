@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createGuildOnboardingAction } from '@/app/actions/onboarding'
 
 const GUILD_URL_REGEX = /^[a-z0-9-]+$/
 
 export default function OnboardingPage() {
+  const router = useRouter()
   const [guildName, setGuildName] = useState('')
   const [serverName, setServerName] = useState('')
   const [guildUrl, setGuildUrl] = useState('')
@@ -46,6 +48,9 @@ export default function OnboardingPage() {
         setLoading(false)
         return
       }
+
+      // Success! Redirect to dashboard
+      router.push('/')
     } catch (err: any) {
       setError(err?.message || 'เกิดข้อผิดพลาดในการสร้างกิลด์')
       setLoading(false)

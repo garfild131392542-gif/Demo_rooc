@@ -2,7 +2,6 @@
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { getSession } from './auth'
-import { redirect } from 'next/navigation'
 
 const GUILD_URL_REGEX = /^[a-z0-9-]+$/
 
@@ -50,6 +49,12 @@ export async function createGuildOnboardingAction(
     }
   }
 
+  // Calculate trial end date: 14 days from now
+  const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+  
+  // Generate unique invite code (random 8 character string)
+  const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase()
+
   const { data: guild, error: guildError } = await supabaseAny
     .from('guilds')
     .insert([
@@ -58,7 +63,9 @@ export async function createGuildOnboardingAction(
         name: normalizedGuildName,
         server_name: normalizedServerName,
         guild_url: normalizedGuildUrl,
-        status: 'pending',
+        invite_code: inviteCode,
+        status: 'pending', // ✅ Insert as pending (constraint allows this)
+        trial_ends_at: trialEndsAt.toISOString(),
         created_at: new Date().toISOString(),
       },
     ])
@@ -72,6 +79,30 @@ export async function createGuildOnboardingAction(
     return { success: false, error: 'ไม่สามารถสร้างกิลด์ได้' }
   }
 
+  // Auto-approve: Update status to 'approved' immediately after creation
+  try {
+    const { data: updatedGuild, error: approveError } = await supabaseAny
+      .from('guilds')
+      .update({ 
+        status: 'approved',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', guild.id)
+      .select()
+      .maybeSingle()
+
+    if (approveError) {
+      console.error('❌ Error auto-approving guild:', {
+        message: approveError.message,
+        guildId: guild.id,
+      })
+    } else {
+      console.log('✅ Guild auto-approved:', updatedGuild?.id, updatedGuild?.status)
+    }
+  } catch (err: any) {
+    console.error('❌ Exception in auto-approve:', err)
+  }
+
   const { error: profileError } = await supabaseAny
     .from('profiles')
     .update({ guild_id: guild.id, role: 'admin' })
@@ -81,6 +112,6 @@ export async function createGuildOnboardingAction(
     return { success: false, error: profileError.message }
   }
 
-  redirect('/')
+  return { success: true, guildId: guild.id }
 }
 

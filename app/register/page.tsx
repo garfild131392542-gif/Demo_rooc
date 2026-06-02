@@ -16,6 +16,7 @@ export default function RegisterPage() {
     setIsLoading(true)
     setError(null)
 
+    const formData = new FormData(e.currentTarget)
     const email = formData.get('email') as string
     const password = formData.get('password') as string
     const result = await registerAction(email, password)

@@ -76,13 +76,18 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                         </Link>
 
                         <div className="hidden md:flex ml-10 space-x-1">
-                            {['Dashboard', 'Profile', 'Members'].map((item) => (
+                            {[
+                                { name: 'Dashboard', href: '/' },
+                                { name: 'Create Guild', href: '/guild/create' },
+                                { name: 'My Profile', href: '/profile' },
+                                { name: 'Members', href: '/members' },
+                            ].map((item) => (
                                 <Link
-                                    key={item}
-                                    href={item === 'Dashboard' ? '/' : `/${item.toLowerCase().replace(' ', '')}`}
-                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-white/10 ${pathname === (item === 'Dashboard' ? '/' : `/${item.toLowerCase().replace(' ', '')}`) ? 'bg-white/20' : ''}`}
+                                    key={item.name}
+                                    href={item.href}
+                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-white/10 ${pathname === item.href ? 'bg-white/20' : ''}`}
                                 >
-                                    {item}
+                                    {item.name}
                                 </Link>
                             ))}
                             {enrichedSession.role === 'admin' && (
@@ -171,6 +176,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                         <div className="px-4 pt-2 pb-6 space-y-2">
                             {[
                                 { name: 'Dashboard', href: '/' },
+                                { name: 'Create Guild', href: '/guild/create' },
                                 { name: 'My Profile', href: '/profile' },
                                 { name: 'Members', href: '/members' },
                                 ...(enrichedSession.role === 'admin' ? [{ name: 'จัดการข้อมูลสมาชิกกิล', href: '/admin/credentials' }] : [])

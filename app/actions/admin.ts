@@ -6,9 +6,22 @@ import { revalidatePath } from 'next/cache'
 
 async function checkAdmin() {
   const session = await getSession()
-  if (!session || session.role !== 'admin') {
+  if (!session) {
     throw new Error('Unauthorized')
   }
+
+  const supabase = await createClient()
+  const { data: admin, error } = await supabase
+    .from('admins')
+    .select('id, role')
+    .eq('id', session.id)
+    .maybeSingle()
+
+  if (error || !admin) {
+    throw new Error('Unauthorized')
+  }
+
+  return admin
 }
 
 // ---- Members CRUD ----
@@ -168,5 +181,121 @@ export async function toggleMemberLeave(id: string, is_on_leave: boolean) {
     
   } catch (e: any) {
     return { success: false, error: e.message || "เกิดข้อผิดพลาดในระบบหลังบ้าน" }
+  }
+}
+
+// ---- Guild Approval System ----
+/**
+ * ดึงข้อมูลกิลด์ที่รอการอนุมัติ (status = 'pending')
+ */
+export async function getPendingGuilds() {
+  await checkAdmin()
+  const supabase = await createAdminClient()
+
+  const { data, error } = await supabase
+    .from('guilds')
+    .select('id, name, server_name, owner_id, status, created_at, profiles:owner_id(display_name, email)')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching pending guilds:', error)
+    return { success: false, error: error.message, guilds: [] }
+  }
+
+  return { success: true, guilds: data || [] }
+}
+
+/**
+ * อนุมัติกิลด์ - เปลี่ยนสถานะจาก 'pending' เป็น 'active'
+ */
+export async function approveGuild(guildId: string) {
+  try {
+    await checkAdmin()
+    const supabase = await createAdminClient()
+
+    // ตรวจสอบว่ากิลด์มีอยู่และอยู่ในสถานะ 'pending'
+    const { data: guild, error: fetchError } = await supabase
+      .from('guilds')
+      .select('id, owner_id, status')
+      .eq('id', guildId)
+      .single()
+
+    if (fetchError || !guild) {
+      return { success: false, error: 'กิลด์ไม่พบ' }
+    }
+
+    if (guild.status !== 'pending') {
+      return { success: false, error: `กิลด์มีสถานะ ${guild.status} ไม่สามารถอนุมัติได้` }
+    }
+
+    // อัปเดตสถานะเป็น 'active'
+    const { error: updateError } = await supabase
+      .from('guilds')
+      .update({ status: 'active', approved_at: new Date().toISOString() })
+      .eq('id', guildId)
+
+    if (updateError) {
+      return { success: false, error: updateError.message }
+    }
+
+    // อัปเดตโปรไฟล์เจ้าของให้ผูกกับ guild ที่อนุมัติแล้ว
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ guild_id: guild.id, role: 'guild_master' })
+      .eq('id', guild.owner_id)
+
+    if (profileError) {
+      return { success: false, error: profileError.message }
+    }
+
+    revalidatePath('/admin/dashboard')
+    return { success: true, message: 'อนุมัติกิลด์สำเร็จ' }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+/**
+ * ปฏิเสธกิลด์ - ลบกิลด์ออกจากระบบหรือเปลี่ยนสถานะเป็น 'rejected'
+ */
+export async function rejectGuild(guildId: string, reason?: string) {
+  try {
+    await checkAdmin()
+    const supabase = await createAdminClient()
+
+    // ตรวจสอบว่ากิลด์มีอยู่และอยู่ในสถานะ 'pending'
+    const { data: guild, error: fetchError } = await supabase
+      .from('guilds')
+      .select('id, status')
+      .eq('id', guildId)
+      .single()
+
+    if (fetchError || !guild) {
+      return { success: false, error: 'กิลด์ไม่พบ' }
+    }
+
+    if (guild.status !== 'pending') {
+      return { success: false, error: `กิลด์มีสถานะ ${guild.status} ไม่สามารถปฏิเสธได้` }
+    }
+
+    // เปลี่ยนสถานะเป็น 'rejected' พร้อมเหตุผล
+    const { error: updateError } = await supabase
+      .from('guilds')
+      .update({ 
+        status: 'rejected', 
+        rejection_reason: reason || 'ไม่ระบุเหตุผล',
+        rejected_at: new Date().toISOString() 
+      })
+      .eq('id', guildId)
+
+    if (updateError) {
+      return { success: false, error: updateError.message }
+    }
+
+    revalidatePath('/admin/dashboard')
+    return { success: true, message: 'ปฏิเสธกิลด์สำเร็จ' }
+  } catch (error: any) {
+    return { success: false, error: error.message }
   }
 }

@@ -22,11 +22,11 @@ export async function updateMyProfile(formData: FormData) {
   // 👇 สิ่งที่เพิ่มเข้ามาใหม่ 6 ค่า 👇
   const p_atk = parseInt(formData.get('p_atk') as string) || 0
   const m_atk = parseInt(formData.get('m_atk') as string) || 0
-  const p_dmg = parseInt(formData.get('p_dmg') as string) || 0
-  const m_dmg = parseInt(formData.get('m_dmg') as string) || 0
-  const p_reduc = parseInt(formData.get('p_reduc') as string) || 0
-  const m_reduc = parseInt(formData.get('m_reduc') as string) || 0
-
+  const p_dmg = parseFloat(formData.get('p_dmg') as string) || 0
+  const m_dmg = parseFloat(formData.get('m_dmg') as string) || 0
+  const p_reduc = parseFloat(formData.get('p_reduc') as string) || 0
+  const m_reduc = parseFloat(formData.get('m_reduc') as string) || 0
+  
   const { error } = await supabase
     .from('profiles')
     .update({ 

@@ -6,14 +6,21 @@ export default async function HomePage() {
   const session = await getSession()
   const supabase = await createClient()
 
-  // Fetch all profiles
-  const { data: profiles, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .order('id', { ascending: true })
+  let profiles: any[] = [] // สร้างตัวแปรมารอรับข้อมูล
 
-  if (error) {
-    console.error('Error fetching profiles:', error)
+  // 💡 ดึงข้อมูลเฉพาะตอนที่มี session (ล็อกอินแล้ว) เท่านั้น
+  if (session) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('id', { ascending: true })
+
+    if (error) {
+      // 💡 เติม .message ต่อท้าย จะช่วยให้ข้อความ Error อ่านง่ายขึ้น ไม่เป็น Object {}
+      console.error('Error fetching profiles:', error.message)
+    } else {
+      profiles = data || []
+    }
   }
 
   return (
@@ -28,7 +35,7 @@ export default async function HomePage() {
       </header>
 
       <Dashboard
-        initialProfiles={profiles || []}
+        initialProfiles={profiles}
         isAdmin={session?.role === 'admin'}
       />
     </div>

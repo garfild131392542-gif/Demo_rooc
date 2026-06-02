@@ -1,92 +1,92 @@
 'use server'
 
-import { cookies } from 'next/headers'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { hashPassword, verifyPassword, signSession, setSessionCookie, clearSessionCookie, getSessionPayloadFromCookie } from '@/lib/auth'
 
+export async function registerUser(formData: FormData) {
+  const supabase = await createClient()
 
-// กำหนด Type ให้ชัดเจนเพื่อป้องกันความสับสน
-type SessionData = {
-  id: string;
-  uid_game: string;
-  role: 'admin' | 'member';
-  display_name: string; // เพิ่มตัวนี้เข้ามา
+  const uid = (formData.get('uid_game') as string || '').trim()
+  const password = formData.get('password') as string
+  const displayName = formData.get('displayName') as string || ''
+  const jobName = (formData.get('job_name') as string || '').trim()
+
+  if (!uid || !password || !jobName) return { success: false, error: 'UID, รหัสผ่าน และอาชีพต้องไม่ว่าง' }
+
+  // ตรวจสอบ UID ซ้ำ
+  const { data: existing, error: exErr } = await supabase.from('profiles').select('id').eq('uid_game', uid).maybeSingle()
+  if (exErr) return { success: false, error: exErr.message }
+  if (existing) return { success: false, error: 'UID นี้ถูกใช้งานแล้ว' }
+
+  const pwHash = hashPassword(password)
+
+  const { error } = await supabase.from('profiles').insert([{
+    uid_game: uid,
+    password_game: pwHash,
+    display_name: displayName,
+    job_name: jobName,
+    role: 'member',
+    guild_id: null,
+    created_at: new Date().toISOString(),
+  }])
+
+  if (error) return { success: false, error: error.message }
+
+  redirect('/login')
 }
 
-export async function loginAction(uid: string, password: string) {
-  try {
-    const supabase = await createClient()
+export async function getSession() {
+  // read our signed cookie and resolve profile
+  const payload = await getSessionPayloadFromCookie()
+  if (!payload || !payload.id) return null
 
-    if (!password || password.trim() === '') {
-      return { success: false, error: 'รหัสผ่านต้องไม่เป็นค่าว่าง' }
-    }
+  const supabase = await createClient()
+  const [{ data: profile, error: pErr }, { data: admin, error: aErr }] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', payload.id).maybeSingle(),
+    supabase.from('admins').select('role').eq('id', payload.id).maybeSingle(),
+  ])
 
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('uid_game', uid)
-      .single()
+  if (pErr) return null
 
-    if (error || !profile) {
-      return { success: false, error: 'ไม่พบ UID นี้ในระบบ โปรดติดต่อ Admin' }
-    }
-
-    if (profile.password_game === null) {
-      const { data: updatedProfile, error: updateError } = await supabase
-        .from('profiles')
-        .update({ password_game: password } as any)
-        .eq('uid_game', uid)
-        .select()
-        .single()
-
-      if (updateError || !updatedProfile) {
-        return { success: false, error: 'เกิดข้อผิดพลาดในการตั้งรหัสผ่าน กรุณาติดต่อ Admin' }
-      }
-    } else {
-      if (profile.password_game !== password) {
-        return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' }
-      }
-    }
-
-    // 💡 4. On success: เพิ่ม display_name ลงไปใน Session ทันที
-    const sessionData: SessionData = {
-      id: profile.id,
-      uid_game: profile.uid_game,
-      role: profile.role,
-      display_name: profile.display_name || 'No Name', // ดึงจากฐานข้อมูลมาใส่
-    }
-
-    const cookieValue = Buffer.from(JSON.stringify(sessionData)).toString('base64')
-
-    const cookieStore = await cookies()
-    cookieStore.set('auth_session', cookieValue, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-      path: '/',
-    })
-
-    return { success: true }
-  } catch (err: any) {
-    return { success: false, error: err.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ' }
+  return {
+    id: profile.id,
+    email: profile.email ?? null,
+    role: profile.role ?? 'member',
+    guild_id: profile.guild_id ?? null,
+    display_name: profile.display_name ?? 'Member',
+    uid_game: profile.uid_game ?? '',
+    is_admin: Boolean(admin),
+    admin_role: admin?.role ?? null,
   }
 }
 
 export async function logoutAction() {
-  const cookieStore = await cookies()
-  cookieStore.delete('auth_session')
+  await clearSessionCookie()
+  redirect('/login')
 }
 
-export async function getSession() {
-  const cookieStore = await cookies()
-  const sessionCookie = cookieStore.get('auth_session')
+export async function loginAction(username: string, password: string) {
+  const supabase = await createClient()
+  const uid = username.trim()
+  if (!uid || !password) return { success: false, error: 'UID หรือรหัสผ่านไม่ถูกต้อง' }
 
-  if (!sessionCookie?.value) return null
+  const { data: profile, error } = await supabase.from('profiles').select('*').eq('uid_game', uid).maybeSingle()
+  if (error || !profile) return { success: false, error: 'ไม่พบ UID ในระบบ' }
 
-  try {
-    const jsonStr = Buffer.from(sessionCookie.value, 'base64').toString('utf-8')
-    // 💡 แค่ถอดรหัส JSON ออกมา ข้อมูล display_name ก็จะติดออกมาด้วยเลย ไม่ต้อง Query ซ้ำ
-    return JSON.parse(jsonStr) as SessionData
-  } catch (e) {
-    return null
+  // ถ้า password_game เป็น null ให้ถือว่าเป็นการตั้งรหัสครั้งแรก
+  if (profile.password_game === null) {
+    const hashed = hashPassword(password)
+    const { data: updated, error: upErr } = await supabase.from('profiles').update({ password_game: hashed }).eq('uid_game', uid).select().maybeSingle()
+    if (upErr) return { success: false, error: upErr.message }
+  } else {
+    const ok = verifyPassword(profile.password_game, password)
+    if (!ok) return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' }
   }
+
+  // สร้าง session token และเซ็ต cookie
+  const token = signSession({ id: profile.id, uid_game: profile.uid_game, display_name: profile.display_name, role: profile.role })
+  await setSessionCookie(token)
+
+  return { success: true }
 }

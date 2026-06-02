@@ -154,14 +154,7 @@ export default function LoginPage() {
             </div>
           </form>
 
-          <div className="mt-4 text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              ต้องการสร้างกิลด์ใหม่?{' '}
-              <a href="/guild/create" className="font-bold text-blue-600 hover:text-blue-500 dark:text-blue-400 hover:underline transition-colors">
-                สร้างกิลด์ที่นี่
-              </a>
-            </p>
-          </div>
+          
         </div>
       </div>
 

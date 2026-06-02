@@ -4,6 +4,7 @@ import Dashboard from '@/components/Dashboard'
 
 export default async function HomePage() {
   const session = await getSession()
+  const sessionAny = session as any
   const supabase = await createClient()
 
   let profiles: any[] = [] // สร้างตัวแปรมารอรับข้อมูล
@@ -28,7 +29,7 @@ export default async function HomePage() {
       <header className="mb-8 mx-10">
         <h1 className="text-3xl font-bold">จัดทีมลงกิจกรรม</h1>
         <p className="text-lg text-gray-500 dark:text-gray-400 mt-2">
-          {session?.role === 'admin'
+          {sessionAny?.profile?.role === 'admin'
             ? 'ลากและวางสมาชิก เพื่อจัดปาร์ตี้'
             : 'ดูรายชื่อสมาชิกและปาร์ตี้'}
         </p>
@@ -36,7 +37,7 @@ export default async function HomePage() {
 
       <Dashboard
         initialProfiles={profiles}
-        isAdmin={session?.role === 'admin'}
+        isAdmin={sessionAny?.profile?.role === 'admin'}
       />
     </div>
   )

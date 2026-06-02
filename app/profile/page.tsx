@@ -6,13 +6,14 @@ import ProfileForm from './ProfileForm'
 export default async function ProfilePage() {
   const session = await getSession()
   if (!session) redirect('/login')
+  const sessionAny = session as any
 
   const supabase = await createClient()
 
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', session.id)
+    .eq('id', sessionAny.user?.id ?? sessionAny.id)
     .single()
 
   if (error || !profile) {

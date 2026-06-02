@@ -6,9 +6,11 @@ export default async function GuildAdminPage() {
   // ใช้ session ที่ได้จาก cookie-based auth
   const session = await getSession()
   if (!session) redirect('/login')
+  const sessionAny = session as any
+  const role = sessionAny.profile?.role
 
   // ตรวจสอบสิทธิ์บนเซิร์ฟเวอร์ก่อนเรียก DB
-  if (session.role !== 'guild_master' && session.role !== 'admin') {
+  if (role !== 'admin') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-red-500 font-bold">
@@ -24,14 +26,14 @@ export default async function GuildAdminPage() {
   const { data: guild } = await supabase
     .from('guilds')
     .select('*')
-    .eq('id', session.guild_id)
+    .eq('id', sessionAny.profile?.guild_id)
     .maybeSingle()
 
   // ดึงรายชื่อสมาชิกทั้งหมดในกิลด์นี้
   const { data: members } = await supabase
     .from('profiles')
     .select('*')
-    .eq('guild_id', session.guild_id)
+    .eq('guild_id', sessionAny.profile?.guild_id)
     .order('created_at', { ascending: false })
 
   return (
@@ -41,16 +43,18 @@ export default async function GuildAdminPage() {
         {/* Header กิลด์ & โค้ดเชิญ */}
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-200 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-800">จัดการกิลด์: {guild?.name}</h1>
+            <h1 className="text-3xl font-extrabold text-slate-800">
+              จัดการกิลด์: {(guild as any)?.name}
+            </h1>
             <span className="inline-block mt-2 px-3 py-1 bg-sky-100 text-blue-700 text-sm font-bold rounded-full">
-              Server: {guild?.server_name}
+              Server: {(guild as any)?.server_name}
             </span>
           </div>
 
           <div className="bg-blue-50 border-2 border-dashed border-blue-200 rounded-2xl p-6 text-center w-full md:w-auto">
             <p className="text-sm text-slate-500 font-medium mb-1">คัดลอกโค้ดนี้ส่งให้เพื่อนเพื่อเข้าร่วมกิลด์</p>
             <div className="text-2xl font-black text-blue-600 tracking-wider bg-white py-2 px-6 rounded-lg shadow-sm border border-blue-100">
-              {guild?.invite_code}
+              {(guild as any)?.invite_code}
             </div>
           </div>
         </div>

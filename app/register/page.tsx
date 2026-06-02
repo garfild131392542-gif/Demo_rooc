@@ -15,7 +15,9 @@ export default function RegisterPage() {
     setIsLoading(true)
     setError(null)
 
-    const result = await registerAction(formData)
+    const email = formData.get('email') as string
+    const password = formData.get('password') as string
+    const result = await registerAction(email, password)
 
     if (result?.error) {
       setError(result.error)

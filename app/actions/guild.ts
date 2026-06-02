@@ -15,17 +15,17 @@ export async function createNewGuild(formData: FormData) {
 
   const inviteCode = 'ROOC-' + Math.random().toString(36).substring(2, 6).toUpperCase()
 
-  const { data: guild, error: guildError } = await supabase
+  const { data: guild, error: guildError } = await (supabase as any)
     .from('guilds')
     .insert([
       {
         name: guildName,
         server_name: serverName,
-        owner_id: session.id,
+        owner_id: session.user.id,
         invite_code: inviteCode,
         status: 'pending',
         created_at: new Date().toISOString(),
-      }
+      } as any,
     ])
     .select()
     .maybeSingle()

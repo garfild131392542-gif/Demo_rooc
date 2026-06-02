@@ -19,8 +19,13 @@ export async function loginAction(email: string, password: string) {
 
     const supabase = await createClient()
 
+    const identifier = email.trim()
+    const finalEmail = identifier.includes('@')
+      ? identifier.toLowerCase()
+      : `${identifier.toLowerCase()}@member.rooc`
+
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
+      email: finalEmail,
       password,
     })
 
@@ -157,5 +162,4 @@ export async function logoutAction() {
   } catch (err: any) {
     return { success: false, error: err.message || 'เกิดข้อผิดพลาดในการออกจากระบบ' }
   }
-}
 }

@@ -14,7 +14,7 @@ async function checkAdmin() {
   const { data: admin, error } = await supabase
     .from('admins')
     .select('id, role')
-    .eq('id', session.id)
+    .eq('id', session.user.id)
     .maybeSingle()
 
   if (error || !admin) {
@@ -46,7 +46,21 @@ export async function createMember(formData: FormData) {
 
   const { error } = await supabase
     .from('profiles')
-    .insert([{ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, p_def, m_def, last_stat_update: new Date().toISOString() }])
+    .insert(
+      [
+        {
+          uid_game,
+          display_name,
+          job_name,
+          role,
+          pvp_reduc,
+          pvp_dmg,
+          p_def,
+          m_def,
+          last_stat_update: new Date().toISOString(),
+        },
+      ] as any,
+    )
 
   if (error) return { success: false, error: error.message }
 
@@ -69,7 +83,7 @@ export async function updateMember(id: string, formData: FormData) {
   const p_def = parseInt(formData.get('p_def') as string) || 0
   const m_def = parseInt(formData.get('m_def') as string) || 0
 
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('profiles')
     .update({ uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, p_def, m_def, last_stat_update: new Date().toISOString() } as any)
     .eq('id', id)
@@ -106,7 +120,7 @@ export async function clearMemberParty(id: string) {
   await checkAdmin()
   const supabase = await createAdminClient()
 
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('profiles')
     .update({
       party_id: null,
@@ -123,7 +137,7 @@ export async function changeMemberRole(id: string, newRole: 'admin' | 'member') 
   await checkAdmin()
   const supabase = await createAdminClient()
 
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('profiles')
     .update({ role: newRole } as any)
     .eq('id', id)
@@ -149,7 +163,7 @@ export async function toggleMemberLeave(id: string, is_on_leave: boolean) {
     }
 
     // เพิ่ม .select() เพื่อให้ Supabase คืนข้อมูลแถวที่ถูกอัปเดตกลับมา
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('profiles')
       .update(updateData)
       .eq('id', id)
@@ -202,7 +216,7 @@ export async function approveGuild(guildId: string) {
     const supabase = await createAdminClient()
 
     // ตรวจสอบว่ากิลด์มีอยู่และอยู่ในสถานะ 'pending'
-    const { data: guild, error: fetchError } = await supabase
+    const { data: guild, error: fetchError } = await (supabase as any)
       .from('guilds')
       .select('id, owner_id, status')
       .eq('id', guildId)
@@ -217,9 +231,9 @@ export async function approveGuild(guildId: string) {
     }
 
     // อัปเดตสถานะเป็น 'active'
-    const { error: updateError } = await supabase
+    const { error: updateError } = await (supabase as any)
       .from('guilds')
-      .update({ status: 'active', approved_at: new Date().toISOString() })
+      .update({ status: 'active', approved_at: new Date().toISOString() } as any)
       .eq('id', guildId)
 
     if (updateError) {
@@ -227,9 +241,9 @@ export async function approveGuild(guildId: string) {
     }
 
     // อัปเดตโปรไฟล์เจ้าของให้ผูกกับ guild ที่อนุมัติแล้ว
-    const { error: profileError } = await supabase
+    const { error: profileError } = await (supabase as any)
       .from('profiles')
-      .update({ guild_id: guild.id, role: 'guild_master' })
+      .update({ guild_id: (guild as any).id, role: 'guild_master' } as any)
       .eq('id', guild.owner_id)
 
     if (profileError) {
@@ -252,7 +266,7 @@ export async function rejectGuild(guildId: string, reason?: string) {
     const supabase = await createAdminClient()
 
     // ตรวจสอบว่ากิลด์มีอยู่และอยู่ในสถานะ 'pending'
-    const { data: guild, error: fetchError } = await supabase
+    const { data: guild, error: fetchError } = await (supabase as any)
       .from('guilds')
       .select('id, status')
       .eq('id', guildId)
@@ -267,7 +281,7 @@ export async function rejectGuild(guildId: string, reason?: string) {
     }
 
     // เปลี่ยนสถานะเป็น 'rejected' พร้อมเหตุผล
-    const { error: updateError } = await supabase
+    const { error: updateError } = await (supabase as any)
       .from('guilds')
       .update({ 
         status: 'rejected', 

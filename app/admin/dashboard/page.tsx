@@ -18,13 +18,14 @@ export default async function AdminDashboardPage() {
   if (!session) {
     redirect('/login')
   }
+  const sessionAny = session as any
 
   // 2. ตรวจสอบสิทธิ์แอดมินจากตาราง public.admins
   const supabase = await createClient()
   const { data: adminCheck, error: adminError } = await supabase
     .from('admins')
     .select('id')
-    .eq('id', session.id)
+    .eq('id', sessionAny.user.id)
     .maybeSingle()
 
   if (adminError) {
@@ -91,7 +92,7 @@ export default async function AdminDashboardPage() {
               ผู้ใช้ปัจจุบัน
             </div>
             <div className="text-lg font-semibold text-gray-900 dark:text-white">
-              {session.email || 'ไม่ระบุ'}
+              {sessionAny.user?.email || 'ไม่ระบุ'}
             </div>
           </div>
 
@@ -100,7 +101,7 @@ export default async function AdminDashboardPage() {
               ระดับสิทธิ์
             </div>
             <div className="text-lg font-semibold text-green-600 dark:text-green-400">
-              {session.role === 'admin' ? 'แอดมิน' : 'ผู้ใช้ทั่วไป'}
+              {sessionAny.profile?.role === 'admin' ? 'แอดมิน' : 'ผู้ใช้ทั่วไป'}
             </div>
           </div>
         </div>

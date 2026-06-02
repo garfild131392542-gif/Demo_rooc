@@ -15,7 +15,8 @@ export default async function AdminCredentialsPage() {
   }
 
   // We map profiles to only expose what's necessary
-  const managementData = profiles.map(p => ({
+  const profilesSafe = (profiles || []) as any[]
+  const managementData = profilesSafe.map(p => ({
     id: p.id,
     uid_game: p.uid_game,
     display_name: p.display_name,

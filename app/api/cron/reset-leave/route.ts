@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   const supabase = await createAdminClient()
 
   // อัปเดตทุกคนที่ is_on_leave = true ให้กลายเป็น false
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('profiles')
     .update({ is_on_leave: false } as any)
     .eq('is_on_leave', true)

@@ -6,12 +6,13 @@ import { redirect } from 'next/navigation'
 async function requireAdmin() {
   const session = await getSession()
   if (!session) redirect('/')
+  const sessionAny = session as any
 
   const supabase = await createClient()
   const { data: admin, error } = await supabase
     .from('admins')
     .select('id')
-    .eq('id', session.id)
+    .eq('id', sessionAny.user.id)
     .maybeSingle()
 
   if (error || !admin) redirect('/')

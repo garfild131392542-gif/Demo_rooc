@@ -8,14 +8,15 @@ export async function updateProfileParty(
   partyId: number | null, 
   slotIndex: number | null
 ) {
-  const session = await getSession()
-  if (session?.role !== 'admin') {
+  const session = (await getSession()) as any
+  const role = session?.profile?.role
+  if (role !== 'admin') {
     return { success: false, error: 'Unauthorized' }
   }
 
   const supabase = await createClient()
 
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('profiles')
     .update({ 
       party_id: partyId,

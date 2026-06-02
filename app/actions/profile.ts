@@ -27,7 +27,7 @@ export async function updateMyProfile(formData: FormData) {
   const p_reduc = parseFloat(formData.get('p_reduc') as string) || 0
   const m_reduc = parseFloat(formData.get('m_reduc') as string) || 0
   
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('profiles')
     .update({ 
       display_name, job_name, 
@@ -35,7 +35,7 @@ export async function updateMyProfile(formData: FormData) {
       p_atk, m_atk, p_dmg, m_dmg, p_reduc, m_reduc, // <- อย่าลืมใส่ตัวแปรลงไปตรงนี้ด้วย
       updated_at: new Date().toISOString() 
     } as any)
-    .eq('id', session.id)
+    .eq('id', (session as any).user?.id ?? (session as any).id)
 
   if (error) return { success: false, error: error.message }
   

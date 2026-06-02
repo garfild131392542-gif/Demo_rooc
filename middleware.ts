@@ -1,37 +1,59 @@
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-export function middleware(request: NextRequest) {
-  const sessionCookie = request.cookies.get('auth_session')?.value
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Check if session exists
-  let session = null
-  if (sessionCookie) {
-    try {
-      const jsonStr = Buffer.from(sessionCookie, 'base64').toString('utf-8')
-      session = JSON.parse(jsonStr)
-    } catch (e) {
-      session = null
+  // Public routes that don't require authentication
+  const publicRoutes = ['/login', '/register', '/api/auth/callback']
+  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
+
+  // Create Supabase client to check authentication
+  let cookieStore = request.cookies
+  
+  // Try to get the session
+  const supabaseResponse = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
+      },
     }
+  )
+
+  // Get the session
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  // Logic:
+  // 1. If user is authenticated and tries to access /login or /register, redirect to /
+  if (session && (pathname === '/login' || pathname === '/register')) {
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // 1. Redirect to /login if no auth cookie exists (except /login and /register)
-  if (!session && !pathname.startsWith('/login') && !pathname.startsWith('/register')) {
+  // 2. If user is NOT authenticated and tries to access protected routes, redirect to /register
+  if (!session && !isPublicRoute) {
     return NextResponse.redirect(new URL('/register', request.url))
   }
 
-  // 2. Redirect away from /login or /register if already logged in
-  if (session && (pathname.startsWith('/login') || pathname.startsWith('/register'))) {
-    return NextResponse.redirect(new URL('/', request.url))
-  }
-
-  // 3. Redirect to / if a user with role 'member' tries to access /admin/*
-  if (session && pathname.startsWith('/admin') && session.role !== 'admin') {
-    return NextResponse.redirect(new URL('/', request.url))
-  }
-
-  return NextResponse.next()
+  // 3. Refresh the session cookie on every request (as per Supabase SSR best practices)
+  return supabaseResponse
 }
 
 export const config = {

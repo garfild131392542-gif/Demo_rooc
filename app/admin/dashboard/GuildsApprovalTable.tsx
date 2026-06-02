@@ -7,8 +7,11 @@ interface Guild {
   id: string
   name: string
   server_name: string
-  status: string
+  status: 'pending' | 'approved' | 'rejected'
   created_at: string
+  updated_at?: string
+  guild_url?: string | null
+  trial_ends_at?: string | null
   profiles?:
     | {
         display_name: string

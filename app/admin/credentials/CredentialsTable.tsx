@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import * as XLSX from 'xlsx';
-import { resetMemberPassword, changeMemberRole, createMember, updateMember, deleteMember, toggleMemberLeave } from '@/app/actions/admin'
+import { changeMemberRole, createMember, updateMember, deleteMember, toggleMemberLeave } from '@/app/actions/admin'
 
 type ManagementItem = {
   id: string
@@ -14,14 +14,13 @@ type ManagementItem = {
   pvp_dmg: number
   p_def: number
   m_def: number
-  // เพิ่ม 6 ค่าใหม่
+  // 6 stat fields
   p_atk: number
   m_atk: number
   p_dmg: number
   m_dmg: number
   p_reduc: number
   m_reduc: number
-  isPasswordSet: boolean
   is_on_leave: boolean
   updated_at?: string
   last_stat_update?: string;
@@ -68,16 +67,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
   const [searchTerm, setSearchTerm] = useState('')
   const [showOnlyNotUpdated, setShowOnlyNotUpdated] = useState(false)
 
-  const handleResetPassword = (id: string, uid_game: string) => {
-    if (!confirm(`Are you sure you want to reset the password for ${uid_game}? They will need to set a new password on their next login.`)) return
-
-    startTransition(async () => {
-      const result = await resetMemberPassword(id)
-      if (result?.success) {
-        setData(prev => prev.map(p => p.id === id ? { ...p, isPasswordSet: false } : p))
-      }
-    })
-  }
+  // TODO: Phase 2 - Password management will be handled by Supabase Auth
 
   const handleRoleChange = (id: string, currentRole: string) => {
     const newRole = currentRole === 'admin' ? 'member' : 'admin'
@@ -169,7 +159,6 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       "M.REDUC": item.m_reduc || 0,
       "PVP DMG": item.pvp_dmg || 0,
       "PVP REDUC": item.pvp_reduc || 0,
-      "สถานะรหัสผ่าน": item.isPasswordSet ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้ง",
       "ลากิจกรรม": item.is_on_leave ? "ลา" : "ปกติ",
       "อัพเดทล่าสุด": formatUpdatedAt(item.last_stat_update),
     }));
@@ -274,7 +263,6 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                 <th className="w-[15%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อตัวละคร</th>
                 <th className="w-[13%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อาชีพ</th>
                 <th className="w-[10%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
-                <th className="w-[10%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Password</th>
                 <th className="w-[10%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ลากิจกรรม</th>
                 <th className="w-[10%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อัพเดทล่าสุด</th>
                 <th className="w-[20%] px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
@@ -290,16 +278,6 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-80 transition-opacity ${item.role === 'admin' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`} onClick={() => handleRoleChange(item.id, item.role)}>
                       {item.role}
                     </span>
-                  </td>
-                  
-                  {/* 💡 (ลบช่องว่างบรรทัดในโค้ดตรงนี้ออก เพื่อให้ดูเป็นระเบียบขึ้นได้เลยครับ) */}
-
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {item.isPasswordSet ? (
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">สร้างแล้ว</span>
-                    ) : (
-                      <span className="text-rose-600 dark:text-rose-400 font-medium">ยังไม่สร้างรหัส</span>
-                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -335,13 +313,6 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                       className="cursor-pointer inline-flex items-center justify-center px-3 py-1.5 rounded-md bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-800/50 dark:border-indigo-700"
                     >
                       Edit
-                    </button>
-                    <button
-                      onClick={() => handleResetPassword(item.id, item.uid_game)}
-                      disabled={isPending || !item.isPasswordSet}
-                      className="cursor-pointer inline-flex items-center justify-center px-3 py-1.5 rounded-md bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-orange-50 dark:bg-orange-900/30 dark:text-orange-300 dark:hover:bg-orange-800/50 dark:border-orange-700 dark:disabled:hover:bg-orange-900/30"
-                    >
-                      Reset PW
                     </button>
                     <button
                       onClick={() => handleDelete(item.id)}

@@ -2,91 +2,160 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { hashPassword, verifyPassword, signSession, setSessionCookie, clearSessionCookie, getSessionPayloadFromCookie } from '@/lib/auth'
 
-export async function registerUser(formData: FormData) {
-  const supabase = await createClient()
+/**
+ * Login user with email and password
+ * Uses Supabase Auth standard signInWithPassword method
+ * 
+ * @param email - User's email address
+ * @param password - User's password
+ * @returns { success: boolean, error?: string }
+ */
+export async function loginAction(email: string, password: string) {
+  try {
+    if (!email || !password) {
+      return { success: false, error: 'อีเมลและรหัสผ่านต้องไม่ว่าง' }
+    }
 
-  const uid = (formData.get('uid_game') as string || '').trim()
-  const password = formData.get('password') as string
-  const displayName = formData.get('displayName') as string || ''
-  const jobName = (formData.get('job_name') as string || '').trim()
+    const supabase = await createClient()
 
-  if (!uid || !password || !jobName) return { success: false, error: 'UID, รหัสผ่าน และอาชีพต้องไม่ว่าง' }
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    })
 
-  // ตรวจสอบ UID ซ้ำ
-  const { data: existing, error: exErr } = await supabase.from('profiles').select('id').eq('uid_game', uid).maybeSingle()
-  if (exErr) return { success: false, error: exErr.message }
-  if (existing) return { success: false, error: 'UID นี้ถูกใช้งานแล้ว' }
+    if (error) {
+      // Provide user-friendly error messages
+      if (error.message.includes('Invalid login credentials')) {
+        return { success: false, error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' }
+      }
+      if (error.message.includes('Email not confirmed')) {
+        return { success: false, error: 'กรุณายืนยันอีเมลของคุณก่อน' }
+      }
+      return { success: false, error: error.message }
+    }
 
-  const pwHash = hashPassword(password)
+    if (!data.user) {
+      return { success: false, error: 'ไม่สามารถเข้าสู่ระบบได้' }
+    }
 
-  const { error } = await supabase.from('profiles').insert([{
-    uid_game: uid,
-    password_game: pwHash,
-    display_name: displayName,
-    job_name: jobName,
-    role: 'member',
-    guild_id: null,
-    created_at: new Date().toISOString(),
-  }])
-
-  if (error) return { success: false, error: error.message }
-
-  redirect('/login')
+    return { success: true, user: data.user }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ' }
+  }
 }
 
+/**
+ * Register a new user with email and password
+ * Uses Supabase Auth standard signUp method
+ * 
+ * @param email - User's email address
+ * @param password - User's password
+ * @returns { success: boolean, error?: string }
+ */
+export async function registerAction(email: string, password: string) {
+  try {
+    if (!email || !password) {
+      return { success: false, error: 'อีเมลและรหัสผ่านต้องไม่ว่าง' }
+    }
+
+    // Basic password validation
+    if (password.length < 6) {
+      return { success: false, error: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร' }
+    }
+
+    const supabase = await createClient()
+
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password,
+    })
+
+    if (error) {
+      // Provide user-friendly error messages
+      if (error.message.includes('already registered')) {
+        return { success: false, error: 'อีเมลนี้ลงทะเบียนแล้ว' }
+      }
+      if (error.message.includes('Password')) {
+        return { success: false, error: 'รหัสผ่านไม่บรรลุความต้องการ' }
+      }
+      return { success: false, error: error.message }
+    }
+
+    if (!data.user) {
+      return { success: false, error: 'ไม่สามารถสมัครสมาชิกได้' }
+    }
+
+    // Check if email verification is required
+    if (data.user.identities?.length === 0) {
+      return {
+        success: true,
+        user: data.user,
+        message: 'ตรวจสอบอีเมลของคุณเพื่อยืนยันบัญชี',
+      }
+    }
+
+    return { success: true, user: data.user }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก' }
+  }
+}
+
+/**
+ * Get current user session
+ * Uses Supabase Auth to retrieve the current user
+ * 
+ * @returns Session data with user and profile info, or null if not authenticated
+ */
 export async function getSession() {
-  // read our signed cookie and resolve profile
-  const payload = await getSessionPayloadFromCookie()
-  if (!payload || !payload.id) return null
+  try {
+    const supabase = await createClient()
 
-  const supabase = await createClient()
-  const [{ data: profile, error: pErr }, { data: admin, error: aErr }] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', payload.id).maybeSingle(),
-    supabase.from('admins').select('role').eq('id', payload.id).maybeSingle(),
-  ])
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession()
 
-  if (pErr) return null
+    if (error || !session) {
+      return null
+    }
 
-  return {
-    id: profile.id,
-    email: profile.email ?? null,
-    role: profile.role ?? 'member',
-    guild_id: profile.guild_id ?? null,
-    display_name: profile.display_name ?? 'Member',
-    uid_game: profile.uid_game ?? '',
-    is_admin: Boolean(admin),
-    admin_role: admin?.role ?? null,
+    // Get user profile information from the profiles table
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .single()
+
+    return {
+      user: session.user,
+      profile,
+    }
+  } catch (err: any) {
+    console.error('Error getting session:', err.message)
+    return null
   }
 }
 
+/**
+ * Logout the current user
+ * Signs out from Supabase Auth
+ * 
+ * @returns { success: boolean, error?: string }
+ */
 export async function logoutAction() {
-  await clearSessionCookie()
-  redirect('/login')
-}
+  try {
+    const supabase = await createClient()
 
-export async function loginAction(username: string, password: string) {
-  const supabase = await createClient()
-  const uid = username.trim()
-  if (!uid || !password) return { success: false, error: 'UID หรือรหัสผ่านไม่ถูกต้อง' }
+    const { error } = await supabase.auth.signOut()
 
-  const { data: profile, error } = await supabase.from('profiles').select('*').eq('uid_game', uid).maybeSingle()
-  if (error || !profile) return { success: false, error: 'ไม่พบ UID ในระบบ' }
+    if (error) {
+      return { success: false, error: error.message }
+    }
 
-  // ถ้า password_game เป็น null ให้ถือว่าเป็นการตั้งรหัสครั้งแรก
-  if (profile.password_game === null) {
-    const hashed = hashPassword(password)
-    const { data: updated, error: upErr } = await supabase.from('profiles').update({ password_game: hashed }).eq('uid_game', uid).select().maybeSingle()
-    if (upErr) return { success: false, error: upErr.message }
-  } else {
-    const ok = verifyPassword(profile.password_game, password)
-    if (!ok) return { success: false, error: 'รหัสผ่านไม่ถูกต้อง' }
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'เกิดข้อผิดพลาดในการออกจากระบบ' }
   }
-
-  // สร้าง session token และเซ็ต cookie
-  const token = signSession({ id: profile.id, uid_game: profile.uid_game, display_name: profile.display_name, role: profile.role })
-  await setSessionCookie(token)
-
-  return { success: true }
+}
 }

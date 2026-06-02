@@ -100,20 +100,7 @@ export async function deleteMember(id: string) {
 }
 
 // ---- Credentials ----
-export async function resetMemberPassword(id: string) {
-  await checkAdmin()
-  const supabase = await createAdminClient()
-
-  const { error } = await supabase
-    .from('profiles')
-    .update({ password_game: null } as any)
-    .eq('id', id)
-
-  if (error) return { success: false, error: error.message }
-
-  revalidatePath('/admin/credentials')
-  return { success: true }
-}
+// TODO: Phase 2 - Password reset functionality will be implemented with Supabase Auth
 
 export async function clearMemberParty(id: string) {
   await checkAdmin()

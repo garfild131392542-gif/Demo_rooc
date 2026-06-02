@@ -22,16 +22,15 @@ import ExportModal from "./ExportModal";
 export type Profile = {
   id: string;
   uid_game: string;
+  email?: string | null;
   display_name: string;
   job_name: string;
   
-  // ของเดิม
+  // Stats
   pvp_reduc: number;
   pvp_dmg: number;
   p_def: number;
   m_def: number;
-
-  // 👇 เพิ่ม 6 บรรทัดนี้เข้าไป 👇
   p_atk: number;
   m_atk: number;
   p_dmg: number;
@@ -39,11 +38,20 @@ export type Profile = {
   p_reduc: number;
   m_reduc: number;
 
+  // Guild & Authorization
+  guild_id?: string | null;
   avatar_url: string;
   role: "admin" | "member";
+  
+  // Party & Status
   party_id: number | null;
   slot_index: number | null;
   is_on_leave: boolean;
+  
+  // Timestamps
+  created_at?: string;
+  updated_at?: string;
+  last_stat_update?: string;
 };
 
 export default function Dashboard({

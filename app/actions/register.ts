@@ -7,6 +7,7 @@ import {
   validatePassword,
   validatePasswordMatch,
 } from '@/lib/validations'
+import { sendWelcomeEmailAction } from './email'
 
 interface RegisterFormData {
   firstName: string
@@ -114,10 +115,23 @@ export async function registerAction(formData: RegisterFormData): Promise<Regist
       return { success: false, error: 'Failed to link profile to guild' }
     }
 
-    // Mock welcome email sending
-    console.log(`[EMAIL MOCK] Welcome email for: ${formData.email}`)
-    console.log(`[EMAIL MOCK] Guild ID: ${guildId}, Guild Name: ${guildData.name}`)
-    console.log(`[EMAIL MOCK] User ID: ${userId}`)
+    // Send welcome email (non-blocking)
+    try {
+      const emailResult = await sendWelcomeEmailAction({
+        email: formData.email,
+        displayName: `${formData.firstName} ${formData.lastName}`,
+        guildName: guildData.name,
+        // guildUrl will be set during onboarding, not at registration
+      })
+
+      if (!emailResult.success) {
+        console.warn('[WELCOME EMAIL WARNING]', emailResult.error)
+        // Don't block registration if email fails
+      }
+    } catch (emailError) {
+      console.error('[WELCOME EMAIL ERROR]', emailError)
+      // Don't block registration if email fails
+    }
 
     return {
       success: true,

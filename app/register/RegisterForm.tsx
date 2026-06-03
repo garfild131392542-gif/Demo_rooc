@@ -97,16 +97,22 @@ export function RegisterForm() {
 
     setIsLoading(true)
 
-    const result = await registerAction(formData)
+    try {
+      const result = await registerAction(formData)
 
-    if (!result.success) {
-      setError(result.error || 'Registration failed')
+      if (!result.success) {
+        setError(result.error || 'Registration failed')
+        setIsLoading(false)
+        return
+      }
+
+      // Redirect to onboarding
+      router.push('/onboarding')
+    } catch (err) {
+      console.error('Unexpected error during registration:', err)
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
       setIsLoading(false)
-      return
     }
-
-    // Redirect to onboarding
-    router.push('/onboarding')
   }
 
   return (

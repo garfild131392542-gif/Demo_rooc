@@ -61,8 +61,9 @@ export async function registerAction(formData: RegisterFormData): Promise<Regist
 
     const userId = authData.user.id
 
-    // Create profile record
-    const { error: profileError } = await supabase.from('profiles').insert([
+    // Create profile record using admin client to bypass RLS
+    const adminClient = createAdminClient()
+    const { error: profileError } = await adminClient.from('profiles').insert([
       {
         id: userId,
         email: formData.email,
@@ -83,7 +84,6 @@ export async function registerAction(formData: RegisterFormData): Promise<Regist
     const trialEndsAt = new Date()
     trialEndsAt.setDate(trialEndsAt.getDate() + 14)
 
-    const adminClient = createAdminClient()
     const { data: guildData, error: guildError } = await adminClient
       .from('guilds')
       .insert([
@@ -104,8 +104,8 @@ export async function registerAction(formData: RegisterFormData): Promise<Regist
 
     const guildId = guildData.id
 
-    // Update profile with guild_id
-    const { error: updateProfileError } = await supabase
+    // Update profile with guild_id using admin client
+    const { error: updateProfileError } = await adminClient
       .from('profiles')
       .update({ guild_id: guildId })
       .eq('id', userId)
@@ -140,9 +140,10 @@ export async function registerAction(formData: RegisterFormData): Promise<Regist
     }
   } catch (error) {
     console.error('Registration error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.'
     return {
       success: false,
-      error: 'An unexpected error occurred. Please try again.',
+      error: errorMessage,
     }
   }
 }

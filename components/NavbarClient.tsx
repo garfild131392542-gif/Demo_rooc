@@ -78,7 +78,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                         <div className="hidden md:flex ml-10 space-x-1">
                             {[
                                 { name: 'Dashboard', href: '/' },
-                                { name: 'Create Guild', href: '/guild/create' },
+                                { name: 'Guild', href: '/guild/edit' },
                                 { name: 'My Profile', href: '/profile' },
                                 { name: 'Members', href: '/members' },
                             ].map((item) => (

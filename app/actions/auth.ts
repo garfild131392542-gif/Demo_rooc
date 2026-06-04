@@ -40,8 +40,7 @@ export async function getSession() {
 /**
  * Login user with email and password
  * Uses Supabase Auth standard signInWithPassword method
- * 
- * @param email - User's email address
+ * * @param email - User's email address
  * @param password - User's password
  * @returns { success: boolean, error?: string }
  */
@@ -87,9 +86,7 @@ export async function loginAction(email: string, password: string) {
 /**
  * Register a new user with email and password
  * Uses Supabase Auth standard signUp method
- * Also creates a profile record for the new user
- * 
- * @param email - User's email address
+ * * @param email - User's email address
  * @param password - User's password
  * @returns { success: boolean, error?: string }
  */
@@ -100,7 +97,7 @@ export async function registerAction(email: string, password: string) {
 
   const supabase = await createClient()
 
-  // Step 1: Create auth user
+  // Step 1: Create auth user (ระบบ Authentication)
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -114,44 +111,12 @@ export async function registerAction(email: string, password: string) {
     return { success: false, error: 'ไม่สามารถสร้างบัญชีได้' }
   }
 
-  // Step 2: Create profile record using admin client (bypasses RLS)
-  try {
-    const adminClient = await createAdminClient()
-    const adminAny = adminClient as any
+  // ✂️ REFACTORED: ลบ Step 2 (การสร้าง Profile) ออกจากตรงนี้ทั้งหมด! ✂️
+  // เพื่อป้องกันปัญหาข้อมูล Profile ตีกัน (Conflict)
+  // ให้ระบบไปบังคับสร้าง Profile ตอนที่ User เข้าหน้า /profile-setup แทน (ผ่านไฟล์ profile.ts)
 
-    const { error: profileError } = await adminAny
-      .from('profiles')
-      .insert([
-        {
-          id: data.user.id,
-          uid_game: email.split('@')[0], // Use email prefix as game username
-          display_name: email.split('@')[0],
-          job_name: 'Beginner',
-          role: 'member', // Default role
-          p_atk: 0,
-          m_atk: 0,
-          p_def: 0,
-          m_def: 0,
-          p_dmg: 0,
-          m_dmg: 0,
-          p_reduc: 0,
-          m_reduc: 0,
-          pvp_dmg: 0,
-          pvp_reduc: 0,
-          created_at: new Date().toISOString(),
-        },
-      ])
-
-    if (profileError) {
-      console.error('Error creating profile:', profileError.message)
-      // Don't fail - user account was created even if profile creation failed
-    }
-  } catch (err: any) {
-    console.error('Error in profile creation:', err.message)
-    // Don't fail - user account was created
-  }
-
-  return { success: true }
+  // คืนค่า success พร้อมข้อมูล user กลับไปให้หน้าบ้านทันที
+  return { success: true, user: data.user }
 }
 
 // ==========================================

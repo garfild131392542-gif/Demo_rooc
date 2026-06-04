@@ -8,7 +8,7 @@ export interface OnboardingFormData {
   guildUrl: string
   guildDescription: string
   discordLink?: string
-  facebookLink?: string
+  
 }
 
 const GUILD_URL_REGEX = /^[a-z0-9-]+$/
@@ -96,6 +96,21 @@ export async function completeOnboardingAction(
       console.error('Guild creation error:', insertError)
       return { success: false, error: 'Failed to create guild' }
     }
+
+    // 🌟🌟🌟 4.5 [REFACTORED] เชื่อมโยง Profile เข้ากับ Guild ทันที 🌟🌟🌟
+    const { error: profileUpdateError } = await (adminClient as any)
+      .from('profiles')
+      .update({ 
+        guild_id: newGuild.id, 
+        role: 'admin' // ให้สิทธิ์คนสร้างเป็น Admin ทันที
+      })
+      .eq('id', userId)
+
+    if (profileUpdateError) {
+      console.error('Error linking profile to guild:', profileUpdateError)
+      return { success: false, error: 'สร้างกิลด์สำเร็จ แต่เกิดข้อผิดพลาดในการเชื่อมโยงโปรไฟล์' }
+    }
+    // 🌟🌟🌟==============================================🌟🌟🌟
 
     // 5. สร้างลิงก์เชิญเพื่อส่งกลับไปให้หน้า Frontend และส่งอีเมล
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'

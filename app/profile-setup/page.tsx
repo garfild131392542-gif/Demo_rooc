@@ -41,7 +41,7 @@ export default function ProfileSetupPage() {
     }
 
     // บันทึกเสร็จ เด้งเข้า Dashboard ของจริง!
-    router.push('/dashboard')
+    router.push('/')
   }
 
   return (

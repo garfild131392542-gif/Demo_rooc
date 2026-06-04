@@ -144,7 +144,7 @@ export function OnboardingForm() {
     }
   }
 
-  const handleGoToDashboard = () => {
+  const handleGoToRegister = () => {
     router.push('/profile-setup')
   }
 
@@ -237,14 +237,7 @@ export function OnboardingForm() {
             onChange={handleInputChange}
           />
 
-          <FormInput
-            label="Facebook Link"
-            name="facebookLink"
-            type="url"
-            placeholder="https://facebook.com/groups/..."
-            value={formData.facebookLink}
-            onChange={handleInputChange}
-          />
+          
 
           <div className="flex gap-3">
             <button
@@ -313,10 +306,10 @@ export function OnboardingForm() {
               </div>
 
               <button
-                onClick={handleGoToDashboard}
+                onClick={handleGoToRegister}
                 className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
               >
-                เริ่มใช้งาน Dashboard →
+                ลงทะเบียนเข้าสู่ระบบกิลด์
               </button>
             </>
           )}

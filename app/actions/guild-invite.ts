@@ -65,7 +65,7 @@ export async function registerMemberWithGuildInvite(
         {
           id: userId,
           uid_game: normalizedUsername,
-          email: virtualEmail,
+          
           display_name: normalizedDisplayName,
           job_name: normalizedJobName,
           role: 'member',

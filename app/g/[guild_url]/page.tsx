@@ -5,9 +5,12 @@ import GuildInviteForm from './GuildInviteForm'
 export default async function GuildInvitePage({
   params,
 }: {
-  params: { guild_url: string }
+  params: Promise<{ guild_url: string }> // ประกาศให้ชัดว่าเป็น Promise
 }) {
-  const rawGuildUrl = params.guild_url ?? ''
+  // ต้องรอให้ params พร้อมก่อนถึงจะดึงค่าออกมาได้
+  const { guild_url } = await params
+  const rawGuildUrl = guild_url ?? ''
+  
   const guildUrl = decodeURIComponent(rawGuildUrl).trim().toLowerCase()
 
   const supabaseAdmin = await createAdminClient()

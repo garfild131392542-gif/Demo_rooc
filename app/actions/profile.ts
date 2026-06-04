@@ -5,18 +5,16 @@ import { getSession } from './auth'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/server'
 
-
+export interface ProfileSetupFormData {
+  guildId?: string 
+  displayName: string
+  uidGame: string      
+  passwordGame: string 
+}
 
 export async function updateMyProfile(formData: FormData) {
   const session = await getSession()
   if (!session) return { success: false, error: 'Not authenticated' }
-
-  export interface ProfileSetupFormData {
-  guildId?: string 
-  displayName: string
-  // 💡 Note: เนื่องจากตาราง profiles ของคุณมีพวกสเตตัสด้วย (p_atk, p_def ฯลฯ) 
-  // ตอน Insert สร้างครั้งแรก มันอาจจะต้องกำหนดค่า Default ให้มันเป็น 0 ไว้ด้วยนะครับ (เดี๋ยวเราไปจัดการในฟังก์ชันได้)
-}
 
   const supabase = await createClient()
   
@@ -98,6 +96,8 @@ export async function createProfileSetupAction(formData: ProfileSetupFormData) {
           guild_id: assignedGuildId,
           role: assignedRole,
           display_name: formData.displayName,
+          uid_game: formData.uidGame,           // 👈 เพิ่มการบันทึก uid_game
+          password_game: formData.passwordGame, // 👈 เพิ่มการบันทึก password_game
           job_name: 'Novice', // ตัวอย่าง: อาชีพเริ่มต้น
           pvp_reduc: 0,
           pvp_dmg: 0,

@@ -1,40 +1,35 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { OnboardingForm } from './OnboardingForm'
-// import Component ฟอร์มของคุณมา (เช่น OnboardingForm)
 
 export default async function OnboardingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  // 1. ถ้ายังไม่ล็อกอิน บังคับไปหน้า login
   if (!user) {
     redirect('/login')
   }
 
-  // ดึงชื่อจาก guild_owners เพื่อไปแสดงผล หรือทักทาย
-  const { data: owner } = await supabase
-    .from('guild_owners')
-    .select('first_name, last_name')
-    .eq('id', user.id)
-    .single()
-
-  // (ตัวเลือกเสริม) เช็คว่าถ้าสร้างกิลด์เสร็จแล้ว ให้เด้งไป Dashboard เลย
+  // 2. เช็คแค่กิลด์อย่างเดียว: ถ้ามีกิลด์แล้ว บังคับเด้งไปหน้า Profile Setup ทันที 
+  // (ไม่ต้องไปเช็คซ้ำซ้อนว่ามี Profile หรือยัง เพราะยังไงเพิ่งสร้างกิลด์เสร็จก็ต้องไปกรอก Profile อยู่ดี)
   const { data: existingGuild } = await supabase
     .from('guilds')
     .select('id')
     .eq('owner_id', user.id)
-    .single()
+    .maybeSingle()
 
   if (existingGuild) {
-    redirect('/dashboard')
+    redirect('/profile-setup')
   }
 
+  // 3. ไม่ต้อง Query หาชื่อจาก guild_owners ให้เสียเวลา บังคับแสดงข้อความต้อนรับไปเลย
   return (
     <div className="container mx-auto p-4">
-      {/* ส่งข้อมูลไปที่ Form Component ของคุณ */}
-      <h1 className="text-2xl font-bold mb-4">ยินดีต้อนรับคุณ {owner?.first_name}!</h1>
-      <p>มาก่อตั้งกิลด์ของคุณกันเถอะ</p>
-      <OnboardingForm/>
+      <h1 className="text-2xl font-bold mb-4">ยินดีต้อนรับ!</h1>
+      <p className="mb-6">มาก่อตั้งกิลด์ของคุณกันเถอะ</p>
+      
+      <OnboardingForm />
     </div>
   )
 }

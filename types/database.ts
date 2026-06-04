@@ -49,6 +49,17 @@ export type Profile = {
   last_stat_update?: string; // ISO 8601
 };
 
+export type GuildOwner = {
+  id: string; // UUID, FK to auth.users(id)
+  email?: string | null;
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  created_at?: string; // ISO 8601
+};
+
+
+
 /**
  * Guild Type
  * Represents a gaming guild/community

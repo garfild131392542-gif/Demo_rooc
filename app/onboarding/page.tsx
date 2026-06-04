@@ -1,44 +1,40 @@
-import { OnboardingForm } from './OnboardingForm'
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { OnboardingForm } from './OnboardingForm'
+// import Component ฟอร์มของคุณมา (เช่น OnboardingForm)
 
 export default async function OnboardingPage() {
-  const supabase = createClient()
-
-  // Get current user and guild
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    return <div>Not authenticated</div>
+    redirect('/login')
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('guild_id, display_name')
+  // ดึงชื่อจาก guild_owners เพื่อไปแสดงผล หรือทักทาย
+  const { data: owner } = await supabase
+    .from('guild_owners')
+    .select('first_name, last_name')
     .eq('id', user.id)
     .single()
 
-  const guildId = profile?.guild_id
+  // (ตัวเลือกเสริม) เช็คว่าถ้าสร้างกิลด์เสร็จแล้ว ให้เด้งไป Dashboard เลย
+  const { data: existingGuild } = await supabase
+    .from('guilds')
+    .select('id')
+    .eq('owner_id', user.id)
+    .single()
 
-  if (!guildId) {
-    return <div>No guild found</div>
+  if (existingGuild) {
+    redirect('/dashboard')
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
-      <div className="w-full max-w-2xl">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sm:p-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            สร้างกิลด์ของคุณ
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-8">
-            ทำการตั้งค่าพื้นฐานและสร้างลิงก์เชิญของคุณ
-          </p>
-          <OnboardingForm guildId={guildId} />
-        </div>
-      </div>
+    <div className="container mx-auto p-4">
+      {/* ส่งข้อมูลไปที่ Form Component ของคุณ */}
+      <h1 className="text-2xl font-bold mb-4">ยินดีต้อนรับคุณ {owner?.first_name}!</h1>
+      <p>มาก่อตั้งกิลด์ของคุณกันเถอะ</p>
+      <OnboardingForm/>
     </div>
   )
 }
-

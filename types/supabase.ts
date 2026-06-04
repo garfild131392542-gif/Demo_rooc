@@ -11,7 +11,7 @@
 export type Database = {
   public: {
     Tables: {
-      profiles: {
+      profile: {
         Row: {
           id: string
           uid_game: string
@@ -152,20 +152,40 @@ export type Database = {
           updated_at?: string
         }
       }
+      guild_owners: {
+        Row: {
+          id: string
+          email: string | null
+          first_name: string
+          last_name: string
+          phone_number: string
+          created_at: string
+        }
+        Insert: {
+          id: string
+          email?: string | null
+          first_name: string
+          last_name: string
+          phone_number: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string | null
+          first_name?: string
+          last_name?: string
+          phone_number?: string
+          created_at?: string
+        }
+      }
     }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      [_ in never]: never
-    }
+    Views: {}
+    Functions: {}
     Enums: {
       profile_role: 'admin' | 'member'
       guild_status: 'pending' | 'approved' | 'rejected'
       admin_role: 'admin' | 'super_admin'
     }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+    CompositeTypes: {}
   }
 }

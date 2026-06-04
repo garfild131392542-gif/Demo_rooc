@@ -126,22 +126,22 @@ export async function sendWelcomeEmailAction(
     // Check if RESEND_API_KEY is available
     const hasResendKey = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim().length > 0
 
-    if (!hasResendKey) {
-      // Fallback: Mock email sending with console.log (for local development)
-      console.log('\n' + '='.repeat(80))
-      console.log('[EMAIL MOCK - LOCAL DEVELOPMENT]')
-      console.log('='.repeat(80))
-      console.log(`To: ${email}`)
-      console.log(`Subject: ${subject}`)
-      console.log('='.repeat(80))
-      console.log(html)
-      console.log('='.repeat(80) + '\n')
+    // if (!hasResendKey) {
+    //   // Fallback: Mock email sending with console.log (for local development)
+    //   console.log('\n' + '='.repeat(80))
+    //   console.log('[EMAIL MOCK - LOCAL DEVELOPMENT]')
+    //   console.log('='.repeat(80))
+    //   console.log(`To: ${email}`)
+    //   console.log(`Subject: ${subject}`)
+    //   console.log('='.repeat(80))
+    //   console.log(html)
+    //   console.log('='.repeat(80) + '\n')
 
-      return {
-        success: true,
-        messageId: 'mock-' + Date.now(),
-      }
-    }
+    //   return {
+    //     success: true,
+    //     messageId: 'mock-' + Date.now(),
+    //   }
+    // }
 
     // Use Resend SDK to send email (only if API key is available)
     try {

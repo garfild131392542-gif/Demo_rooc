@@ -3,10 +3,20 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSession } from './auth'
 import { revalidatePath } from 'next/cache'
+import { createAdminClient } from '@/lib/supabase/server'
+
+
 
 export async function updateMyProfile(formData: FormData) {
   const session = await getSession()
   if (!session) return { success: false, error: 'Not authenticated' }
+
+  export interface ProfileSetupFormData {
+  guildId?: string 
+  displayName: string
+  // 💡 Note: เนื่องจากตาราง profiles ของคุณมีพวกสเตตัสด้วย (p_atk, p_def ฯลฯ) 
+  // ตอน Insert สร้างครั้งแรก มันอาจจะต้องกำหนดค่า Default ให้มันเป็น 0 ไว้ด้วยนะครับ (เดี๋ยวเราไปจัดการในฟังก์ชันได้)
+}
 
   const supabase = await createClient()
   
@@ -42,4 +52,76 @@ export async function updateMyProfile(formData: FormData) {
   revalidatePath('/profile')
   revalidatePath('/')
   return { success: true }
+}
+
+export async function createProfileSetupAction(formData: ProfileSetupFormData) {
+  try {
+    const supabase = await createClient()
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !authData.user) {
+      return { success: false, error: 'กรุณาเข้าสู่ระบบก่อน' }
+    }
+    const userId = authData.user.id
+
+    const adminClient = await createAdminClient()
+
+    // 1. 🔍 ตรวจสอบว่า User คนนี้เป็น "เจ้าของกิลด์" หรือไม่?
+    const { data: ownedGuild } = await (adminClient as any)
+      .from('guilds')
+      .select('id')
+      .eq('owner_id', userId)
+      .maybeSingle()
+
+    // 2. 🎯 กำหนด Role และ Guild ID อัตโนมัติ
+    let assignedRole = 'member'
+    let assignedGuildId = null
+
+    if (ownedGuild) {
+      assignedRole = 'admin'
+      assignedGuildId = ownedGuild.id
+    } else {
+      assignedRole = 'member'
+      assignedGuildId = formData.guildId 
+    }
+
+    if (!assignedGuildId) {
+       return { success: false, error: 'ไม่พบข้อมูลกิลด์ กรุณาลองใหม่อีกครั้ง' }
+    }
+
+    // 3. 📝 บันทึกลงตาราง profiles (ใส่ค่า Default สเตตัสเป็น 0 ไปก่อนสำหรับการสร้างครั้งแรก)
+    const { error: insertError } = await (adminClient as any)
+      .from('profiles')
+      .insert([
+        {
+          id: userId,
+          guild_id: assignedGuildId,
+          role: assignedRole,
+          display_name: formData.displayName,
+          job_name: 'Novice', // ตัวอย่าง: อาชีพเริ่มต้น
+          pvp_reduc: 0,
+          pvp_dmg: 0,
+          p_def: 0,
+          m_def: 0,
+          p_atk: 0,
+          m_atk: 0,
+          p_dmg: 0,
+          m_dmg: 0,
+          p_reduc: 0,
+          m_reduc: 0,
+          updated_at: new Date().toISOString(),
+        }
+      ])
+
+    if (insertError) {
+      console.error('Profile creation error:', insertError)
+      return { success: false, error: 'ไม่สามารถบันทึกข้อมูลโปรไฟล์ได้' }
+    }
+
+    return { success: true }
+
+  } catch (error) {
+    console.error('Profile setup error:', error)
+    return { success: false, error: 'เกิดข้อผิดพลาดที่ไม่คาดคิด' }
+  }
 }

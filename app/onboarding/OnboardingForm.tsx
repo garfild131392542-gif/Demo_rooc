@@ -5,11 +5,10 @@ import { useRouter } from 'next/navigation'
 import { FormInput } from '@/components/FormInput'
 import { FormTextarea } from '@/components/FormTextarea'
 import { ProgressBar } from '@/components/ProgressBar'
-import { validateGuildUrlAction, completeOnboardingAction } from '@/app/actions/onboarding'
+import { completeOnboardingAction, validateGuildUrlAction } from '../actions/onboarding'
 
-interface OnboardingFormProps {
-  guildId: string
-}
+
+
 
 interface GuildUrlStatus {
   checking: boolean
@@ -17,7 +16,7 @@ interface GuildUrlStatus {
   error?: string
 }
 
-export function OnboardingForm({ guildId }: OnboardingFormProps) {
+export function OnboardingForm() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
@@ -60,7 +59,7 @@ export function OnboardingForm({ guildId }: OnboardingFormProps) {
   )
 
   // Debounce timer
-  const debounceTimerRef = React.useRef<NodeJS.Timeout>()
+  const debounceTimerRef = React.useRef<NodeJS.Timeout | null>(null)
 
   const handleGuildUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')
@@ -146,7 +145,7 @@ export function OnboardingForm({ guildId }: OnboardingFormProps) {
   }
 
   const handleGoToDashboard = () => {
-    router.push('/')
+    router.push('/profile-setup')
   }
 
   return (

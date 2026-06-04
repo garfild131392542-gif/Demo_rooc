@@ -9,9 +9,12 @@ import {
 } from '@/lib/validations'
 import { sendWelcomeEmailAction } from './email'
 
+// ลบ import GuildOwner ออกถ้าไม่ได้ใช้ในไฟล์นี้ เพื่อความคลีน
+
 interface RegisterFormData {
-  firstName: string
-  lastName: string
+  id?: string // ทำให้เป็น optional เพราะตอนส่งมาจากฟอร์มอาจจะยังไม่มี
+  firstName: string // เปลี่ยนเป็น firstName ให้ตรงกับฟอร์มฝั่ง Frontend
+  lastName: string  // เปลี่ยนเป็น lastName
   phone: string
   email: string
   password: string
@@ -49,7 +52,7 @@ export async function registerAction(formData: RegisterFormData): Promise<Regist
     }
 
     // Create auth user
-    const supabase = createClient()
+    const supabase = await createClient()
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
@@ -61,82 +64,45 @@ export async function registerAction(formData: RegisterFormData): Promise<Regist
 
     const userId = authData.user.id
 
-    // Create profile record using admin client to bypass RLS
-    const adminClient = createAdminClient()
-    const { error: profileError } = await adminClient.from('profiles').insert([
+    // Create profile record in guild_owners 
+    const adminClient = await createAdminClient()
+    const { error: ownerError } = await (adminClient as any).from('guild_owners').insert([
       {
         id: userId,
         email: formData.email,
-        display_name: `${formData.firstName} ${formData.lastName}`,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
+        first_name: formData.firstName, 
+        last_name: formData.lastName,   
         phone_number: formData.phone,
-        role: 'admin',
       },
     ])
 
-    if (profileError) {
-      console.error('Profile creation error:', profileError)
-      return { success: false, error: 'Failed to create profile' }
+    if (ownerError) {
+      console.error('Owner creation error:', ownerError)
+      return { success: false, error: 'Failed to create account owner' }
     }
 
-    // Create guild with 14-day trial
-    const trialEndsAt = new Date()
-    trialEndsAt.setDate(trialEndsAt.getDate() + 14)
-
-    const { data: guildData, error: guildError } = await adminClient
-      .from('guilds')
-      .insert([
-        {
-          name: `${formData.firstName}'s Guild`,
-          owner_id: userId,
-          trial_ends_at: trialEndsAt.toISOString(),
-          status: 'pending',
-        },
-      ])
-      .select('id, name')
-      .single()
-
-    if (guildError || !guildData) {
-      console.error('Guild creation error:', guildError)
-      return { success: false, error: 'Failed to create guild' }
-    }
-
-    const guildId = guildData.id
-
-    // Update profile with guild_id using admin client
-    const { error: updateProfileError } = await adminClient
-      .from('profiles')
-      .update({ guild_id: guildId })
-      .eq('id', userId)
-
-    if (updateProfileError) {
-      console.error('Profile update error:', updateProfileError)
-      return { success: false, error: 'Failed to link profile to guild' }
-    }
+    
 
     // Send welcome email (non-blocking)
     try {
       const emailResult = await sendWelcomeEmailAction({
         email: formData.email,
         displayName: `${formData.firstName} ${formData.lastName}`,
-        guildName: guildData.name,
-        // guildUrl will be set during onboarding, not at registration
+        // 👇 เปลี่ยนจาก guildData.name เป็นชื่อระบบไปก่อน เพราะเขายังไม่ได้ตั้งชื่อกิลด์
+        guildName: 'ระบบจัดการกิลด์ (Guild Management)', 
       })
 
       if (!emailResult.success) {
         console.warn('[WELCOME EMAIL WARNING]', emailResult.error)
-        // Don't block registration if email fails
       }
     } catch (emailError) {
       console.error('[WELCOME EMAIL ERROR]', emailError)
-      // Don't block registration if email fails
     }
 
     return {
       success: true,
       userId,
-      guildId,
+      // 👇 ลบ guildId ทิ้งไปเลย เพราะเรายังไม่มีข้อมูลนี้ในขั้นตอนนี้ครับ
     }
   } catch (error) {
     console.error('Registration error:', error)

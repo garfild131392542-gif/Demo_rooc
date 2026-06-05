@@ -106,8 +106,8 @@ export function RegisterForm() {
         return
       }
 
-      // Redirect to onboarding
-      router.push('/onboarding')
+      // Redirect to profile setup
+      router.push('/profile-setup')
     } catch (err) {
       console.error('Unexpected error during registration:', err)
       setError(err instanceof Error ? err.message : 'An unexpected error occurred')

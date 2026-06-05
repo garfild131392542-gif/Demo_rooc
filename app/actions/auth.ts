@@ -86,9 +86,10 @@ export async function loginAction(email: string, password: string) {
 /**
  * Register a new user with email and password
  * Uses Supabase Auth standard signUp method
- * * @param email - User's email address
+ * Applies virtual email trick: if email has no @, append @member.rooc
+ * * @param email - User's email address or username
  * @param password - User's password
- * @returns { success: boolean, error?: string }
+ * @returns { success: boolean, error?: string, user?: any }
  */
 export async function registerAction(email: string, password: string) {
   if (!email || !password) {
@@ -97,9 +98,15 @@ export async function registerAction(email: string, password: string) {
 
   const supabase = await createClient()
 
+  // Apply virtual email trick: if no @ symbol, append @member.rooc
+  const identifier = email.trim()
+  const finalEmail = identifier.includes('@')
+    ? identifier.toLowerCase()
+    : `${identifier.toLowerCase()}@member.rooc`
+
   // Step 1: Create auth user (ระบบ Authentication)
   const { data, error } = await supabase.auth.signUp({
-    email,
+    email: finalEmail,
     password,
   })
 
@@ -115,8 +122,9 @@ export async function registerAction(email: string, password: string) {
   // เพื่อป้องกันปัญหาข้อมูล Profile ตีกัน (Conflict)
   // ให้ระบบไปบังคับสร้าง Profile ตอนที่ User เข้าหน้า /profile-setup แทน (ผ่านไฟล์ profile.ts)
 
-  // คืนค่า success พร้อมข้อมูล user กลับไปให้หน้าบ้านทันที
+  // Return success on successful signup (no profile creation here)
   return { success: true, user: data.user }
+}
 }
 
 // ==========================================

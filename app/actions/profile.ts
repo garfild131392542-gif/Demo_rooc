@@ -6,10 +6,10 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/server'
 
 export interface ProfileSetupFormData {
-  guildId?: string 
   displayName: string
-  uidGame: string      
-  passwordGame: string 
+  uidGame: string
+  jobName: string
+  inviteCode?: string | null
 }
 
 // ==========================================
@@ -53,9 +53,10 @@ export async function updateMyProfile(formData: FormData) {
 }
 
 // ==========================================
-// สร้างหรืออัปเดต Profile ครั้งแรก (จากหน้า Profile Setup)
+// Setup Profile with Guild Selection (Profile Setup Page)
+// Handles: Create Guild mode OR Join Existing Guild with Invite Code
 // ==========================================
-export async function createProfileSetupAction(formData: ProfileSetupFormData) {
+export async function setupProfileAction(formData: ProfileSetupFormData) {
   try {
     const supabase = await createClient()
     const { data: authData, error: authError } = await supabase.auth.getUser()
@@ -67,30 +68,41 @@ export async function createProfileSetupAction(formData: ProfileSetupFormData) {
 
     const adminClient = await createAdminClient()
 
-    // 1. 🔍 ตรวจสอบว่า User คนนี้เป็น "เจ้าของกิลด์" หรือไม่?
-    const { data: ownedGuild } = await (adminClient as any)
-      .from('guilds')
-      .select('id')
-      .eq('owner_id', userId)
-      .maybeSingle()
-
-    // 2. 🎯 กำหนด Role และ Guild ID อัตโนมัติ
-    let assignedRole = 'member'
+    // 🎯 Determine the assigned guild and role based on invite code
     let assignedGuildId = null
+    let assignedRole = 'member'
+    let chosenPath = '/onboarding' // Default: Create Guild mode
 
-    if (ownedGuild) {
-      assignedRole = 'admin'
-      assignedGuildId = ownedGuild.id
-    } else {
+    if (formData.inviteCode) {
+      // 🔗 Option B: Join Existing Guild
+      // Query guilds table to find guild by invite code (stored as guild_url)
+      const { data: foundGuild, error: guildError } = await (adminClient as any)
+        .from('guilds')
+        .select('id')
+        .eq('guild_url', formData.inviteCode)
+        .maybeSingle()
+
+      if (guildError) {
+        console.error('Guild lookup error:', guildError)
+        return { success: false, error: 'เกิดข้อผิดพลาดในการค้นหากิลด์' }
+      }
+
+      if (!foundGuild) {
+        return { success: false, error: 'ไม่พบกิลด์ที่ใช้โค้ดเชิญนี้' }
+      }
+
+      assignedGuildId = foundGuild.id
       assignedRole = 'member'
-      assignedGuildId = formData.guildId 
+      chosenPath = '/dashboard' // Join guild: go to dashboard
+    } else {
+      // 🏛️ Option A: Create Guild mode
+      // Set to null so they can create their own guild in onboarding
+      assignedGuildId = null
+      assignedRole = 'member'
+      chosenPath = '/onboarding' // Create guild: go to onboarding
     }
 
-    if (!assignedGuildId) {
-       return { success: false, error: 'ไม่พบข้อมูลกิลด์ กรุณาลองใหม่อีกครั้ง' }
-    }
-
-    // 🌟🌟🌟 3. [REFACTORED] ตรวจสอบว่ามี Profile อยู่แล้วหรือไม่ 🌟🌟🌟
+    // ✅ Check if profile already exists
     const { data: existingProfile } = await (adminClient as any)
       .from('profiles')
       .select('id')
@@ -98,7 +110,7 @@ export async function createProfileSetupAction(formData: ProfileSetupFormData) {
       .maybeSingle()
 
     if (existingProfile) {
-      // 🟢 กรณีมี Profile อยู่แล้ว -> ทำการ UPDATE ข้อมูล
+      // 🟢 Profile exists: UPDATE
       const { error: updateError } = await (adminClient as any)
         .from('profiles')
         .update({
@@ -106,7 +118,7 @@ export async function createProfileSetupAction(formData: ProfileSetupFormData) {
           role: assignedRole,
           display_name: formData.displayName,
           uid_game: formData.uidGame,
-          password_game: formData.passwordGame,
+          job_name: formData.jobName,
           updated_at: new Date().toISOString(),
         })
         .eq('id', userId)
@@ -116,7 +128,7 @@ export async function createProfileSetupAction(formData: ProfileSetupFormData) {
         return { success: false, error: 'ไม่สามารถอัปเดตข้อมูลโปรไฟล์ได้' }
       }
     } else {
-      // 🔵 กรณีที่ยังไม่มี Profile -> ทำการ INSERT ข้อมูลใหม่
+      // 🔵 Profile doesn't exist: INSERT
       const { error: insertError } = await (adminClient as any)
         .from('profiles')
         .insert([
@@ -126,18 +138,18 @@ export async function createProfileSetupAction(formData: ProfileSetupFormData) {
             role: assignedRole,
             display_name: formData.displayName,
             uid_game: formData.uidGame,
-            password_game: formData.passwordGame,
-            job_name: 'Novice', // อาชีพเริ่มต้น
-            pvp_reduc: 0,
-            pvp_dmg: 0,
-            p_def: 0,
-            m_def: 0,
+            job_name: formData.jobName,
+            // Initialize stats to 0
             p_atk: 0,
             m_atk: 0,
+            p_def: 0,
+            m_def: 0,
             p_dmg: 0,
             m_dmg: 0,
             p_reduc: 0,
             m_reduc: 0,
+            pvp_dmg: 0,
+            pvp_reduc: 0,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           }
@@ -148,12 +160,19 @@ export async function createProfileSetupAction(formData: ProfileSetupFormData) {
         return { success: false, error: 'ไม่สามารถบันทึกข้อมูลโปรไฟล์ได้' }
       }
     }
-    // 🌟🌟🌟=================================================🌟🌟🌟
 
-    return { success: true }
+    revalidatePath('/profile')
+    revalidatePath('/')
+    
+    return { success: true, chosenPath }
 
   } catch (error) {
     console.error('Profile setup error:', error)
     return { success: false, error: 'เกิดข้อผิดพลาดที่ไม่คาดคิด' }
   }
+}
+
+// Keep the old function for backward compatibility
+export async function createProfileSetupAction(formData: ProfileSetupFormData) {
+  return setupProfileAction(formData)
 }

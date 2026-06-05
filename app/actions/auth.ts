@@ -125,7 +125,7 @@ export async function registerAction(email: string, password: string) {
   // Return success on successful signup (no profile creation here)
   return { success: true, user: data.user }
 }
-}
+
 
 // ==========================================
 // Logout

@@ -9,7 +9,8 @@ import Link from 'next/link'
 export default function LoginPage() {
   const router = useRouter()
 
-  const [email, setEmail] = useState('')
+  // 🌟 ปรับชื่อ State ให้สื่อความหมายว่ารับได้ทั้ง ชื่อผู้ใช้ หรือ อีเมล
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -24,7 +25,8 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const result = await loginAction(email, password)
+      // ส่ง identifier (ที่อาจเป็นชื่อผู้ใช้หรืออีเมล) ไปให้ loginAction ประมวลผลต่อ
+      const result = await loginAction(identifier, password)
 
       if (!result.success) {
         setError(result.error || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ')
@@ -80,18 +82,21 @@ export default function LoginPage() {
             )}
 
             <div className="space-y-4">
+              {/* 🌟 ปรับปรุงช่องกรอกข้อมูล: เปลี่ยนจาก Email เป็น Username / Email 🌟 */}
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  อีเมล (Email)
+                <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  ชื่อผู้ใช้งาน หรือ อีเมล (Username / Email)
                 </label>
                 <input
-                  id="email"
-                  type="email"
+                  id="identifier"
+                  type="text" // 💡 เปลี่ยนจาก email เป็น text เพื่อไม่ให้ Browser บังคับใส่ @
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  placeholder="กรอกอีเมลของคุณ"
+                  placeholder="กรอกชื่อผู้ใช้งาน หรือ อีเมลของคุณ"
+                  autoCapitalize="none"
+                  spellCheck={false}
                 />
               </div>
 
@@ -153,13 +158,12 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
-
-          
         </div>
       </div>
 
+      {/* Contact Modal */}
       {showContactModal && (
-        <div className=" fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-gray-900">ติดต่อแอดมิน</h3>

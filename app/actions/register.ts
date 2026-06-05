@@ -2,7 +2,6 @@
 
 import { registerAction as registerAuthAction } from './auth'
 import {
-  validateEmail,
   validatePhoneNumber,
   validatePassword,
   validatePasswordMatch,
@@ -12,7 +11,7 @@ interface RegisterFormData {
   firstName: string
   lastName: string
   phone: string
-  email: string
+  username: string // 🌟 ใช้ Username ตามแผนของเรา
   password: string
   confirmPassword: string
 }
@@ -25,12 +24,16 @@ interface RegisterResponse {
 
 export async function registerAction(formData: RegisterFormData): Promise<RegisterResponse> {
   try {
-    // Validate input
-    const emailValidation = validateEmail(formData.email)
-    if (!emailValidation.valid) {
-      return { success: false, error: emailValidation.error }
+    // 🌟 1. ปรับการตรวจสอบ: ตรวจสอบ Username แทนอีเมล
+    if (!formData.username || !formData.username.trim()) {
+      return { success: false, error: 'กรุณากรอกชื่อผู้ใช้งาน (Username)' }
+    }
+    
+    if (formData.username.includes('@')) {
+      return { success: false, error: 'ชื่อผู้ใช้งานต้องไม่มีเครื่องหมาย @' }
     }
 
+    // 2. ตรวจสอบข้อมูลเบอร์โทรศัพท์และรหัสผ่านตามปกติ
     const phoneValidation = validatePhoneNumber(formData.phone)
     if (!phoneValidation.valid) {
       return { success: false, error: phoneValidation.error }
@@ -46,24 +49,23 @@ export async function registerAction(formData: RegisterFormData): Promise<Regist
       return { success: false, error: passwordMatchValidation.error }
     }
 
-    // Note: firstName, lastName, and phone are NOT used in auth step.
-    // They will be stored in guild_owners table by a separate admin action if needed.
-    // For now, we only handle authentication signup.
+    // Note: firstName, lastName, and phone จะถูกบันทึกผ่านหน้า /profile-setup 
+    // หรือระบุตอนบันทึกข้อมูลกิลด์ในด่านถัดไปตามความเหมาะสม
 
-    // Call auth.ts registerAction (handles signUp + virtual email trick)
-    const result = await registerAuthAction(formData.email, formData.password)
+    // 🌟 3. ส่งข้อมูล Username (แทนอีเมลเดิม) ไปให้ auth.ts แปลงเป็น Virtual Email
+    const result = await registerAuthAction(formData.username, formData.password)
 
     if (!result.success) {
-      return { success: false, error: result.error || 'Failed to create account' }
+      return { success: false, error: result.error || 'ไม่สามารถสร้างบัญชีผู้ใช้งานได้' }
     }
 
     return {
       success: true,
-      userId: result.user?.id,
+      userId: (result as any).user?.id || (result as any).userId,
     }
   } catch (error) {
     console.error('Registration error:', error)
-    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.'
+    const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดที่ไม่คาดคิด โปรดลองอีกครั้ง'
     return {
       success: false,
       error: errorMessage,

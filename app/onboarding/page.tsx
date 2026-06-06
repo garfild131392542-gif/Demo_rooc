@@ -26,8 +26,6 @@ export default async function OnboardingPage() {
   // 3. ไม่ต้อง Query หาชื่อจาก guild_owners ให้เสียเวลา บังคับแสดงข้อความต้อนรับไปเลย
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">ยินดีต้อนรับ!</h1>
-      <p className="mb-6">มาก่อตั้งกิลด์ของคุณกันเถอะ</p>
       
       <OnboardingForm />
     </div>

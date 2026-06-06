@@ -3,12 +3,13 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { sendWelcomeEmailAction } from './email' 
 
+// กำหนดให้ contactEmail เป็นฟิลด์ที่จำเป็น (Required) เนื่องจากถูกบังคับในขั้นตอน Onboarding แล้ว
 export interface OnboardingFormData {
   guildName: string
   guildUrl: string
   guildDescription: string
   discordLink?: string
-  contactEmail?: string
+  contactEmail: string 
 }
 
 const GUILD_URL_REGEX = /^[a-z0-9-]+$/
@@ -24,23 +25,20 @@ export async function validateGuildUrlAction(
         error: 'URL ไม่ถูกต้อง (ใช้ได้แค่ a-z, 0-9 และเครื่องหมาย - เท่านั้น)' 
       }
     }
-    // 2. เช็คใน Database ว่ามี URL นี้ถูกใช้งานไปหรือยัง
+    
+    // 2. ตรวจสอบใน Database ว่ามี URL นี้ถูกใช้งานไปหรือยัง
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('guilds')
       .select('id')
       .eq('guild_url', guildUrl)
-      .single()
+      .maybeSingle()
 
-    // 💡 ทริคของ Supabase: ถ้า error.code เป็น 'PGRST116' แปลว่าหาข้อมูลไม่เจอ 
-    // ซึ่งในกรณีของการเช็คชื่อซ้ำ "หาไม่เจอ = ข่าวดี (ชื่อนี้ว่าง!)" ครับ
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error('Guild URL validation error:', error)
       return { available: false, error: 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล' }
     }
 
-    // ถ้า data มีค่า แปลว่ามีคนใช้ชื่อนี้ไปแล้ว (available = false)
-    // ถ้า data ไม่มีค่า แปลว่าชื่อนี้ยังว่างอยู่ (available = true)
     const available = !data
     return { available }
     
@@ -54,7 +52,7 @@ export async function completeOnboardingAction(
   formData: OnboardingFormData
 ): Promise<{ success: boolean; error?: string; inviteLink?: string }> {
   try {
-    // 1. เช็คความพร้อมของ URL กิลด์อีกรอบ
+    // 1. ตรวจสอบความพร้อมของ URL กิลด์อีกรอบ
     const urlValidation = await validateGuildUrlAction(formData.guildUrl)
     if (!urlValidation.available) {
       return { success: false, error: 'This guild URL is no longer available' }
@@ -74,7 +72,7 @@ export async function completeOnboardingAction(
     trialEndsAt.setDate(trialEndsAt.getDate() + 14) // ทดลองใช้ 14 วัน
     const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase() // สุ่มรหัสเชิญ
 
-    // 4. 🚀 สร้างกิลด์ใหม่ (INSERT) ลงในตาราง guilds
+    // 4. สร้างกิลด์ใหม่ (INSERT) ลงในตาราง guilds
     const adminClient = await createAdminClient()
     const { data: newGuild, error: insertError } = await (adminClient as any)
       .from('guilds')
@@ -83,10 +81,11 @@ export async function completeOnboardingAction(
           owner_id: userId,
           name: formData.guildName,
           guild_url: formData.guildUrl,
-          server_name: formData.guildDescription || formData.guildName, // ใช้ Description เป็น server_name ตามที่ฟอร์มออกแบบมา
-          status: 'active', // อนุมัติใช้งานทันที
+          server_name: formData.guildDescription || formData.guildName, 
+          status: 'active', 
           invite_code: inviteCode,
           trial_ends_at: trialEndsAt.toISOString(),
+          contact_email: formData.contactEmail // แก้ไขการอ้างอิงจาก input เป็น formData
         }
       ])
       .select('id')
@@ -97,12 +96,12 @@ export async function completeOnboardingAction(
       return { success: false, error: 'Failed to create guild' }
     }
 
-    // 🌟🌟🌟 4.5 [REFACTORED] เชื่อมโยง Profile เข้ากับ Guild ทันที 🌟🌟🌟
+    // 5. เชื่อมโยง Profile เข้ากับ Guild และปรับสิทธิ์เป็น admin
     const { error: profileUpdateError } = await (adminClient as any)
       .from('profiles')
       .update({ 
         guild_id: newGuild.id, 
-        role: 'admin' // ให้สิทธิ์คนสร้างเป็น Admin ทันที
+        role: 'admin' 
       })
       .eq('id', userId)
 
@@ -110,34 +109,24 @@ export async function completeOnboardingAction(
       console.error('Error linking profile to guild:', profileUpdateError)
       return { success: false, error: 'สร้างกิลด์สำเร็จ แต่เกิดข้อผิดพลาดในการเชื่อมโยงโปรไฟล์' }
     }
-    // 🌟🌟🌟==============================================🌟🌟🌟
 
-    // 5. สร้างลิงก์เชิญเพื่อส่งกลับไปให้หน้า Frontend และส่งอีเมล
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const inviteLink = `${appUrl}/g/${formData.guildUrl}`
 
-    // 6. 📧 ส่งอีเมลต้อนรับ 📧
+    // 6. ส่งอีเมลต้อนรับไปยังอีเมลติดต่อ (Contact Email) ที่ระบุไว้โดยตรง
     try {
-      const { data: ownerData } = await supabase
-        .from('guild_owners')
-        .select('email, first_name, last_name')
-        .eq('id', userId)
-        .single()
-
-      if (ownerData?.email) {
+      if (formData.contactEmail) {
         await sendWelcomeEmailAction({
-          email: ownerData.email,
-          displayName: `${ownerData.first_name} ${ownerData.last_name}`,
+          email: formData.contactEmail,
+          displayName: `${formData.guildName} Admin`, // ใช้ชื่อกิลด์พ่วงตำแหน่งทดแทนชื่อจริงที่นำออกไป
           guildName: formData.guildName,
           guildUrl: formData.guildUrl,
         })
       }
     } catch (emailError) {
       console.error('[WELCOME EMAIL ERROR during onboarding]', emailError)
-      // ปล่อยผ่านไป ไม่ต้องให้ระบบพังถ้าอีเมลส่งไม่ไป
     }
 
-    // 7. ส่งผลลัพธ์กลับไปให้ Component OnboardingForm
     return {
       success: true,
       inviteLink,

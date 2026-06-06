@@ -194,7 +194,7 @@ export function RegisterForm() {
         disabled={!isFormValid || isLoading}
         className="cursor-pointer w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors mt-2"
       >
-        {isLoading ? "กำลังโหลด..." : "เริ่มต้นทดลองใช้งาน 14 วัน"}
+        {isLoading ? "กำลังโหลด..." : "สมัครสมาชิก"}
       </button>
     </form>
   );

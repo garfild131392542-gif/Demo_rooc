@@ -93,7 +93,7 @@ export async function setupProfileAction(formData: ProfileSetupFormData) {
 
       assignedGuildId = foundGuild.id
       assignedRole = 'member'
-      chosenPath = '/dashboard' // Join guild: go to dashboard
+      chosenPath = '/' // Join guild: go to dashboard
     } else {
       // 🏛️ Option A: Create Guild mode
       // Set to null so they can create their own guild in onboarding

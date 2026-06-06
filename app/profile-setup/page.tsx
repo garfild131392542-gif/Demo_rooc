@@ -58,7 +58,7 @@ export default function ProfileSetupPage() {
       if (guildOption === "create") {
         router.push("/onboarding");
       } else {
-        router.push("/dashboard");
+        router.push("/");
       }
     } catch (err: any) {
       setError(err?.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ");

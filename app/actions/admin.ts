@@ -250,7 +250,7 @@ export async function approveGuild(guildId: string) {
       return { success: false, error: profileError.message }
     }
 
-    revalidatePath('/admin/dashboard')
+    revalidatePath('/admin/')
     return { success: true, message: 'อนุมัติกิลด์สำเร็จ' }
   } catch (error: any) {
     return { success: false, error: error.message }
@@ -294,7 +294,7 @@ export async function rejectGuild(guildId: string, reason?: string) {
       return { success: false, error: updateError.message }
     }
 
-    revalidatePath('/admin/dashboard')
+    revalidatePath('/admin')
     return { success: true, message: 'ปฏิเสธกิลด์สำเร็จ' }
   } catch (error: any) {
     return { success: false, error: error.message }

@@ -11,15 +11,15 @@ export default async function GuildStatusPage() {
     redirect('/login')
   }
 
-  // 2. ดึงข้อมูล Profile พร้อม Join ข้อมูลกิลด์มาแสดงผล
-  const { data: profile } = await supabase
+  // 2. ดึงข้อมูล Profile พร้อม Join ข้อมูลกิลด์มาแสดงผล (แก้ไขคอลัมน์จาก server_name เป็น description)
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select(`
       guild_id,
       guilds (
         name,
         guild_url,
-        server_name,
+        description,
         status,
         invite_code,
         created_at
@@ -27,6 +27,11 @@ export default async function GuildStatusPage() {
     `)
     .eq('id', user.id)
     .maybeSingle()
+
+  // พิมพ์ข้อผิดพลาดออกมาตรวจสอบในหน้าต่าง Terminal หากคำสั่งคิวรีทำงานไม่สำเร็จ
+  if (error) {
+    console.error('Fetch guild status database error:', error.message)
+  }
 
   // จัดการ Type เผื่อกรณีที่ Supabase รีเทิร์น guilds มาเป็น Array
   const guild = Array.isArray(profile?.guilds) ? profile.guilds[0] : profile?.guilds
@@ -46,7 +51,6 @@ export default async function GuildStatusPage() {
     )
   }
 
-  // สร้าง Base URL สำหรับใช้ประกอบร่างลิงก์เชิญ (ใช้ตัวแปรจาก .env ถ้ามี ถ้าไม่มีให้เป็น localhost)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
   // 4. กรณีที่มีกิลด์แล้ว ให้แสดงหน้าสรุปข้อมูล
@@ -76,12 +80,12 @@ export default async function GuildStatusPage() {
             <p className="text-lg font-medium text-slate-900">{guild.name}</p>
           </div>
           
+          {/* ปรับเปลี่ยนตัวแปรการแสดงผลจาก server_name เป็น description ให้ตรงกับโครงสร้างใหม่ */}
           <div className="pt-3 border-t border-slate-200">
-            <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">เซิร์ฟเวอร์</p>
-            <p className="text-md text-slate-900">{guild.server_name}</p>
+            <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">รายละเอียดกิลด์</p>
+            <p className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">{guild.description || '-'}</p>
           </div>
 
-          {/* 🌟 ส่วนที่เพิ่มเข้ามาใหม่: URL กิลด์ 🌟 */}
           <div className="pt-3 border-t border-slate-200">
             <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">ลิงก์หน้ากิลด์ (Guild URL)</p>
             <p className="text-sm font-medium text-blue-600 break-all select-all">
@@ -95,8 +99,6 @@ export default async function GuildStatusPage() {
             <p className="text-lg font-mono text-slate-800 font-bold tracking-widest select-all">{guild.invite_code || '-'}</p>
           </div>
         </div>
-
-        {/* ปุ่มกลับไปหน้าหลัก */}
         
       </div>
     </div>

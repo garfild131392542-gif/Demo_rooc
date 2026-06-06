@@ -3,7 +3,6 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { sendWelcomeEmailAction } from './email' 
 
-// กำหนดให้ contactEmail เป็นฟิลด์ที่จำเป็น (Required) เนื่องจากถูกบังคับในขั้นตอน Onboarding แล้ว
 export interface OnboardingFormData {
   guildName: string
   guildUrl: string
@@ -18,7 +17,6 @@ export async function validateGuildUrlAction(
   guildUrl: string
 ): Promise<{ available: boolean; error?: string }> {
   try {
-    // 1. ตรวจสอบรูปแบบ URL ด้วย Regex พื้นฐาน (ต้องเป็น a-z, 0-9 และ - เท่านั้น)
     if (!guildUrl || !GUILD_URL_REGEX.test(guildUrl)) {
       return { 
         available: false, 
@@ -26,7 +24,6 @@ export async function validateGuildUrlAction(
       }
     }
     
-    // 2. ตรวจสอบใน Database ว่ามี URL นี้ถูกใช้งานไปหรือยัง
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('guilds')
@@ -52,7 +49,6 @@ export async function completeOnboardingAction(
   formData: OnboardingFormData
 ): Promise<{ success: boolean; error?: string; inviteLink?: string }> {
   try {
-    // 1. ตรวจสอบความพร้อมของ URL กิลด์อีกรอบ
     const urlValidation = await validateGuildUrlAction(formData.guildUrl)
     if (!urlValidation.available) {
       return { success: false, error: 'This guild URL is no longer available' }
@@ -60,19 +56,22 @@ export async function completeOnboardingAction(
 
     const supabase = await createClient()
 
-    // 2. ดึงข้อมูล User ปัจจุบัน
     const { data: authData, error: authError } = await supabase.auth.getUser()
     if (authError || !authData.user) {
       return { success: false, error: 'User session not found' }
     }
     const userId = authData.user.id
+    
+    // ดึงค่า Email จากระบบ Auth เพื่อนำมาสกัดเป็น Username ล็อกอิน
+    const userEmail = authData.user.email || ''
+    const extractedUsername = userEmail.includes('@member.rooc')
+      ? userEmail.split('@')[0]
+      : userEmail
 
-    // 3. เตรียมข้อมูลสำหรับสร้างกิลด์
     const trialEndsAt = new Date()
-    trialEndsAt.setDate(trialEndsAt.getDate() + 14) // ทดลองใช้ 14 วัน
-    const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase() // สุ่มรหัสเชิญ
+    trialEndsAt.setDate(trialEndsAt.getDate() + 14) 
+    const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase() 
 
-    // 4. สร้างกิลด์ใหม่ (INSERT) ลงในตาราง guilds
     const adminClient = await createAdminClient()
     const { data: newGuild, error: insertError } = await (adminClient as any)
       .from('guilds')
@@ -81,11 +80,11 @@ export async function completeOnboardingAction(
           owner_id: userId,
           name: formData.guildName,
           guild_url: formData.guildUrl,
-          server_name: formData.guildDescription || formData.guildName, 
+          description: formData.guildDescription, 
           status: 'active', 
           invite_code: inviteCode,
           trial_ends_at: trialEndsAt.toISOString(),
-          contact_email: formData.contactEmail // แก้ไขการอ้างอิงจาก input เป็น formData
+          contact_email: formData.contactEmail 
         }
       ])
       .select('id')
@@ -96,12 +95,13 @@ export async function completeOnboardingAction(
       return { success: false, error: 'Failed to create guild' }
     }
 
-    // 5. เชื่อมโยง Profile เข้ากับ Guild และปรับสิทธิ์เป็น admin
+    // 5. เชื่อมโยง Profile เข้ากับ Guild, ปรับสิทธิ์เป็น admin และบันทึกค่า uid_game ที่สกัดได้ลงฐานข้อมูล
     const { error: profileUpdateError } = await (adminClient as any)
       .from('profiles')
       .update({ 
         guild_id: newGuild.id, 
-        role: 'admin' 
+        role: 'admin',
+        uid_game: extractedUsername // เพิ่มการส่งข้อมูลเพื่อป้องกันค่า EMPTY ในตาราง profiles
       })
       .eq('id', userId)
 
@@ -113,12 +113,11 @@ export async function completeOnboardingAction(
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const inviteLink = `${appUrl}/g/${formData.guildUrl}`
 
-    // 6. ส่งอีเมลต้อนรับไปยังอีเมลติดต่อ (Contact Email) ที่ระบุไว้โดยตรง
     try {
       if (formData.contactEmail) {
         await sendWelcomeEmailAction({
           email: formData.contactEmail,
-          displayName: `${formData.guildName} Admin`, // ใช้ชื่อกิลด์พ่วงตำแหน่งทดแทนชื่อจริงที่นำออกไป
+          displayName: `${formData.guildName} Admin`, 
           guildName: formData.guildName,
           guildUrl: formData.guildUrl,
         })

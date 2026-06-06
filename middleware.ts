@@ -38,13 +38,14 @@ export async function middleware(request: NextRequest) {
   // Get the user securely
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 1. ถ้าล็อกอินแล้ว (มี user) แต่พยายามเข้าหน้า login/register ให้เตะไปหน้า Dashboard หรือ Home
+  // 1. If authenticated, prevent access to login/register routes and redirect to home
   if (user && (pathname === '/login' || pathname === '/register')) {
-    return NextResponse.redirect(new URL('/dashboard', request.url)) // แนะนำให้เด้งไป Dashboard ครับ
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // 2. ถ้าล็อกอินแล้ว (มี user) ให้เช็คสถานะกิลด์/โปรไฟล์
-  if (user && !pathname.startsWith('/admin')) {
+  // 2. If authenticated, check profile and guild registration states
+  // REFACTORED: Changed path bypass from '/admin' to '/guild-admin' to match folder structure
+  if (user && !pathname.startsWith('/guild-admin')) {
     try {
       const adminKey =
         process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -65,7 +66,7 @@ export async function middleware(request: NextRequest) {
         },
       )
 
-      // ดึงโปรไฟล์เพื่อเช็ค guild_id
+      // Fetch profile to verify guild association
       const { data: profile, error: profileError } = await (supabaseAdmin as any)
         .from('profiles')
         .select('guild_id')
@@ -79,18 +80,17 @@ export async function middleware(request: NextRequest) {
 
       const hasGuild = (profile as any)?.guild_id
 
-      // ถ้าอยู่หน้า /onboarding แต่มีกิลด์+โปรไฟล์แล้ว ให้ข้ามไป /dashboard เลย
+      // Redirect out of onboarding if guild membership already exists
       if (pathname === '/onboarding' && hasGuild) {
-        return NextResponse.redirect(new URL('/dashboard', request.url))
+        return NextResponse.redirect(new URL('/', request.url))
       }
 
-      // 🛑 ป้องกันลูปนรก: ถ้ายังไม่มีโปรไฟล์/กิลด์ บังคับไป /onboarding 
-      // (แต่ต้องอนุญาตให้เข้าหน้า /profile-setup ได้ด้วย เพื่อให้ฟอร์มทำงานต่อได้)
+      // Enforce onboarding workflow if guild setup is incomplete
       if (!hasGuild && !pathname.startsWith('/onboarding') && !pathname.startsWith('/profile-setup') && !isPublicRoute) {
         return NextResponse.redirect(new URL('/onboarding', request.url))
       }
 
-      // 3. เช็ควันหมดอายุ Trial (ทำต่อเมื่อมีกิลด์แล้ว)
+      // 3. Verify SaaS trial validity period if active guild is present
       if (hasGuild && !isPublicRoute && !pathname.startsWith('/onboarding')) {
         try {
           const { data: guild } = await (supabaseAdmin as any)
@@ -116,7 +116,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // 4. ถ้ายังไม่ได้ล็อกอิน และจะเข้าหน้า Private ให้เตะไปหน้า login
+  // 4. If unauthenticated and attempting private route access, enforce authentication
   if (!user && !isPublicRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }

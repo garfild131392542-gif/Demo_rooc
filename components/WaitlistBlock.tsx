@@ -24,7 +24,7 @@ export default function WaitlistBlock({
 
   // Filter by display name or job name
   const filteredProfiles = profiles.filter(p =>
-    p.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.display_name && p.display_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (p.job_name && p.job_name.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 

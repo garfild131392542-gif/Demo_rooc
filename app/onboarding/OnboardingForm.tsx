@@ -125,7 +125,6 @@ export function OnboardingForm() {
       guildUrl: formData.guildUrl,
       guildDescription: formData.guildDescription,
       discordLink: formData.discordLink || undefined,
-      facebookLink: formData.facebookLink || undefined,
       contactEmail: formData.contactEmail.trim(), 
     })
 
@@ -151,6 +150,7 @@ export function OnboardingForm() {
   }
 
   const handleGoToRegister = () => {
+    router.refresh();
     router.push('/')
   }
 

@@ -8,9 +8,6 @@ import {
 } from '@/lib/validations'
 
 interface RegisterFormData {
-  firstName: string
-  lastName: string
-  phone: string
   username: string // 🌟 ใช้ Username ตามแผนของเรา
   password: string
   confirmPassword: string
@@ -34,10 +31,7 @@ export async function registerAction(formData: RegisterFormData): Promise<Regist
     }
 
     // 2. ตรวจสอบข้อมูลเบอร์โทรศัพท์และรหัสผ่านตามปกติ
-    const phoneValidation = validatePhoneNumber(formData.phone)
-    if (!phoneValidation.valid) {
-      return { success: false, error: phoneValidation.error }
-    }
+    
 
     const passwordValidation = validatePassword(formData.password)
     if (!passwordValidation.valid) {

@@ -4,34 +4,23 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FormInput } from "@/components/FormInput";
 import { registerAction } from "@/app/actions/register";
-import {
-  validateEmail,
-  validatePhoneNumber,
-  validatePassword,
-  validatePasswordMatch,
-} from "@/lib/validations";
+import { validatePassword, validatePasswordMatch } from "@/lib/validations";
 
 export function RegisterForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ แก้ไข: รวมและลบ State ที่ประกาศซ้ำออกเรียบร้อยครับ
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    phone: "",
     username: "",
     password: "",
     confirmPassword: "",
   });
 
-  // ✅ เติมตัวแปรเช็คความตรงกันแบบ Real-time ที่ขาดหายไปให้แล้วครับ
-  const hasTypedBoth =
-    formData.password.length > 0 && formData.confirmPassword.length > 0;
+  const hasTypedBoth = formData.password.length > 0 && formData.confirmPassword.length > 0;
   const isPasswordMatch = formData.password === formData.confirmPassword;
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -42,7 +31,7 @@ export function RegisterForm() {
       ...prev,
       [name]: value,
     }));
-    // Clear field error when user starts typing
+    
     if (fieldErrors[name]) {
       setFieldErrors((prev) => {
         const newErrors = { ...prev };
@@ -62,12 +51,6 @@ export function RegisterForm() {
           error = "กรุณากรอกชื่อผู้ใช้งาน";
         } else if (formData.username.includes("@")) {
           error = "ชื่อผู้ใช้งานห้ามมีเครื่องหมาย @";
-        }
-        break;
-      case "phone":
-        const phoneValidation = validatePhoneNumber(formData.phone);
-        if (!phoneValidation.valid && formData.phone) {
-          error = phoneValidation.error || "";
         }
         break;
       case "password":
@@ -96,14 +79,11 @@ export function RegisterForm() {
   };
 
   const isFormValid =
-  formData.firstName.trim() &&
-  formData.lastName.trim() &&
-  validatePhoneNumber(formData.phone).valid &&
-  formData.username.trim() &&            // 🌟 เช็คว่ากรอก Username หรือยัง
-  !formData.username.includes("@") &&   // 🌟 เช็คว่าต้องไม่มีเครื่องหมาย @
-  validatePassword(formData.password).valid &&
-  validatePasswordMatch(formData.password, formData.confirmPassword).valid &&
-  Object.keys(fieldErrors).length === 0;
+    formData.username.trim() &&
+    !formData.username.includes("@") &&
+    validatePassword(formData.password).valid &&
+    validatePasswordMatch(formData.password, formData.confirmPassword).valid &&
+    Object.keys(fieldErrors).length === 0;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -125,13 +105,10 @@ export function RegisterForm() {
         return;
       }
 
-      // Redirect to profile setup
       router.push("/profile-setup");
     } catch (err) {
       console.error("Unexpected error during registration:", err);
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred",
-      );
+      setError(err instanceof Error ? err.message : "An unexpected error occurred");
       setIsLoading(false);
     }
   };
@@ -144,43 +121,10 @@ export function RegisterForm() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <FormInput
-          label="ชื่อจริง"
-          name="firstName"
-          
-          value={formData.firstName}
-          onChange={handleInputChange}
-          error={fieldErrors.firstName}
-          required
-        />
-        <FormInput
-          label="นามสกุล"
-          name="lastName"
-         
-          value={formData.lastName}
-          onChange={handleInputChange}
-          error={fieldErrors.lastName}
-          required
-        />
-      </div>
-
-      <FormInput
-        label="หมายเลขโทรศัพท์"
-        name="phone"
-        type="tel"
-        
-        value={formData.phone}
-        onChange={handleInputChange}
-        onBlur={() => handleBlur("phone")}
-        error={fieldErrors.phone}
-        required
-      />
-
       <FormInput
         label="ชื่อผู้ใช้งาน (Username)"
         name="username"
-        type="text" // 💡 เปลี่ยนเป็น text เพื่อใช้ล็อกอิน
+        type="text"
         
         value={formData.username}
         onChange={handleInputChange}
@@ -189,7 +133,6 @@ export function RegisterForm() {
         required
       />
 
-      {/* ช่องกรอกรหัสผ่านหลัก */}
       <div className="relative">
         <FormInput
           label="รหัสผ่าน"
@@ -211,7 +154,6 @@ export function RegisterForm() {
         </button>
       </div>
 
-      {/* ช่องยืนยันรหัสผ่าน */}
       <div className="relative">
         <FormInput
           label="ยืนยันรหัสผ่าน"
@@ -232,16 +174,15 @@ export function RegisterForm() {
           {showConfirmPassword ? "ซ่อน" : "แสดง"}
         </button>
 
-        {/* แสดงผลการตรวจสอบรหัสผ่านแบบ Real-time */}
         {hasTypedBoth && (
           <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
             {isPasswordMatch ? (
               <p className="text-xs font-semibold text-green-600 flex items-center gap-1">
-                <span></span> รหัสผ่านตรงกัน พร้อมใช้งาน
+                รหัสผ่านตรงกัน พร้อมใช้งาน
               </p>
             ) : (
               <p className="text-xs font-semibold text-red-500 flex items-center gap-1">
-                <span>❌</span> รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง
+                รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง
               </p>
             )}
           </div>

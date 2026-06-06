@@ -81,7 +81,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
         }
 
         fetchGuildData()
-    }, [mounted])
+    }, [mounted, pathname])
 
 
     const isDarkMode = mounted && resolvedTheme === 'dark'

@@ -8,7 +8,7 @@ export interface OnboardingFormData {
   guildUrl: string
   guildDescription: string
   discordLink?: string
-  
+  contactEmail?: string
 }
 
 const GUILD_URL_REGEX = /^[a-z0-9-]+$/

@@ -7,6 +7,8 @@ import { logoutAction } from '@/app/actions/auth'
 import { useTheme } from 'next-themes'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SunIcon, MoonIcon } from '@heroicons/react/24/outline'
+// 🌟 นำเข้า Supabase Client สำหรับฝั่ง Client Component
+import { createClient } from '@/lib/supabase/client'
 
 type SessionType = {
     uid_game: string;
@@ -18,20 +20,71 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
     const [isOpen, setIsOpen] = useState(false)
     const { resolvedTheme, setTheme } = useTheme()
     const [mounted, setMounted] = useState(false)
+    
+    // 🌟 เพิ่ม State สำหรับเก็บชื่อกิลด์เริ่มต้นด้วยสถานะโหลดข้อมูล
+    const [guildName, setGuildName] = useState('กำลังโหลด...')
+    
     const router = useRouter()
     const pathname = usePathname()
 
-    useEffect(() => {
+   useEffect(() => {
         setMounted(true)
-        setIsOpen(false) // ปิดเมนูทุกครั้งที่ pathname เปลี่ยน หรือตอนโหลดหน้าครั้งแรก
-    }, [pathname]) // <--- ตะกร้านี้ต้องมีขนาดคงที่ (มีแค่ pathname ตัวเดียว)
+    }, [])
 
-    if (!mounted) {
-        return null; // หรือ return Navbar แบบที่เป็นสีกลางๆ ไปก่อน
-    }
+    
+    useEffect(() => {
+        setIsOpen(false)
+    }, [pathname]) 
+
+
+
+    // 🌟 ดึงข้อมูลชื่อกิลด์แบบ Dynamic จากความสัมพันธ์ตาราง profiles -> guilds
+    useEffect(() => {
+        if (!mounted) return
+
+        async function fetchGuildData() {
+            try {
+                const supabase = createClient()
+                const { data: { user } } = await supabase.auth.getUser()
+                if (!user) return
+
+                // ยิงคำสั่ง Join Table เพื่อแกะเอาชื่อกิลด์ออกมา
+                const { data: profile,error } = await supabase
+                    .from('profiles')
+                    .select('guild_id, guilds(name)') // 💡 แนะนำให้ตรวจเช็คชื่อคอลัมน์ในตาราง guilds ของคุณอีกทีนะครับ (เช่น name หรือ guild_name)
+                    .eq('id', user.id)
+                    .maybeSingle()
+
+                    if (error) {
+                    console.error('Navbar database query error:', error.message)
+                    setGuildName('ข้อผิดพลาดระบบ')
+                    return
+                }
+
+                if (profile?.guilds) {
+                    const guildData = profile.guilds as any
+                    // ตรวจสอบและดึงค่าจากคอลัมน์ name
+                    const finalName = Array.isArray(guildData) ? guildData[0]?.name : guildData?.name
+                    
+                    if (finalName) {
+                        setGuildName(finalName)
+                    } else {
+                        setGuildName('ไม่มีกิลด์')
+                    }
+                } else {
+                    setGuildName('ยังไม่มีกิลด์')
+                }
+            } catch (err) {
+                console.error('Error fetching guild name:', err)
+                setGuildName('ROOC')
+            }
+        }
+
+        fetchGuildData()
+    }, [mounted])
+
 
     const isDarkMode = mounted && resolvedTheme === 'dark'
-
 
     const handleLogout = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -39,14 +92,10 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
         router.push('/login')
     }
 
-
-
-
     const toggleDarkMode = () => {
         setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
     }
 
-    // Variants สำหรับการทำ Animation ของเมนูมือถือ
     const menuVariants = {
         closed: {
             opacity: 0,
@@ -71,8 +120,9 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                 <div className="flex justify-between h-16">
 
                     <div className="flex items-center">
-                        <Link href="/" className="gap-2 font-bold text-xl tracking-tighter hover:scale-105 transition-transform">
-                            ชื่อกิล<span className="gap-2 ml-1 text-indigo-200">Guild</span>
+                        {/* 🌟 แสดงชื่อกิลด์ที่ดึงมาจากฐานข้อมูลแบบเรียลไทม์ */}
+                        <Link href="/" className="gap-1 flex items-center font-bold text-xl tracking-tighter hover:scale-105 transition-transform">
+                            {guildName}<span className="gap-1 ml-1 text-indigo-200">Guild</span>
                         </Link>
 
                         <div className="hidden md:flex ml-10 space-x-1">
@@ -98,7 +148,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                         </div>
                     </div>
 
-                    <div className="flex items-center space-x-2 md:space-x-4  pl-4">
+                    <div className="flex items-center space-x-2 md:space-x-4 pl-4">
                         {/* Dark Mode Switch */}
                         <button
                             type="button"
@@ -108,17 +158,11 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                         >
                             <span className="sr-only">Toggle Dark Mode</span>
 
-                            {/* ส่วนแสดงไอคอนพร้อม Animation (หมุนตัว) */}
                             <div className="relative h-6 w-6">
-                                {/* ไอคอนพระอาทิตย์ (โชว์ตอน Light Mode) */}
-                                <div className={`absolute inset-0 transition-transform duration-500 ease-in-out ${isDarkMode ? 'rotate-[180deg] opacity-0 scale-50' : 'rotate-0 opacity-100 scale-100'
-                                    }`}>
+                                <div className={`absolute inset-0 transition-transform duration-500 ease-in-out ${isDarkMode ? 'rotate-[180deg] opacity-0 scale-50' : 'rotate-0 opacity-100 scale-100'}`}>
                                     <SunIcon className="h-6 w-6 text-yellow-300" />
                                 </div>
-
-                                {/* ไอคอนพระจันทร์ (โชว์ตอน Dark Mode) */}
-                                <div className={`absolute inset-0 transition-transform duration-500 ease-in-out ${isDarkMode ? 'rotate-0 opacity-100 scale-100' : 'rotate-[-180deg] opacity-0 scale-50'
-                                    }`}>
+                                <div className={`absolute inset-0 transition-transform duration-500 ease-in-out ${isDarkMode ? 'rotate-0 opacity-100 scale-100' : 'rotate-[-180deg] opacity-0 scale-50'}`}>
                                     <MoonIcon className="h-6 w-6 text-indigo-300" />
                                 </div>
                             </div>

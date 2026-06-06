@@ -91,18 +91,16 @@ export async function loginAction(email: string, password: string) {
  * @param password - User's password
  * @returns { success: boolean, error?: string, user?: any }
  */
-export async function registerAction(email: string, password: string) {
-  if (!email || !password) {
-    return { success: false, error: 'กรุณากรอกอีเมลและรหัสผ่านให้ครบถ้วน' }
+export async function registerAction(username: string, password: string) {
+  if (!username || !password) {
+    return { success: false, error: 'กรุณากรอกชื่อผู้ใช้งาน (Username) และรหัสผ่านให้ครบถ้วน' }
   }
 
   const supabase = await createClient()
 
   // Apply virtual email trick: if no @ symbol, append @member.rooc
-  const identifier = email.trim()
-  const finalEmail = identifier.includes('@')
-    ? identifier.toLowerCase()
-    : `${identifier.toLowerCase()}@member.rooc`
+  const finalEmail = `${username.trim().toLowerCase()}@member.rooc`
+  
 
   // Step 1: Create auth user (ระบบ Authentication)
   const { data, error } = await supabase.auth.signUp({
@@ -118,11 +116,30 @@ export async function registerAction(email: string, password: string) {
     return { success: false, error: 'ไม่สามารถสร้างบัญชีได้' }
   }
 
-  // ✂️ REFACTORED: ลบ Step 2 (การสร้าง Profile) ออกจากตรงนี้ทั้งหมด! ✂️
-  // เพื่อป้องกันปัญหาข้อมูล Profile ตีกัน (Conflict)
-  // ให้ระบบไปบังคับสร้าง Profile ตอนที่ User เข้าหน้า /profile-setup แทน (ผ่านไฟล์ profile.ts)
+  try {
+    const adminClient = await createAdminClient()
+    const { error: profileError } = await (adminClient as any)
+      .from('profiles')
+      .insert([
+        {
+          id: data.user.id,
+          uid_game: username.trim(), // 🎯 ล็อกค่า Username ลงคอลัมน์ uid_game ทันที ข้อมูลจะไม่หลุดชัวร์!
+          role: 'member',           // เซ็ตยศเริ่มต้นเป็นลูกกิลด์ธรรมดา (จะถูกอัปเกรดเป็น admin เองถ้าเขาเลือกสร้างกิลด์)
+          p_atk: 0, m_atk: 0, p_def: 0, m_def: 0,
+          p_dmg: 0, m_dmg: 0, p_reduc: 0, m_reduc: 0,
+          pvp_dmg: 0, pvp_reduc: 0,
+          created_at: new Date().toISOString(),
+        },
+      ])
 
-  // Return success on successful signup (no profile creation here)
+    if (profileError) {
+      console.error('Initial profile creation warning:', profileError.message)
+      // แม้ตาราง profile จะมีปัญหา แต่ถ้า auth ผ่านแล้ว เราจะปล่อยผ่านไปก่อนเพื่อให้หน้า profile-setup ช่วยซ่อมแซมได้
+    }
+  } catch (catchError) {
+    console.error('Failed to run initial profile query:', catchError)
+  }
+  
   return { success: true, user: data.user }
 }
 

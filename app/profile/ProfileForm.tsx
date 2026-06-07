@@ -77,53 +77,27 @@ export default function ProfileForm({
       const successResults = results.filter((r) => r.success && r.data);
 
       if (successResults.length > 0) {
-        // รวมข้อมูลจากทุกรูป (ใช้ค่าแรกที่พบ หรือเฉลี่ยถ้ามีจำนวนหลาย)
         const mergedData = successResults[0].data;
 
-        // ถ้ามี 2 รูป สามารถเฉลี่ยค่าหรือเลือกค่าที่สำคัญกว่า
+        // ถ้ามี 2 รูป ใช้ค่าจากรูปที่ 1 ถ้าไม่มีค่าให้ลองรูปที่ 2
         if (successResults.length === 2 && successResults[1].data) {
           const data2 = successResults[1].data;
-          // เลือกค่าที่มากกว่าระหว่าง 2 รูป (สำหรับ ATK/DMG) หรือเฉลี่ย
-          mergedData.p_atk = Math.max(
-            mergedData.p_atk || 0,
-            data2.p_atk || 0
-          );
-          mergedData.m_atk = Math.max(
-            mergedData.m_atk || 0,
-            data2.m_atk || 0
-          );
-          mergedData.p_def = Math.max(
-            mergedData.p_def || 0,
-            data2.p_def || 0
-          );
-          mergedData.m_def = Math.max(
-            mergedData.m_def || 0,
-            data2.m_def || 0
-          );
-          mergedData.p_dmg = Math.max(
-            mergedData.p_dmg || 0,
-            data2.p_dmg || 0
-          );
-          mergedData.m_dmg = Math.max(
-            mergedData.m_dmg || 0,
-            data2.m_dmg || 0
-          );
-          mergedData.p_reduc = Math.max(
-            mergedData.p_reduc || 0,
-            data2.p_reduc || 0
-          );
-          mergedData.m_reduc = Math.max(
-            mergedData.m_reduc || 0,
-            data2.m_reduc || 0
-          );
-          mergedData.pvp_dmg = Math.max(
-            mergedData.pvp_dmg || 0,
-            data2.pvp_dmg || 0
-          );
-          mergedData.pvp_reduc = Math.max(
-            mergedData.pvp_reduc || 0,
-            data2.pvp_reduc || 0
-          );
+          
+          // ฟังก์ชันเลือกค่า: ใช้ตัวแรก ถ้าไม่มีให้ใช้ตัวที่ 2
+          const selectValue = (val1: number | undefined, val2: number | undefined) => {
+            return (val1 !== undefined && val1 !== 0) ? val1 : (val2 || 0);
+          };
+
+          mergedData.p_atk = selectValue(mergedData.p_atk, data2.p_atk);
+          mergedData.m_atk = selectValue(mergedData.m_atk, data2.m_atk);
+          mergedData.p_def = selectValue(mergedData.p_def, data2.p_def);
+          mergedData.m_def = selectValue(mergedData.m_def, data2.m_def);
+          mergedData.p_dmg = selectValue(mergedData.p_dmg, data2.p_dmg);
+          mergedData.m_dmg = selectValue(mergedData.m_dmg, data2.m_dmg);
+          mergedData.p_reduc = selectValue(mergedData.p_reduc, data2.p_reduc);
+          mergedData.m_reduc = selectValue(mergedData.m_reduc, data2.m_reduc);
+          mergedData.pvp_dmg = selectValue(mergedData.pvp_dmg, data2.pvp_dmg);
+          mergedData.pvp_reduc = selectValue(mergedData.pvp_reduc, data2.pvp_reduc);
         }
 
         setStats({
@@ -144,7 +118,7 @@ export default function ProfileForm({
           type: "success",
           text:
             imageCount === 2
-              ? "🤖 AI อ่านสเตตัสจากทั้ง 2 รูปเรียบร้อยแล้ว! เลือกค่าสูงสุด กรุณาตรวจสอบและกดบันทึก!"
+              ? "🤖 AI อ่านสเตตัสจากทั้ง 2 รูปเรียบร้อยแล้ว! กรุณาตรวจสอบและกดบันทึก!"
               : "🤖 AI อ่านสเตตัสเรียบร้อยแล้ว กรุณาตรวจสอบและกดบันทึก!",
         });
       } else {
@@ -169,7 +143,7 @@ export default function ProfileForm({
 
       setIsAiLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = ""; // ล้างค่าปุ่มอัปโหลด
-    } catch (err) {
+    } catch {
       // 💡 ปรับข้อความ Catch Error ให้ดูซอฟต์ลง
       setMessage({
         type: "error",

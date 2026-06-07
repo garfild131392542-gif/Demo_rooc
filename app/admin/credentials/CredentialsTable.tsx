@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import * as XLSX from 'xlsx';
-import { changeMemberRole, createMember, updateMember, deleteMember, toggleMemberLeave } from '@/app/actions/admin'
+// 🌟 เพิ่มการอิมพอร์ต resetMemberPassword เข้ามาจากไฟล์หลังบ้าน
+import { changeMemberRole, createMember, updateMember, deleteMember, toggleMemberLeave, resetMemberPassword } from '@/app/actions/admin'
 
 type ManagementItem = {
   id: string
@@ -14,7 +15,6 @@ type ManagementItem = {
   pvp_dmg: number
   p_def: number
   m_def: number
-  // 6 stat fields
   p_atk: number
   m_atk: number
   p_dmg: number
@@ -46,6 +46,7 @@ function needsUpdate(last_stat_update?: string) {
 
   return now >= expirationDate;
 }
+
 function formatUpdatedAt(last_stat_update?: string) {
   if (!last_stat_update) return '-';
   const d = new Date(last_stat_update);
@@ -67,7 +68,9 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
   const [searchTerm, setSearchTerm] = useState('')
   const [showOnlyNotUpdated, setShowOnlyNotUpdated] = useState(false)
 
-  // TODO: Phase 2 - Password management will be handled by Supabase Auth
+  // 🌟 State สำหรับการจัดการระบบ รีเซ็ตรหัสผ่าน
+  const [resettingPasswordMember, setResettingPasswordMember] = useState<ManagementItem | null>(null)
+  const [newPasswordValue, setNewPasswordValue] = useState('')
 
   const handleRoleChange = (id: string, currentRole: string) => {
     const newRole = currentRole === 'admin' ? 'member' : 'admin'
@@ -122,20 +125,52 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
   }
 
   const handleToggleLeave = (id: string, currentStatus: boolean) => {
-  startTransition(async () => {
-    try {
-      setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: !currentStatus } : p))
-      const result = await toggleMemberLeave(id, !currentStatus)
-      if (!result?.success) {
+    startTransition(async () => {
+      try {
+        setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: !currentStatus } : p))
+        const result = await toggleMemberLeave(id, !currentStatus)
+        if (!result?.success) {
+          setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: currentStatus } : p))
+          alert(result?.error || 'Failed to update leave status')
+        }
+      } catch (err) {
         setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: currentStatus } : p))
-        alert(result?.error || 'Failed to update leave status')
+        alert('ระบบหลังบ้านขัดข้อง กรุณาลองใหม่อีกครั้ง')
       }
-    } catch (err) {
-      setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: currentStatus } : p))
-      alert('ระบบหลังบ้านขัดข้อง กรุณาลองใหม่อีกครั้ง')
+    })
+  }
+
+  // 🌟 ฟังก์ชันสุ่มรหัสผ่านชั่วคราวความยาว 8 หลักให้แอดมินนำไปใช้งานง่ายๆ
+  const handleGenerateRandomPassword = () => {
+    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789' // ตัดตัวอักษรที่สับสนง่ายออก (o, 0, l, 1)
+    let password = ''
+    for (let i = 0; i < 8; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length))
     }
-  })
-}
+    setNewPasswordValue(password)
+  }
+
+  // 🌟 ฟังก์ชันส่งรหัสผ่านใหม่ไปอัพเดทหลังบ้านผ่าน Supabase Auth API
+  const handleResetPasswordSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!resettingPasswordMember || !newPasswordValue.trim()) return
+
+    if (newPasswordValue.trim().length < 6) {
+      alert('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษรขึ้นไป')
+      return
+    }
+
+    startTransition(async () => {
+      const result = await resetMemberPassword(resettingPasswordMember.id, newPasswordValue.trim())
+      if (result?.success) {
+        alert(`🎉 รีเซ็ตรหัสผ่านของ "${resettingPasswordMember.display_name}" สำเร็จ!\n\nกรุณาคัดลอกรหัสผ่านนี้ส่งให้สมาชิก: ${newPasswordValue.trim()}`)
+        setResettingPasswordMember(null)
+        setNewPasswordValue('')
+      } else {
+        alert(result?.error || 'เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน')
+      }
+    })
+  }
 
   const handleExportExcel = () => {
     if (!filteredProfiles || filteredProfiles.length === 0) {
@@ -177,8 +212,8 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
   };
 
   const filteredProfiles = data.filter(p => {
-    const matchesSearch = p.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.uid_game.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = (p.display_name && p.display_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (p.uid_game && p.uid_game.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (p.job_name && p.job_name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     if (showOnlyNotUpdated) {
@@ -258,21 +293,21 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
-                {/* 💡 เพิ่ม w-[เปอร์เซ็นต์] เพื่อควบคุมความกว้างของแต่ละคอลัมน์ให้คงที่ */}
                 <th className="w-[12%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">User name</th>
                 <th className="w-[15%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อตัวละคร</th>
                 <th className="w-[13%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อาชีพ</th>
                 <th className="w-[10%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
                 <th className="w-[10%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ลากิจกรรม</th>
-                <th className="w-[10%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อัพเดทล่าสุด</th>
-                <th className="w-[20%] px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                <th className="w-[12%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">อัพเดทล่าสุด</th>
+                {/* 💡 ขยายความกว้าง Action เป็น 28% เพื่อให้รองรับปุ่ม Reset Password แบบไม่อึดอัด */}
+                <th className="w-[28%] px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredProfiles.map(item => (
                 <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.uid_game}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.display_name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.display_name || '-'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.job_name || '-'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-80 transition-opacity ${item.role === 'admin' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`} onClick={() => handleRoleChange(item.id, item.role)}>
@@ -306,18 +341,27 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                     </div>
                   </td>
 
-                  {/* 💡 เปลี่ยน text-right เป็น text-center เพื่อดึงกลุ่มปุ่มกลับมาไว้ตรงกลางของคอลัมน์ */}
                   <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium space-x-2">
                     <button
                       onClick={() => setEditingMember(item)}
-                      className="cursor-pointer inline-flex items-center justify-center px-3 py-1.5 rounded-md bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-800/50 dark:border-indigo-700"
+                      className="cursor-pointer inline-flex items-center justify-center px-2.5 py-1.5 rounded-md bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-800/50 dark:border-indigo-700"
                     >
                       Edit
+                    </button>
+                    {/* 🌟 เพิ่มปุ่ม Reset Password ชั่วคราว */}
+                    <button
+                      onClick={() => {
+                        setResettingPasswordMember(item)
+                        setNewPasswordValue('')
+                      }}
+                      className="cursor-pointer inline-flex items-center justify-center px-2.5 py-1.5 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-800/50 dark:border-amber-700"
+                    >
+                      🔑 Reset PW
                     </button>
                     <button
                       onClick={() => handleDelete(item.id)}
                       disabled={isPending}
-                      className="cursor-pointer inline-flex items-center justify-center px-3 py-1.5 rounded-md bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-50 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-800/50 dark:border-red-700 dark:disabled:hover:bg-red-900/30"
+                      className="cursor-pointer inline-flex items-center justify-center px-2.5 py-1.5 rounded-md bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-50 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-800/50 dark:border-red-700 dark:disabled:hover:bg-red-900/30"
                     >
                       Delete
                     </button>
@@ -329,16 +373,12 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
         </div>
       </div>
 
-      {/* ───────────────────────────────────────────────────────── */}
-      {/* 💡 Modal สำหรับ เพิ่มสมาชิก (Create Modal) */}
-      {/* ───────────────────────────────────────────────────────── */}
+      {/* ─── MODAL: เพิ่มสมาชิก ─── */}
       {isCreating && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/30 shrink-0">
-              <h3 className="text-lg font-bold text-indigo-900 dark:text-indigo-100">
-                 เพิ่มสมาชิกใหม่
-              </h3>
+              <h3 className="text-lg font-bold text-indigo-900 dark:text-indigo-100">เพิ่มสมาชิกใหม่</h3>
             </div>
             <div className="overflow-y-auto p-6">
               <form onSubmit={handleCreateSubmit} id="create-form">
@@ -365,7 +405,6 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                       <option value="admin">Admin</option>
                     </select>
                   </div>
-                  
                   {/* Stats Inputs */}
                   <div>
                     <label className="block text-sm font-medium text-red-600 dark:text-red-400 mb-1">P.ATK</label>
@@ -418,16 +457,12 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
         </div>
       )}
 
-      {/* ───────────────────────────────────────────────────────── */}
-      {/* 💡 Modal สำหรับ แก้ไขข้อมูล (Edit Modal) */}
-      {/* ───────────────────────────────────────────────────────── */}
+      {/* ─── MODAL: แก้ไขข้อมูล ─── */}
       {editingMember && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/30 shrink-0">
-              <h3 className="text-lg font-bold text-indigo-900 dark:text-indigo-100">
-                ✏️ แก้ไขข้อมูล: {editingMember.display_name}
-              </h3>
+              <h3 className="text-lg font-bold text-indigo-900 dark:text-indigo-100">✏️ แก้ไขข้อมูล: {editingMember.display_name}</h3>
             </div>
             <div className="overflow-y-auto p-6">
               <form onSubmit={handleEditSubmit} id="edit-form">
@@ -454,7 +489,6 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                       <option value="admin">Admin</option>
                     </select>
                   </div>
-                  
                   {/* Stats Inputs */}
                   <div>
                     <label className="block text-sm font-medium text-red-600 dark:text-red-400 mb-1">P.ATK</label>
@@ -503,6 +537,69 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
               <button type="button" onClick={() => setEditingMember(null)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors">ยกเลิก</button>
               <button type="submit" form="edit-form" disabled={isPending} className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:opacity-50">บันทึกการแก้ไข</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────── */}
+      {/* 🌟 💡 MODAL สำหรับ รีเซ็ตรหัสผ่านสมาชิก (Reset Password Modal) */}
+      {/* ───────────────────────────────────────────────────────── */}
+      {resettingPasswordMember && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-amber-50 dark:bg-amber-900/30 shrink-0">
+              <h3 className="text-lg font-bold text-amber-900 dark:text-amber-100 flex items-center gap-2">
+                🔑 รีเซ็ตรหัสผ่านของ: {resettingPasswordMember.display_name || resettingPasswordMember.uid_game}
+              </h3>
+            </div>
+            <form onSubmit={handleResetPasswordSubmit}>
+              <div className="p-6 space-y-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                  เนื่องจากบัญชีนี้เป็นแบบ Username ทั่วไป แอดมินสามารถกำหนดรหัสผ่านใหม่ชั่วคราวให้ได้โดยตรง เมื่อตั้งค่าเสร็จแล้วกรุณาก๊อปปี้รหัสใหม่ส่งต่อให้สมาชิกด้วยตนเอง
+                </p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    รหัสผ่านใหม่ <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      placeholder="กรอกรหัสผ่านอย่างน้อย 6 หลัก"
+                      value={newPasswordValue}
+                      onChange={(e) => setNewPasswordValue(e.target.value)}
+                      className="flex-1 px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-amber-500 focus:border-amber-500 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGenerateRandomPassword}
+                      className="cursor-pointer px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-xs font-semibold transition-colors shrink-0"
+                    >
+                      🎲 สุ่มรหัส
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3 bg-gray-50 dark:bg-gray-900/50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResettingPasswordMember(null)
+                    setNewPasswordValue('')
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending || !newPasswordValue.trim()}
+                  className="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-md hover:bg-amber-700 focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isPending ? 'กำลังบันทึก...' : 'ยืนยันรหัสใหม่'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

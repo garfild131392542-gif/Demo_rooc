@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Profile, Guild } from '@/types/database'
 
 export default async function GuildStatusPage() {
   const supabase = await createClient()
@@ -26,7 +27,7 @@ export default async function GuildStatusPage() {
       )
     `)
     .eq('id', user.id)
-    .maybeSingle()
+    .maybeSingle() as { data: { guild_id: string | null; guilds: Guild | Guild[] | null } | null; error: any }
 
   // พิมพ์ข้อผิดพลาดออกมาตรวจสอบในหน้าต่าง Terminal หากคำสั่งคิวรีทำงานไม่สำเร็จ
   if (error) {
@@ -62,11 +63,11 @@ export default async function GuildStatusPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-slate-900">ข้อมูลกิลด์ของคุณ</h1>
           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-            guild.status === 'active' ? 'bg-green-100 text-green-700' :
+            guild.status === 'approved' ? 'bg-green-100 text-green-700' :
             guild.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
             'bg-slate-100 text-slate-700'
           }`}>
-            {guild.status === 'active' ? 'พร้อมใช้งาน' : 
+            {guild.status === 'approved' ? 'พร้อมใช้งาน' : 
              guild.status === 'pending' ? 'รอตรวจสอบ' : guild.status}
           </span>
         </div>

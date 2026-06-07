@@ -3,6 +3,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { getSession } from './auth'
 import { revalidatePath } from 'next/cache'
+import { Profile } from '@/types/database'
 
 /**
  * [LAYER A] สำหรับ Super Admin (ผู้ดูแลระบบสูงสุดของเว็บ)
@@ -43,7 +44,7 @@ async function checkGuildAdmin() {
     .from('profiles')
     .select('id, guild_id, role')
     .eq('id', session.user.id)
-    .maybeSingle()
+    .maybeSingle() as { data: Pick<Profile, 'id' | 'guild_id' | 'role'> | null; error: any }
 
   if (error || !profile || profile.role !== 'admin' || !profile.guild_id) {
     throw new Error('Unauthorized: Guild Admin access denied or missing guild assignment')
@@ -117,7 +118,7 @@ export async function updateMember(id: string, formData: FormData) {
     const admin = await checkGuildAdmin()
     const supabase = await createAdminClient()
 
-    const { data: targetMember } = await supabase.from('profiles').select('guild_id').eq('id', id).single()
+    const { data: targetMember } = await supabase.from('profiles').select('guild_id').eq('id', id).single() as { data: Pick<Profile, 'guild_id'> }
     if (!targetMember || targetMember.guild_id !== admin.guild_id) {
       return { success: false, error: 'คุณไม่มีสิทธิ์แก้ไขข้อมูลสมาชิกข้ามกิลด์' }
     }
@@ -159,7 +160,7 @@ export async function updateMember(id: string, formData: FormData) {
         last_stat_update: new Date().toISOString() 
       } as any)
       .eq('id', id)
-      .eq('guild_id', admin.guild_id)
+      .eq('guild_id', admin.guild_id!)
 
     if (error) return { success: false, error: error.message }
 
@@ -181,7 +182,7 @@ export async function deleteMember(id: string) {
       .from('profiles')
       .delete()
       .eq('id', id)
-      .eq('guild_id', admin.guild_id)
+      .eq('guild_id', admin.guild_id!)
 
     if (error) return { success: false, error: error.message }
 
@@ -201,7 +202,7 @@ export async function changeMemberRole(id: string, newRole: 'admin' | 'member') 
     const supabase = await createAdminClient()
 
     // ป้องกันสิทธิ์: เช็คว่าสมาชิกที่แอดมินจะกดยกสิทธิ์ อยู่ในกิลด์ของตนเองจริงไหม
-    const { data: targetMember } = await supabase.from('profiles').select('guild_id').eq('id', id).maybeSingle()
+    const { data: targetMember } = await supabase.from('profiles').select('guild_id').eq('id', id).maybeSingle() as { data: Pick<Profile, 'guild_id'> | null }
     if (!targetMember || targetMember.guild_id !== admin.guild_id) {
       return { success: false, error: 'คุณไม่มีอำนาจแก้ไขสิทธิ์ของสมาชิกกิลด์อื่น' }
     }
@@ -210,7 +211,7 @@ export async function changeMemberRole(id: string, newRole: 'admin' | 'member') 
       .from('profiles')
       .update({ role: newRole } as any)
       .eq('id', id)
-      .eq('guild_id', admin.guild_id)
+      .eq('guild_id', admin.guild_id!)
 
     if (error) return { success: false, error: error.message }
 
@@ -236,7 +237,7 @@ export async function resetMemberPassword(userId: string, newPassword: string) {
       .from('profiles')
       .select('guild_id')
       .eq('id', userId)
-      .maybeSingle()
+      .maybeSingle() as { data: Pick<Profile, 'guild_id'> | null }
 
     if (!targetMember || targetMember.guild_id !== admin.guild_id) {
       return { success: false, error: 'ปฏิเสธสิทธิ์: คุณไม่มีอำนาจจัดการรหัสผ่านของสมาชิกกิลด์อื่น' }
@@ -271,7 +272,7 @@ export async function toggleMemberLeave(id: string, is_on_leave: boolean) {
       .from('profiles')
       .update(updateData)
       .eq('id', id)
-      .eq('guild_id', admin.guild_id)
+      .eq('guild_id', admin.guild_id!)
       .select() 
 
     if (error) return { success: false, error: error.message }

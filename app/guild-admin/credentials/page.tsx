@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import CredentialsTable from './CredentialsTable'
+import { Profile } from '@/types/database'
 
 export default async function AdminCredentialsPage() {
   const supabase = await createClient()
@@ -17,7 +18,7 @@ export default async function AdminCredentialsPage() {
     .from('profiles')
     .select('guild_id, role')
     .eq('id', user.id)
-    .maybeSingle()
+    .maybeSingle() as { data: Pick<Profile, 'guild_id' | 'role'> | null; error: any }
 
   if (adminError || !adminProfile) {
     console.error('Error fetching admin profile:', adminError?.message)

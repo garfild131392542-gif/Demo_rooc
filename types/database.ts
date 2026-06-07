@@ -75,6 +75,8 @@ export type Guild = {
   // SaaS Specific
   guild_url?: string | null; // Custom invite link URL (UNIQUE)
   trial_ends_at?: string | null; // TIMESTAMP WITH TIME ZONE
+  description?: string | null; // Guild description
+  invite_code?: string | null; // Invite code for guild
   
   // Status
   status: 'pending' | 'approved' | 'rejected';

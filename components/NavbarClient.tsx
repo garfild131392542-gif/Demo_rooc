@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { SunIcon, MoonIcon } from '@heroicons/react/24/outline'
 // 🌟 นำเข้า Supabase Client สำหรับฝั่ง Client Component
 import { createClient } from '@/lib/supabase/client'
+import { Profile } from '@/types/database'
 
 type SessionType = {
     uid_game: string;
@@ -53,7 +54,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                     .from('profiles')
                     .select('guild_id, guilds(name)') // 💡 แนะนำให้ตรวจเช็คชื่อคอลัมน์ในตาราง guilds ของคุณอีกทีนะครับ (เช่น name หรือ guild_name)
                     .eq('id', user.id)
-                    .maybeSingle()
+                    .maybeSingle() as { data: { guild_id: string | null; guilds: any } | null; error: any }
 
                     if (error) {
                     console.error('Navbar database query error:', error.message)

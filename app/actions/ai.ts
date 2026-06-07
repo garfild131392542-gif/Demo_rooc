@@ -22,7 +22,7 @@ export async function extractStatsFromImage(base64Image: string, mimeType: strin
     
     // 💡 เพิ่ม generationConfig เพื่อบังคับให้ AI ตอบกลับมาเป็น JSON 100% ไม่มีข้อความอื่นปน
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-3.5-pro", // แนะนำให้ใช้ flash-latest เพราะอ่านข้อมูลได้เร็วและรองรับ JSON ได้ดีมาก
+      model: "gemini-3.5-flash-lite", // แนะนำให้ใช้ flash-latest เพราะอ่านข้อมูลได้เร็วและรองรับ JSON ได้ดีมาก
       generationConfig: {
         responseMimeType: "application/json",
       }

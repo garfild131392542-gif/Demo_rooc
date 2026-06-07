@@ -45,12 +45,11 @@ async function checkGuildAdmin() {
     .eq('id', session.user.id)
     .maybeSingle()
 
-  // ตรวจสอบความปลอดภัยระดับชั้น: ต้องเป็นโพรไฟล์จริง + มีตำแหน่งเป็น admin + มีการสังกัดกิลด์เรียบร้อย
   if (error || !profile || profile.role !== 'admin' || !profile.guild_id) {
     throw new Error('Unauthorized: Guild Admin access denied or missing guild assignment')
   }
 
-  return profile // คืนค่า { id, guild_id, role } ของแอดมินกิลด์นั้นๆ
+  return profile
 }
 
 // ==========================================
@@ -59,7 +58,6 @@ async function checkGuildAdmin() {
 
 export async function createMember(formData: FormData) {
   try {
-    // 1. ตรวจสอบสิทธิ์แบบหนาแน่นและดึงค่า guild_id ของแอดมินปัจจุบันมาล็อกค่าไว้
     const admin = await checkGuildAdmin()
     const supabase = await createAdminClient()
 
@@ -73,7 +71,6 @@ export async function createMember(formData: FormData) {
     const p_def = parseInt(formData.get('p_def') as string) || 0
     const m_def = parseInt(formData.get('m_def') as string) || 0
     
-    // FIXED: ดึงข้อมูลสเตตัสเพิ่มเติมตามฟอร์มจริง
     const p_atk = parseInt(formData.get('p_atk') as string) || 0
     const m_atk = parseInt(formData.get('m_atk') as string) || 0
     const p_dmg = parseInt(formData.get('p_dmg') as string) || 0
@@ -81,12 +78,11 @@ export async function createMember(formData: FormData) {
     const p_reduc = parseInt(formData.get('p_reduc') as string) || 0
     const m_reduc = parseInt(formData.get('m_reduc') as string) || 0
 
-    // 2. สั่งบันทึกข้อมูล โดยระบบจะบังคับใส่ guild_id ของแอดมินลงไปด้วยโดยอัตโนมัติ เพื่อแยกกิลด์ชัดเจน
     const { error } = await supabase
       .from('profiles')
       .insert([
         {
-          guild_id: admin.guild_id, // ผูกเข้ากับกิลด์ของแอดมินผู้สร้างทันที
+          guild_id: admin.guild_id,
           uid_game,
           display_name,
           job_name,
@@ -121,7 +117,6 @@ export async function updateMember(id: string, formData: FormData) {
     const admin = await checkGuildAdmin()
     const supabase = await createAdminClient()
 
-    // Layer Check เพิ่มเติม: ตรวจสอบว่าผู้ใช้งานที่จะแก้ไข อยู่ในกิลด์เดียวกับแอดมินจริงไหม ป้องกันการแฮกเปลี่ยน ID ผ่านหน้าบ้าน
     const { data: targetMember } = await supabase.from('profiles').select('guild_id').eq('id', id).single()
     if (!targetMember || targetMember.guild_id !== admin.guild_id) {
       return { success: false, error: 'คุณไม่มีสิทธิ์แก้ไขข้อมูลสมาชิกข้ามกิลด์' }
@@ -137,7 +132,6 @@ export async function updateMember(id: string, formData: FormData) {
     const p_def = parseInt(formData.get('p_def') as string) || 0
     const m_def = parseInt(formData.get('m_def') as string) || 0
     
-    // FIXED: เพิ่มการดักรับและอัปเดตสเตตัสที่ขาดหายไปในโค้ดเดิม ให้บันทึกเข้า Database ครบถ้วน
     const p_atk = parseInt(formData.get('p_atk') as string) || 0
     const m_atk = parseInt(formData.get('m_atk') as string) || 0
     const p_dmg = parseInt(formData.get('p_dmg') as string) || 0
@@ -165,7 +159,7 @@ export async function updateMember(id: string, formData: FormData) {
         last_stat_update: new Date().toISOString() 
       } as any)
       .eq('id', id)
-      .eq('guild_id', admin.guild_id) // ซ้ำการล็อกขอบเขตกิลด์เพื่อความปลอดภัยสูงสุด
+      .eq('guild_id', admin.guild_id)
 
     if (error) return { success: false, error: error.message }
 
@@ -183,10 +177,38 @@ export async function deleteMember(id: string) {
     const admin = await checkGuildAdmin()
     const supabase = await createAdminClient()
 
-    // ลบข้อมูลโดยกั้นสิทธิ์ตาม ID สมาชิก และกิลด์ไอดีของแอดมินคู่กันเสมอ
     const { error } = await supabase
       .from('profiles')
       .delete()
+      .eq('id', id)
+      .eq('guild_id', admin.guild_id)
+
+    if (error) return { success: false, error: error.message }
+
+    revalidatePath('/guild-admin/credentials')
+    revalidatePath('/members')
+    revalidatePath('/')
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+
+// 🌟 [RE-ADDED] ฟังก์ชันสลับสิทธิ์ผู้ใช้งานภายในกิลด์ (สิทธิ์ Guild Admin)
+export async function changeMemberRole(id: string, newRole: 'admin' | 'member') {
+  try {
+    const admin = await checkGuildAdmin()
+    const supabase = await createAdminClient()
+
+    // ป้องกันสิทธิ์: เช็คว่าสมาชิกที่แอดมินจะกดยกสิทธิ์ อยู่ในกิลด์ของตนเองจริงไหม
+    const { data: targetMember } = await supabase.from('profiles').select('guild_id').eq('id', id).maybeSingle()
+    if (!targetMember || targetMember.guild_id !== admin.guild_id) {
+      return { success: false, error: 'คุณไม่มีอำนาจแก้ไขสิทธิ์ของสมาชิกกิลด์อื่น' }
+    }
+
+    const { error } = await (supabase as any)
+      .from('profiles')
+      .update({ role: newRole } as any)
       .eq('id', id)
       .eq('guild_id', admin.guild_id)
 
@@ -205,16 +227,11 @@ export async function deleteMember(id: string) {
 // ---- ระบบบริหารรหัสผ่านกิลด์ (สิทธิ์ Guild Admin) ----
 // ==========================================
 
-/**
- * 🌟 ฟังก์ชันจัดการรีเซ็ตรหัสผ่านสำหรับระบบ Virtual Email บัญชีผู้เล่นทั่วไป
- * โดยทำการข้ามสิทธิ์ RLS ไปแก้ไขข้อมูลหลังบ้านด้วยรหัสผ่านใหม่ชั่วคราว
- */
 export async function resetMemberPassword(userId: string, newPassword: string) {
   try {
     const admin = await checkGuildAdmin()
     const supabase = await createAdminClient()
 
-    // ขั้นตรวจสอบความปลอดภัยขั้นสูงสุด: ตรวจสอบข้อมูลว่าสมาชิกที่จะเปลี่ยนรหัสผ่าน สังกัดอยู่กิลด์เดียวกับแอดมินผู้กดจริงหรือไม่
     const { data: targetMember } = await supabase
       .from('profiles')
       .select('guild_id')
@@ -225,7 +242,6 @@ export async function resetMemberPassword(userId: string, newPassword: string) {
       return { success: false, error: 'ปฏิเสธสิทธิ์: คุณไม่มีอำนาจจัดการรหัสผ่านของสมาชิกกิลด์อื่น' }
     }
 
-    // เรียกใช้ระบบบจัดการผู้ใช้ระดับคอร์หลักของ Supabase Auth เพื่อ Override รหัสผ่านใหม่
     const { error } = await supabase.auth.admin.updateUserById(
       userId,
       { password: newPassword }
@@ -255,7 +271,7 @@ export async function toggleMemberLeave(id: string, is_on_leave: boolean) {
       .from('profiles')
       .update(updateData)
       .eq('id', id)
-      .eq('guild_id', admin.guild_id) // ล็อกขอบเขตกิลด์
+      .eq('guild_id', admin.guild_id)
       .select() 
 
     if (error) return { success: false, error: error.message }
@@ -276,7 +292,7 @@ export async function toggleMemberLeave(id: string, is_on_leave: boolean) {
 // ==========================================
 
 export async function getPendingGuilds() {
-  await checkSuperAdmin() // ใช้ระบบตรวจสอบระดับเว็บสูงสุด
+  await checkSuperAdmin()
   const supabase = await createAdminClient()
 
   const { data, error } = await supabase
@@ -323,7 +339,7 @@ export async function approveGuild(guildId: string) {
 
     const { error: profileError } = await (supabase as any)
       .from('profiles')
-      .update({ guild_id: (guild as any).id, role: 'admin' } as any) // ปรับโครงสร้างให้อัปเดตเป็น admin ตามระบบกิลด์ของคุณ
+      .update({ guild_id: (guild as any).id, role: 'admin' } as any)
       .eq('id', guild.owner_id)
 
     if (profileError) {

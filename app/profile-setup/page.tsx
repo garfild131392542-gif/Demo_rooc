@@ -37,16 +37,15 @@ export default function ProfileSetupPage() {
     try {
       // 🌟 เปลี่ยนจากการใช้ new FormData() มาเป็นการสร้าง Object ธรรมดาให้ตรงกับ Type
       const payload = {
-        displayName: displayName,
-        uidGame: uidGame,
-        jobName: jobName,
-        contactEmail:
-          guildOption === "create" ? contactEmail.trim() : undefined, // 🌟 ส่งไปเฉพาะตอนสร้างกิลด์
-        inviteCode: guildOption === "join" ? inviteCode.trim() : undefined,
-      };
+  display_name: displayName,   // ปรับคีย์ให้ตรงกับฐานข้อมูล
+  uid_game: uidGame,           // ปรับคีย์ให้ตรงกับฐานข้อมูล
+  job_name: jobName,           // ปรับคีย์ให้ตรงกับฐานข้อมูล
+  contact_email: guildOption === "create" ? contactEmail.trim() : undefined,
+  invite_code: guildOption === "join" ? inviteCode.trim() : undefined, // ปรับเป็น invite_code
+};
 
-      // ส่ง Object payload ไปแทน
-      const result = await setupProfileAction(payload as any); // ใส่ as any ไว้เผื่อ Type ใน Action กับหน้าเว็บชื่อฟิลด์ไม่ตรงกัน 100%
+// ส่ง Object payload ไปตามปกติ
+const result = await setupProfileAction(payload as any); // ใส่ as any ไว้เผื่อ Type ใน Action กับหน้าเว็บชื่อฟิลด์ไม่ตรงกัน 100%
 
       if (!result?.success) {
         setError(result?.error || "เกิดข้อผิดพลาดในการตั้งค่าโปรไฟล์");

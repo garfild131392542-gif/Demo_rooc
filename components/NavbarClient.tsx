@@ -141,7 +141,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                 </Link>
                             ))}
                             {enrichedSession.role === 'admin' && (
-                                <Link href="/admin/credentials" className="px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-white/10 bg-indigo-500/30 border border-white/20">
+                                <Link href="/guild-admin/credentials" className="px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-white/10 bg-indigo-500/30 border border-white/20">
                                     จัดการข้อมูลสมาชิกกิล
                                 </Link>
                             )}

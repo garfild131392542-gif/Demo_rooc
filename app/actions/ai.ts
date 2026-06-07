@@ -8,6 +8,7 @@ export async function extractStatsFromImage(base64Image: string, mimeType: strin
       process.env.GEMINI_API_KEY_1,
       process.env.GEMINI_API_KEY_2,
       process.env.GEMINI_API_KEY_3,
+      process.env.GEMINI_API_KEY_4,
     ].filter(Boolean) as string[];
 
     if (apiKeys.length === 0) {
@@ -21,7 +22,7 @@ export async function extractStatsFromImage(base64Image: string, mimeType: strin
     
     // 💡 เพิ่ม generationConfig เพื่อบังคับให้ AI ตอบกลับมาเป็น JSON 100% ไม่มีข้อความอื่นปน
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash", // แนะนำให้ใช้ flash-latest เพราะอ่านข้อมูลได้เร็วและรองรับ JSON ได้ดีมาก
+      model: "gemini-3.5-flash", // แนะนำให้ใช้ flash-latest เพราะอ่านข้อมูลได้เร็วและรองรับ JSON ได้ดีมาก
       generationConfig: {
         responseMimeType: "application/json",
       }

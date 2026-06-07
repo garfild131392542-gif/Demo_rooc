@@ -39,70 +39,141 @@ export default function ProfileForm({
     setStats((prev) => ({ ...prev, [name]: parseFloat(value) || 0 }));
   };
 
-  // ฟังก์ชันอัปโหลดและส่งให้ AI
+  // ฟังก์ชันอัปโหลดและส่งให้ AI (รองรับ 2 รูป)
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // จำกัดให้เลือกได้สูงสุด 2 รูป
+    const filesToProcess = files.slice(0, 2);
 
     setMessage(null);
     setIsAiLoading(true);
 
     try {
-      // แปลงไฟล์เป็น Base64
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async () => {
-        const base64Image = reader.result as string;
+      // แปลงไฟล์เป็น Base64 ทั้งหมด
+      const base64Images = await Promise.all(
+        filesToProcess.map(
+          (file) =>
+            new Promise<{ base64: string; type: string }>((resolve) => {
+              const reader = new FileReader();
+              reader.readAsDataURL(file);
+              reader.onload = () => {
+                resolve({
+                  base64: reader.result as string,
+                  type: file.type,
+                });
+              };
+            })
+        )
+      );
 
-        // ส่งให้ AI ช่วยอ่าน
-        const result = await extractStatsFromImage(base64Image, file.type);
+      // ส่งให้ AI ช่วยอ่านทั้ง 2 รูป
+      const results = await Promise.all(
+        base64Images.map((img) => extractStatsFromImage(img.base64, img.type))
+      );
 
-        if (result.success && result.data) {
-          // ถ้าสำเร็จ เอาตัวเลขที่ AI ได้มา หยอดลง State ทันที
-          setStats({
-            p_atk: result.data.p_atk || stats.p_atk,
-            m_atk: result.data.m_atk || stats.m_atk,
-            p_def: result.data.p_def || stats.p_def,
-            m_def: result.data.m_def || stats.m_def,
-            p_dmg: result.data.p_dmg || stats.p_dmg,
-            m_dmg: result.data.m_dmg || stats.m_dmg,
-            p_reduc: result.data.p_reduc || stats.p_reduc,
-            m_reduc: result.data.m_reduc || stats.m_reduc,
-            pvp_dmg: result.data.pvp_dmg || stats.pvp_dmg,
-            pvp_reduc: result.data.pvp_reduc || stats.pvp_reduc,
-          });
-          setMessage({
-            type: "success",
-            text: "🤖 AI อ่านสเตตัสเรียบร้อยแล้ว กรุณาตรวจสอบและกดบันทึก!",
-          });
-        } else {
-          // 💡 แปลง Error ดิบๆ ให้เป็นข้อความที่ผู้ใช้งานทั่วไปอ่านแล้วสบายใจ (Good UX)
-          let userFriendlyMessage = "🤔 AI มองเห็นตัวเลขไม่ชัดเจน รบกวนแคปรูปใหม่ให้เห็นสเตตัสครบถ้วน แล้วลองอีกครั้งนะครับ";
+      // ตรวจสอบว่าผลลัพธ์สำเร็จหรือไม่
+      const successResults = results.filter((r) => r.success && r.data);
 
-          // ดักจับ Error ที่พบบ่อยจากการเรียกใช้ API
-          const errorMessage = result.error || "";
-          if (errorMessage.includes("503")) {
-            userFriendlyMessage = "⏳ ตอนนี้มีผู้ใช้งาน AI พร้อมกันจำนวนมาก รบกวนรอสัก 1 นาทีแล้วกดอัปโหลดใหม่นะครับ";
-          } else if (errorMessage.includes("429") || errorMessage.includes("Quota")) {
-            userFriendlyMessage = "🛑 โควต้า AI สำหรับวันนี้เต็มแล้วครับ รบกวนกรอกตัวเลขด้วยตัวเองไปก่อนนะครับ";
-          } else if (errorMessage.includes("404")) {
-            userFriendlyMessage = "🔧 ระบบ AI กำลังปิดปรับปรุงชั่วคราว รบกวนกรอกข้อมูลด้วยตัวเองไปก่อนนะครับ";
-          }
+      if (successResults.length > 0) {
+        // รวมข้อมูลจากทุกรูป (ใช้ค่าแรกที่พบ หรือเฉลี่ยถ้ามีจำนวนหลาย)
+        const mergedData = successResults[0].data;
 
-          setMessage({
-            type: "error",
-            text: userFriendlyMessage,
-          });
+        // ถ้ามี 2 รูป สามารถเฉลี่ยค่าหรือเลือกค่าที่สำคัญกว่า
+        if (successResults.length === 2 && successResults[1].data) {
+          const data2 = successResults[1].data;
+          // เลือกค่าที่มากกว่าระหว่าง 2 รูป (สำหรับ ATK/DMG) หรือเฉลี่ย
+          mergedData.p_atk = Math.max(
+            mergedData.p_atk || 0,
+            data2.p_atk || 0
+          );
+          mergedData.m_atk = Math.max(
+            mergedData.m_atk || 0,
+            data2.m_atk || 0
+          );
+          mergedData.p_def = Math.max(
+            mergedData.p_def || 0,
+            data2.p_def || 0
+          );
+          mergedData.m_def = Math.max(
+            mergedData.m_def || 0,
+            data2.m_def || 0
+          );
+          mergedData.p_dmg = Math.max(
+            mergedData.p_dmg || 0,
+            data2.p_dmg || 0
+          );
+          mergedData.m_dmg = Math.max(
+            mergedData.m_dmg || 0,
+            data2.m_dmg || 0
+          );
+          mergedData.p_reduc = Math.max(
+            mergedData.p_reduc || 0,
+            data2.p_reduc || 0
+          );
+          mergedData.m_reduc = Math.max(
+            mergedData.m_reduc || 0,
+            data2.m_reduc || 0
+          );
+          mergedData.pvp_dmg = Math.max(
+            mergedData.pvp_dmg || 0,
+            data2.pvp_dmg || 0
+          );
+          mergedData.pvp_reduc = Math.max(
+            mergedData.pvp_reduc || 0,
+            data2.pvp_reduc || 0
+          );
         }
-        
-        setIsAiLoading(false);
-        if (fileInputRef.current) fileInputRef.current.value = ""; // ล้างค่าปุ่มอัปโหลด
-      };
+
+        setStats({
+          p_atk: mergedData.p_atk || stats.p_atk,
+          m_atk: mergedData.m_atk || stats.m_atk,
+          p_def: mergedData.p_def || stats.p_def,
+          m_def: mergedData.m_def || stats.m_def,
+          p_dmg: mergedData.p_dmg || stats.p_dmg,
+          m_dmg: mergedData.m_dmg || stats.m_dmg,
+          p_reduc: mergedData.p_reduc || stats.p_reduc,
+          m_reduc: mergedData.m_reduc || stats.m_reduc,
+          pvp_dmg: mergedData.pvp_dmg || stats.pvp_dmg,
+          pvp_reduc: mergedData.pvp_reduc || stats.pvp_reduc,
+        });
+
+        const imageCount = filesToProcess.length;
+        setMessage({
+          type: "success",
+          text:
+            imageCount === 2
+              ? "🤖 AI อ่านสเตตัสจากทั้ง 2 รูปเรียบร้อยแล้ว! เลือกค่าสูงสุด กรุณาตรวจสอบและกดบันทึก!"
+              : "🤖 AI อ่านสเตตัสเรียบร้อยแล้ว กรุณาตรวจสอบและกดบันทึก!",
+        });
+      } else {
+        // 💡 แปลง Error ดิบๆ ให้เป็นข้อความที่ผู้ใช้งานทั่วไปอ่านแล้วสบายใจ (Good UX)
+        let userFriendlyMessage = "🤔 AI มองเห็นตัวเลขไม่ชัดเจน รบกวนแคปรูปใหม่ให้เห็นสเตตัสครบถ้วน แล้วลองอีกครั้งนะครับ";
+
+        // ดักจับ Error ที่พบบ่อยจากการเรียกใช้ API
+        const errorMessage = results[0]?.error || "";
+        if (errorMessage.includes("503")) {
+          userFriendlyMessage = "⏳ ตอนนี้มีผู้ใช้งาน AI พร้อมกันจำนวนมาก รบกวนรอสัก 1 นาทีแล้วกดอัปโหลดใหม่นะครับ";
+        } else if (errorMessage.includes("429") || errorMessage.includes("Quota")) {
+          userFriendlyMessage = "🛑 โควต้า AI สำหรับวันนี้เต็มแล้วครับ รบกวนกรอกตัวเลขด้วยตัวเองไปก่อนนะครับ";
+        } else if (errorMessage.includes("404")) {
+          userFriendlyMessage = "🔧 ระบบ AI กำลังปิดปรับปรุงชั่วคราว รบกวนกรอกข้อมูลด้วยตัวเองไปก่อนนะครับ";
+        }
+
+        setMessage({
+          type: "error",
+          text: userFriendlyMessage,
+        });
+      }
+
+      setIsAiLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = ""; // ล้างค่าปุ่มอัปโหลด
     } catch (err) {
       // 💡 ปรับข้อความ Catch Error ให้ดูซอฟต์ลง
-      setMessage({ 
-        type: "error", 
-        text: "⚠️ เกิดข้อผิดพลาดในการโหลดไฟล์รูปภาพ รบกวนตรวจสอบไฟล์แล้วลองใหม่อีกครั้งครับ" 
+      setMessage({
+        type: "error",
+        text: "⚠️ เกิดข้อผิดพลาดในการโหลดไฟล์รูปภาพ รบกวนตรวจสอบไฟล์แล้วลองใหม่อีกครั้งครับ",
       });
       setIsAiLoading(false);
     }
@@ -146,13 +217,14 @@ export default function ProfileForm({
             ✨ Auto Fill ด้วย AI (Beta)
           </h3>
           <p className="text-xs text-indigo-700 dark:text-indigo-400 mt-1">
-            อัปโหลดรูปสเตตัสในเกม เพื่อให้ระบบกรอกตัวเลขให้อัตโนมัติ
+            อัปโหลดรูปสเตตัส 1-2 รูปในเกม เพื่อให้ระบบ AI อ่านแล้วกรอกตัวเลขให้อัตโนมัติ
           </p>
         </div>
         <div>
           <input
             type="file"
             accept="image/*"
+            multiple
             className="hidden"
             ref={fileInputRef}
             onChange={handleImageUpload}

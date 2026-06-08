@@ -1,28 +1,16 @@
-'use client'
-
-import { useState, useEffect } from 'react'
 import { RegisterForm } from './RegisterForm'
 import Link from 'next/link'
 import Image from 'next/image'
 
 export default function RegisterPage() {
   
-  // 🌟 เพิ่ม State สำหรับจัดการ Animation แบบเดียวกับหน้า Login
-  const [isLoaded, setIsLoaded] = useState(false)
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoaded(true)
-    }, 50) // หน่วงเวลา 50 มิลลิวินาที ให้จอเรนเดอร์ค่า false ให้เสร็จก่อน
-
-    return () => clearTimeout(timer) // Cleanup timer เมื่อเปลี่ยนหน้า
-  }, [])
+  // 🌟 ถอด state isLoaded ออกทั้งหมด ใช้ CSS เพียวๆ
 
   return (
     <div className="relative min-h-screen flex flex-col lg:flex-row items-center justify-end w-full overflow-hidden bg-gray-950">
       
-      {/* 🌟 1. รูปภาพพื้นหลัง (เอฟเฟกต์ซูมออก) */}
-      <div className={`absolute inset-0 z-0 transition-transform duration-[2s] ease-out ${isLoaded ? 'scale-100' : 'scale-110'}`}>
+      {/* 🌟 1. รูปภาพพื้นหลัง */}
+      <div className="absolute inset-0 z-0 animate-in fade-in zoom-in-[1.05] duration-[1500ms] ease-out">
         <Image
           src="/register.jpg"
           alt="Epic Fantasy Guild Background"
@@ -34,10 +22,10 @@ export default function RegisterPage() {
       </div>
       
       {/* เลเยอร์สีดรอปความสว่าง */}
-      <div className={`absolute inset-0 bg-black/40 dark:bg-black/60 -z-10 mix-blend-multiply transition-opacity duration-1000 ${isLoaded ? 'opacity-100' : 'opacity-0'}`} />
+      <div className="absolute inset-0 z-10 bg-black/40 dark:bg-black/60 mix-blend-multiply animate-in fade-in duration-[1500ms]" />
 
-      {/* ข้อความต้อนรับฝั่งซ้าย (เอฟเฟกต์เลื่อนขึ้น) */}
-      <div className={`hidden lg:flex flex-col flex-1 p-12 text-left z-10 self-center transition-all duration-1000 ease-out delay-300 transform ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+      {/* ข้อความต้อนรับฝั่งซ้าย */}
+      <div className="relative z-20 hidden lg:flex flex-col flex-1 p-12 text-left self-center animate-in fade-in slide-in-from-bottom-12 duration-1000 ease-out">
         <h1 className="text-5xl font-black tracking-tight text-white sm:text-6xl drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
           START YOUR<br />JOURNEY
         </h1>
@@ -47,9 +35,9 @@ export default function RegisterPage() {
       </div>
 
       {/* =======================
-          ฝั่งขวา: แผงควบคุมฟอร์มสไตล์ Liquid-Glass (เอฟเฟกต์สไลด์เข้า)
+          ฝั่งขวา: แผงควบคุมฟอร์มสไตล์ Liquid-Glass
           ======================= */}
-      <div className={`w-full lg:w-[40%] min-h-screen z-20 flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-16 xl:px-20 bg-white/10 dark:bg-black/30 backdrop-blur-xl lg:backdrop-blur-2xl border-t lg:border-t-0 lg:border-l border-white/20 dark:border-white/10 shadow-[-15px_0_50px_rgba(0,0,0,0.3)] transition-all duration-[800ms] ease-out transform ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-20 opacity-0'}`}>
+      <div className="relative z-20 w-full lg:w-[40%] min-h-screen flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-16 xl:px-20 bg-white/10 dark:bg-black/30 backdrop-blur-xl lg:backdrop-blur-2xl border-t lg:border-t-0 lg:border-l border-white/20 dark:border-white/10 shadow-[-15px_0_50px_rgba(0,0,0,0.3)] animate-in fade-in slide-in-from-right-16 duration-[800ms] ease-out">
         
         <div className="w-full max-w-sm mx-auto">
           

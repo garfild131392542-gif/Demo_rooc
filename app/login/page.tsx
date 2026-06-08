@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { loginAction } from '@/app/actions/auth'
 import { sendContactEmail } from '@/app/actions/contact'
@@ -19,18 +19,7 @@ export default function LoginPage() {
   const [showContactModal, setShowContactModal] = useState(false)
   const [contactStatus, setContactStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
 
-  // 🌟 เพิ่ม State สำหรับจัดการ Animation
-  const [isLoaded, setIsLoaded] = useState(false)
-  
-
-  // 🌟 สั่งให้ Animation ทำงานทันทีที่โหลดหน้าจอเสร็จ
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoaded(true)
-    }, 50) // หน่วงเวลา 50 มิลลิวินาที ให้จอเรนเดอร์ค่า false ให้เสร็จก่อน
-
-    return () => clearTimeout(timer) // Cleanup timer เมื่อเปลี่ยนหน้า
-  }, [])
+  // 🌟 เอา useEffect และ isLoaded ออกไปได้เลยครับ!
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -76,9 +65,10 @@ export default function LoginPage() {
       <div className="relative min-h-screen flex flex-col lg:flex-row items-center justify-end w-full overflow-hidden bg-gray-950">
         
         {/* =======================
-            เลเยอร์ 0: รูปภาพพื้นหลัง (มีเอฟเฟกต์ค่อยๆ ซูมออก)
+            เลเยอร์ 0: รูปภาพพื้นหลัง 
+            🌟 ใช้ animate-in เพื่อให้ซูมออกและเฟดเข้าแบบ CSS เพียวๆ (ไม่กระพริบดำ)
             ======================= */}
-        <div className={`absolute inset-0 z-0 transition-transform duration-[2s] ease-out ${isLoaded ? 'scale-100' : 'scale-110'}`}>
+        <div className="absolute inset-0 z-0 animate-in fade-in zoom-in-[1.05] duration-[1500ms] ease-out">
           <Image
             src="/login.jpg"
             alt="Epic Fantasy Guild Background"
@@ -90,10 +80,10 @@ export default function LoginPage() {
         </div>
         
         {/* เลเยอร์สีดรอปความสว่าง */}
-        <div className={`absolute inset-0 bg-black/30 dark:bg-black/50 -z-10 mix-blend-multiply transition-opacity duration-1000 ${isLoaded ? 'opacity-100' : 'opacity-0'}`} />
+        <div className="absolute inset-0 z-10 bg-black/30 dark:bg-black/50 mix-blend-multiply animate-in fade-in duration-[1500ms]" />
 
-        {/* ข้อความต้อนรับฝั่งซ้าย (มีเอฟเฟกต์เลื่อนขึ้น) */}
-        <div className={`hidden lg:flex flex-col flex-1 p-12 text-left z-10 self-center transition-all duration-1000 ease-out delay-300 transform ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+        {/* ข้อความต้อนรับฝั่งซ้าย */}
+        <div className="relative z-20 hidden lg:flex flex-col flex-1 p-12 text-left self-center animate-in fade-in slide-in-from-bottom-12 duration-1000 ease-out">
           <h1 className="text-5xl font-black tracking-tight text-white sm:text-6xl drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
             ROOC GUILD<br />MANAGEMENT
           </h1>
@@ -103,9 +93,10 @@ export default function LoginPage() {
         </div>
 
         {/* =======================
-            ฝั่งขวา: แผงควบคุมฟอร์มสไตล์ Liquid-Glass (มีเอฟเฟกต์เลื่อนเข้ามาจากขวา)
+            ฝั่งขวา: แผงควบคุมฟอร์มสไตล์ Liquid-Glass
+            🌟 สไลด์เข้าจากด้านขวาอย่างนุ่มนวล
             ======================= */}
-        <div className={`w-full lg:w-[40%] min-h-screen z-20 flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-16 xl:px-20 bg-white/10 dark:bg-black/30 backdrop-blur-xl lg:backdrop-blur-2xl border-t lg:border-t-0 lg:border-l border-white/20 dark:border-white/10 shadow-[-15px_0_50px_rgba(0,0,0,0.3)] transition-all duration-[800ms] ease-out transform ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-20 opacity-0'}`}>
+        <div className="relative z-20 w-full lg:w-[40%] min-h-screen flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-16 xl:px-20 bg-white/10 dark:bg-black/30 backdrop-blur-xl lg:backdrop-blur-2xl border-t lg:border-t-0 lg:border-l border-white/20 dark:border-white/10 shadow-[-15px_0_50px_rgba(0,0,0,0.3)] animate-in fade-in slide-in-from-right-16 duration-[800ms] ease-out">
           
           <div className="w-full max-w-sm mx-auto">
             
@@ -120,7 +111,7 @@ export default function LoginPage() {
 
             <form className="space-y-6" onSubmit={handleSubmit}>
               
-              {/* ... โค้ดฟอร์ม Login ทั้งหมดคงเดิม ไม่มีการเปลี่ยนแปลง ... */}
+              {/* ... โค้ดฟอร์ม Login ทั้งหมดคงเดิม ... */}
               {error && (
                 <div className="rounded-xl bg-red-500/20 p-4 border border-red-500/30 backdrop-blur-md">
                   <p className="text-sm font-medium text-red-200 text-center">{error}</p>

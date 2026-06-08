@@ -221,7 +221,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                         <div className="px-4 pt-2 pb-6 space-y-2">
                             {[
                                 { name: 'Dashboard', href: '/' },
-                                { name: 'Create Guild', href: '/guild/edit' },
+                                { name: 'Guild', href: '/guild/edit' },
                                 { name: 'My Profile', href: '/profile' },
                                 { name: 'Members', href: '/members' },
                                 ...(enrichedSession.role === 'admin' ? [{ name: 'จัดการข้อมูลสมาชิกกิล', href: '/guild-admin/credentials' }] : [])

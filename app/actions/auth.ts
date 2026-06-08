@@ -13,11 +13,10 @@ export async function getSession() {
   try {
     const supabase = await createClient()
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+    // 🌟 FIXED: เปลี่ยนมาใช้ getUser() ตรวจสอบตัวตนผ่านเซิร์ฟเวอร์โดยตรง เพื่อความปลอดภัยและลบตัวแจ้งเตือนสีเหลือง
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-    if (!session?.user) {
+    if (authError || !user) {
       return null
     }
 
@@ -25,11 +24,11 @@ export async function getSession() {
     const { data: profile } = await (supabase as any)
       .from('profiles')
       .select('*')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .maybeSingle()
 
     return {
-      user: session.user,
+      user: user,
       profile: profile || null,
     }
   } catch (err) {
@@ -134,7 +133,6 @@ export async function registerAction(username: string, password: string) {
 
     if (profileError) {
       console.error('Initial profile creation warning:', profileError.message)
-      // แม้ตาราง profile จะมีปัญหา แต่ถ้า auth ผ่านแล้ว เราจะปล่อยผ่านไปก่อนเพื่อให้หน้า profile-setup ช่วยซ่อมแซมได้
     }
   } catch (catchError) {
     console.error('Failed to run initial profile query:', catchError)

@@ -116,7 +116,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
     } as any
 
     return (
-        <nav className="sticky top-0 z-[100] bg-indigo-600/90 dark:bg-gray-900/90 backdrop-blur-md text-white shadow-lg transition-colors border-b border-white/10">
+        <nav className="sticky top-0 z-[100] bg-blue-500/90 dark:bg-gray-900/90 backdrop-blur-md text-white shadow-lg transition-colors border-b border-white/10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16">
 
@@ -216,15 +216,15 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                         animate="open"
                         exit="closed"
                         variants={menuVariants}
-                        className="md:hidden overflow-hidden bg-indigo-700/95 dark:bg-gray-950/95 backdrop-blur-xl border-t border-white/10"
+                        className="md:hidden overflow-hidden bg-gray-700/95 dark:bg-gray-950/95 backdrop-blur-xl border-t border-white/10"
                     >
                         <div className="px-4 pt-2 pb-6 space-y-2">
                             {[
                                 { name: 'Dashboard', href: '/' },
-                                { name: 'Create Guild', href: '/guild/create' },
+                                { name: 'Create Guild', href: '/guild/edit' },
                                 { name: 'My Profile', href: '/profile' },
                                 { name: 'Members', href: '/members' },
-                                ...(enrichedSession.role === 'admin' ? [{ name: 'จัดการข้อมูลสมาชิกกิล', href: '/admin/credentials' }] : [])
+                                ...(enrichedSession.role === 'admin' ? [{ name: 'จัดการข้อมูลสมาชิกกิล', href: '/guild-admin/credentials' }] : [])
                             ].map((item) => (
                                 <motion.div key={item.name} variants={itemVariants}>
                                     <Link

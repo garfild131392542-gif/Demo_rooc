@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import NextTopLoader from 'nextjs-toploader';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,6 +32,17 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-x-hidden">
+        <NextTopLoader
+          color="#007BFF"       // ปรับแต่งสีของแถบโหลดให้เข้ากับตีมเว็บ
+          initialPosition={0.08}
+          crawlSpeed={200}
+          height={3}            // ความหนาของเส้น
+          crawl={true}
+          showSpinner={false}   // ตั้งเป็น false เพื่อซ่อนไอคอนโหลดหมุนๆ ด้านขวาบน
+          easing="ease"
+          speed={200}
+          shadow="0 0 10px #007BFF,0 0 5px #007BFF"
+        />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Navbar />
           <main className="flex-1">

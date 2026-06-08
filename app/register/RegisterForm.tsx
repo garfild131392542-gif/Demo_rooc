@@ -114,10 +114,10 @@ export function RegisterForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 transition-all">
+          <p className="text-sm font-medium text-red-600 dark:text-red-400 text-center">{error}</p>
         </div>
       )}
 
@@ -125,7 +125,6 @@ export function RegisterForm() {
         label="ชื่อผู้ใช้งาน (Username)"
         name="username"
         type="text"
-        
         value={formData.username}
         onChange={handleInputChange}
         onBlur={() => handleBlur("username")}
@@ -138,7 +137,6 @@ export function RegisterForm() {
           label="รหัสผ่าน"
           name="password"
           type={showPassword ? "text" : "password"}
-          
           value={formData.password}
           onChange={handleInputChange}
           onBlur={() => handleBlur("password")}
@@ -148,7 +146,7 @@ export function RegisterForm() {
         <button
           type="button"
           onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-4 top-9 text-sm font-medium text-slate-500 hover:text-slate-700 select-none cursor-pointer"
+          className="absolute right-4 top-9 text-sm font-medium text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 select-none cursor-pointer transition-colors"
         >
           {showPassword ? "ซ่อน" : "แสดง"}
         </button>
@@ -159,7 +157,6 @@ export function RegisterForm() {
           label="ยืนยันรหัสผ่าน"
           name="confirmPassword"
           type={showConfirmPassword ? "text" : "password"}
-          
           value={formData.confirmPassword}
           onChange={handleInputChange}
           onBlur={() => handleBlur("confirmPassword")}
@@ -169,7 +166,7 @@ export function RegisterForm() {
         <button
           type="button"
           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-          className="absolute right-4 top-9 text-sm font-medium text-slate-500 hover:text-slate-700 select-none cursor-pointer"
+          className="absolute right-4 top-9 text-sm font-medium text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 select-none cursor-pointer transition-colors"
         >
           {showConfirmPassword ? "ซ่อน" : "แสดง"}
         </button>
@@ -178,10 +175,12 @@ export function RegisterForm() {
           <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
             {isPasswordMatch ? (
               <p className="text-xs font-semibold text-green-600 flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                 รหัสผ่านตรงกัน พร้อมใช้งาน
               </p>
             ) : (
               <p className="text-xs font-semibold text-red-500 flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง
               </p>
             )}
@@ -189,12 +188,23 @@ export function RegisterForm() {
         )}
       </div>
 
+      {/* อัปเกรดปุ่มให้เข้ากับหน้า Login */}
       <button
         type="submit"
         disabled={!isFormValid || isLoading}
-        className="cursor-pointer w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors mt-2"
+        className="group relative flex w-full justify-center rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 transition-all shadow-md hover:shadow-lg mt-2"
       >
-        {isLoading ? "กำลังโหลด..." : "สมัครสมาชิก"}
+        {isLoading ? (
+          <span className="flex items-center gap-2">
+            <svg className="h-5 w-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            กำลังโหลด...
+          </span>
+        ) : (
+          "สมัครสมาชิก"
+        )}
       </button>
     </form>
   );

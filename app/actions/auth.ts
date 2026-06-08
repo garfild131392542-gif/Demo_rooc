@@ -2,9 +2,7 @@
 
 import { cache } from 'react'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-// 💡 ดึงเอาประเภทข้อมูล (Types) ที่เราอุตส่าห์ทำไว้ใน Phase 2 มาสยบ TypeScript ครับ
-import type { Profile, Admin } from '@/types/database'
+
 
 /**
  * Get current user session with profile data
@@ -35,7 +33,7 @@ export const getSession = cache(async () => {
   } catch (err) {
     return null
   }
-}
+})
 
 /**
  * Login user with email and password

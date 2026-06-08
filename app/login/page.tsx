@@ -94,12 +94,10 @@ export default function LoginPage() {
 
         {/* =======================
             ฝั่งขวา: แผงควบคุมฟอร์มสไตล์ Liquid-Glass
-            🌟 สไลด์เข้าจากด้านขวาอย่างนุ่มนวล
+            🌟 ปรับเป็น card layout ตามที่ขอ
             ======================= */}
-        <div className="relative z-20 w-full lg:w-[40%] min-h-screen flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-16 xl:px-20 bg-white/10 dark:bg-black/30 backdrop-blur-xl lg:backdrop-blur-2xl border-t lg:border-t-0 lg:border-l border-white/20 dark:border-white/10 shadow-[-15px_0_50px_rgba(0,0,0,0.3)] animate-in fade-in slide-in-from-right-16 duration-[800ms] ease-out">
-          
-          <div className="w-full max-w-sm mx-auto">
-            
+        <div className="relative z-20 w-full lg:w-[40%] min-h-screen flex items-center justify-center lg:justify-end px-6 py-12 sm:px-12 lg:px-16 xl:px-20 animate-in fade-in slide-in-from-right-16 duration-800 ease-out">
+          <div className="w-full max-w-sm p-8 bg-white/10 dark:bg-black/30 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl shadow-2xl">
             <div className="text-center lg:text-left mb-8">
               <h2 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">
                 ยินดีต้อนรับกลับมา

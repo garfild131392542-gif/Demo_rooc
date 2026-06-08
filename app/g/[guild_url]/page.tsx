@@ -17,7 +17,7 @@ export default async function GuildInvitePage({
 
   const { data: guild, error: guildError } = await (supabaseAdmin as any)
     .from('guilds')
-    .select('id, name, server_name, guild_url')
+    .select('id, name, guild_url')
     .eq('guild_url', guildUrl)
     .maybeSingle()
 
@@ -33,15 +33,12 @@ export default async function GuildInvitePage({
         <p className="text-gray-600 dark:text-gray-300 mt-2">
           เข้าร่วมกิลด์: <span className="font-bold">{guildAny.name}</span>
         </p>
-        <p className="text-gray-600 dark:text-gray-300">
-          เซิร์ฟเวอร์: <span className="font-bold">{guildAny.server_name}</span>
-        </p>
+        
       </div>
 
       <GuildInviteForm
         guildId={guildAny.id}
         guildName={guildAny.name}
-        serverName={guildAny.server_name}
       />
     </div>
   )

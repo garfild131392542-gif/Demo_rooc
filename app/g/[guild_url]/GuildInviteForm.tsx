@@ -6,10 +6,9 @@ import { registerMemberWithGuildInvite } from '@/app/actions/guild-invite'
 type Props = {
   guildId: string
   guildName: string
-  serverName: string
 }
 
-export default function GuildInviteForm({ guildId, guildName, serverName }: Props) {
+export default function GuildInviteForm({ guildId, guildName }: Props) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -35,8 +34,9 @@ export default function GuildInviteForm({ guildId, guildName, serverName }: Prop
         setError(result?.error || 'เกิดข้อผิดพลาดในการสมัครสมาชิก')
         setLoading(false)
       }
-    } catch (err: any) {
-      setError(err?.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการสมัครสมาชิก'
+      setError(message)
       setLoading(false)
     }
   }
@@ -47,8 +47,7 @@ export default function GuildInviteForm({ guildId, guildName, serverName }: Prop
         สมัครสมาชิกเพื่อเข้าร่วมกิลด์
       </h2>
       <p className="text-gray-600 dark:text-gray-300 mt-2">
-        กิลด์: <span className="font-bold">{guildName}</span> | เซิร์ฟเวอร์:{' '}
-        <span className="font-bold">{serverName}</span>
+        กิลด์: <span className="font-bold">{guildName}</span>
       </p>
 
       {error && (

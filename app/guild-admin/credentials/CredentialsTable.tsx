@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx';
 // 🌟 เพิ่มการอิมพอร์ต resetMemberPassword เข้ามาจากไฟล์หลังบ้าน
 import { changeMemberRole, createMember, updateMember, deleteMember, toggleMemberLeave, resetMemberPassword } from '@/app/actions/admin'
@@ -67,6 +68,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
   const [isCreating, setIsCreating] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [showOnlyNotUpdated, setShowOnlyNotUpdated] = useState(false)
+  const router = useRouter()
 
   // 🌟 State สำหรับการจัดการระบบ รีเซ็ตรหัสผ่าน
   const [resettingPasswordMember, setResettingPasswordMember] = useState<ManagementItem | null>(null)
@@ -103,7 +105,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       const result = await updateMember(editingMember.id, formData)
       if (result?.success) {
         setEditingMember(null)
-        window.location.reload()
+        router.refresh()
       } else {
         alert(result?.error || 'Failed to update member')
       }
@@ -117,7 +119,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       const result = await createMember(formData)
       if (result?.success) {
         setIsCreating(false)
-        window.location.reload()
+        router.refresh()
       } else {
         alert(result?.error || 'Failed to create member')
       }

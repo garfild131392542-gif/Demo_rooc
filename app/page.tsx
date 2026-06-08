@@ -32,29 +32,32 @@ export default async function HomePage() {
     if (myGuildId) {
       isAdmin = sessionAny?.profile?.role === 'admin'
 
-      // 🌟 ดึงข้อมูลโปรไฟล์ "เฉพาะคนที่มี guild_id ตรงกับกิลด์ของเราเท่านั้น" เพื่อความปลอดภัย
-      const { data, error } = await supabase
+      const profilesQuery = supabase
         .from('profiles')
         .select('*')
-        .eq('guild_id', myGuildId) // 🔐 ล็อกสิทธิ์ด้วยบรรทัดนี้
+        .eq('guild_id', myGuildId)
         .order('id', { ascending: true })
 
-      if (error) {
-        console.error('Error fetching profiles:', error.message)
-      } else {
-        profiles = data || []
-      }
-
-      // Fetch guild's trial status
-      const { data: guild } = await supabase
+      const guildQuery = supabase
         .from('guilds')
         .select('trial_ends_at')
         .eq('id', myGuildId)
-        .maybeSingle() as any
+        .maybeSingle()
 
-      const guildData = guild as Guild | null
+      const [profilesResult, guildResult] = await Promise.all([
+        profilesQuery,
+        guildQuery,
+      ])
+
+      if (profilesResult.error) {
+        console.error('Error fetching profiles:', profilesResult.error.message)
+      } else {
+        profiles = profilesResult.data || []
+      }
+
+      const guildData = (guildResult.data ?? null) as Guild | null
       if (guildData?.trial_ends_at) {
-        trialDaysRemaining = calculateDaysRemaining(guildData.trial_ends_at || null)
+        trialDaysRemaining = calculateDaysRemaining(guildData.trial_ends_at)
       }
     }
   }

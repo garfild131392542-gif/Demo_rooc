@@ -18,6 +18,11 @@ export default function ProfileForm({
   } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const loadingText = isAiLoading
+    ? "กำลังอ่านภาพจาก AI..."
+    : isPending
+    ? "กำลังบันทึกข้อมูลโปรไฟล์..."
+    : "";
 
   // 💡 สร้าง State สำหรับตัวเลขสเตตัส เพื่อให้ AI เอาค่ามาหยอดใส่ได้
   const [stats, setStats] = useState({
@@ -181,6 +186,41 @@ export default function ProfileForm({
           className={`p-4 rounded-md font-medium text-sm ${message.type === "success" ? "bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800" : "bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800"}`}
         >
           {message.text}
+        </div>
+      )}
+
+      {(isAiLoading || isPending) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/95 p-6 text-center shadow-2xl backdrop-blur-md dark:bg-slate-900/95 dark:text-white">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-600 text-white">
+              <svg
+                className="h-8 w-8 animate-spin"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v8z"
+                />
+              </svg>
+            </div>
+            <p className="text-lg font-semibold">{loadingText}</p>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              {isAiLoading
+                ? "ระบบกำลังประมวลผลจากภาพที่อัปโหลด โปรดรอสักครู่..."
+                : "ระบบกำลังบันทึกข้อมูล โปรดอย่าปิดหน้าจอจนกว่าจะเสร็จสิ้น"
+              }
+            </p>
+          </div>
         </div>
       )}
 

@@ -22,32 +22,38 @@ export async function extractStatsFromImage(base64Image: string, mimeType: strin
     
     // 💡 เพิ่ม generationConfig เพื่อบังคับให้ AI ตอบกลับมาเป็น JSON 100% ไม่มีข้อความอื่นปน
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-3.1-flash-lite", // แนะนำให้ใช้ flash-latest เพราะอ่านข้อมูลได้เร็วและรองรับ JSON ได้ดีมาก
+      model: "gemini-3.5-flash", // แนะนำให้ใช้ flash-latest เพราะอ่านข้อมูลได้เร็วและรองรับ JSON ได้ดีมาก
       generationConfig: {
         responseMimeType: "application/json",
       }
     })
 
     const prompt = `
-      ดูรูปภาพหน้าจอเกม Ragnarok นี้ 
-      ภารกิจของคุณคือการดึงตัวเลขสเตตัส 10 ค่าออกมาดังนี้:
+      Analyze this Ragnarok screenshot and extract the requested numeric stats.
+      Answer only with valid JSON and nothing else.
+      Use the exact object structure shown below.
 
-      1. P.ATK (จำนวนเต็ม)
-      2. M.ATK (จำนวนเต็ม)
-      3. P.DEF (จำนวนเต็ม)
-      4. M.DEF (จำนวนเต็ม)
-      5. P.DMG Bonus (ตัวเลขทศนิยม ฝั่งที่มีเครื่องหมาย %)
-      6. M.DMG Bonus (ตัวเลขทศนิยม ฝั่งที่มีเครื่องหมาย %)
-      7. P.DMG Reduction (ตัวเลขทศนิยม ฝั่งที่มีเครื่องหมาย %)
-      8. M.DMG Reduction (ตัวเลขทศนิยม ฝั่งที่มีเครื่องหมาย %)
-      9. PVP DMG Bonus (จำนวนเต็ม)
-      10. PVP DMG Reduction หรือค่าที่อยู่บรรทัดสุดท้ายอยู่ซ้ายมือของค่า PVP DMG Bonus (จำนวนเต็ม)
-      
-      คำแนะนำสำคัญระดับสูง (อ่านให้ละเอียด):
-      - สำหรับค่าที่ 5 ถึง 8: ให้ดึงเฉพาะตัวเลขฝั่งที่เป็นเปอร์เซ็นต์ (%) มาตอบ โดยไม่ต้องใส่เครื่องหมาย % (เช่น ในรูปคือ 35.83% ให้ตอบ 35.83)
-      - สำหรับข้อ 10 (PvP DMG Reduction): เนื่องจากข้อความชื่อในเกมอาจจะยาวและเลื่อนวิ่งไปมาจนชื่อแหว่ง (เช่น เหลือแค่ 'Reduction', 'PVP DMG...' ,'P DMG Reduction' ,หรืออ่านชื่อไม่ออก) ให้คุณแก้ปัญหาโดย **หาตัวเลขจำนวนเต็มที่อยู่คู่กับ PVP DMG Bonus เสมอ** แล้วดึงค่านั้นมาตอบได้เลย
-      
-      ตอบกลับมาเป็น JSON ตามโครงสร้างด้านล่างนี้เท่านั้น ห้ามมีข้อความอื่นปน:
+      1. p_atk: integer
+      2. m_atk: integer
+      3. p_def: integer
+      4. m_def: integer
+      5. p_dmg: decimal percentage without the % sign
+      6. m_dmg: decimal percentage without the % sign
+      7. p_reduc: decimal percentage without the % sign
+      8. m_reduc: decimal percentage without the % sign
+      9. pvp_dmg: integer
+      10. pvp_reduc: integer (the integer paired with PVP DMG Bonus)
+
+      Important:
+      - For items 5-8, return only the numeric percentage value, no % symbol.
+      - For item 10, if the label is truncated or partially visible, use the integer value associated with PVP DMG Bonus.
+      - Do not output any text, labels, markdown, or extra fields.
+      - Only return a single JSON object.
+
+      ดูรูปภาพหน้าจอเกม Ragnarok นี้
+      ดึงค่า stat จากภาพให้ครบ 10 ค่าตามโครงสร้างด้านล่าง
+      ตอบเฉพาะ JSON เท่านั้น ห้ามมีข้อความอื่นปน
+
       {
         "p_atk": 0,
         "m_atk": 0,
@@ -86,8 +92,9 @@ export async function extractStatsFromImage(base64Image: string, mimeType: strin
 
     return { success: true, data: stats }
 
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
     console.error("AI Error:", error)
-    return { success: false, error: "AI อ่านภาพไม่สำเร็จ: " + (error.message || "รูปแบบข้อมูลผิดพลาด") }
+    return { success: false, error: "AI อ่านภาพไม่สำเร็จ: " + (message || "รูปแบบข้อมูลผิดพลาด") }
   }
 }

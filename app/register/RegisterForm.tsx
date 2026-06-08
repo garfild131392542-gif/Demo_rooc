@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormInput } from "@/components/FormInput";
 import { registerAction } from "@/app/actions/register";
 import { validatePassword, validatePasswordMatch } from "@/lib/validations";
+import ReCAPTCHA from "react-google-recaptcha";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -13,6 +14,7 @@ export function RegisterForm() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     username: "",
@@ -89,6 +91,11 @@ export function RegisterForm() {
     e.preventDefault();
     setError(null);
 
+    if (!captchaToken) {
+      setError("กรุณายืนยันว่าคุณไม่ใช่โปรแกรมอัตโนมัติ (CAPTCHA)");
+      return;
+    }
+
     if (!isFormValid) {
       setError("Please fix all errors before submitting");
       return;
@@ -114,7 +121,7 @@ export function RegisterForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 transition-all">
           <p className="text-sm font-medium text-red-600 dark:text-red-400 text-center">{error}</p>
@@ -188,6 +195,14 @@ export function RegisterForm() {
         )}
       </div>
 
+      <div className="flex justify-center mt-2">
+        <ReCAPTCHA
+          sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
+          onChange={(token) => setCaptchaToken(token)}
+          theme="dark"
+        />
+      </div>
+
       {/* อัปเกรดปุ่มให้เข้ากับหน้า Login */}
       <button
         type="submit"
@@ -207,5 +222,18 @@ export function RegisterForm() {
         )}
       </button>
     </form>
+
+      {isLoading && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="flex flex-col items-center bg-white/10 dark:bg-black/40 p-8 rounded-3xl border border-white/20 shadow-2xl backdrop-blur-2xl">
+            <svg className="h-14 w-14 animate-spin text-blue-500 mb-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <h3 className="text-xl font-extrabold text-white tracking-widest drop-shadow-md">กำลังสมัครสมาชิก</h3>
+            <p className="text-sm text-blue-200/80 mt-2">โปรดรอสักครู่ ระบบกำลังสร้างบัญชีของคุณ...</p>
+          </div>
+        </div>
+      )}
   );
 }

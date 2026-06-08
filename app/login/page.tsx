@@ -6,6 +6,8 @@ import { loginAction } from '@/app/actions/auth'
 import { sendContactEmail } from '@/app/actions/contact'
 import Link from 'next/link'
 import Image from 'next/image'
+// 🌟 1. Import reCAPTCHA
+import ReCAPTCHA from "react-google-recaptcha"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -19,11 +21,19 @@ export default function LoginPage() {
   const [showContactModal, setShowContactModal] = useState(false)
   const [contactStatus, setContactStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
 
-  // 🌟 เอา useEffect และ isLoaded ออกไปได้เลยครับ!
+  // 🌟 2. เพิ่ม State สำหรับเก็บค่า Token จาก CAPTCHA
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
+    
+    // 🌟 3. เช็คก่อนว่าติ๊ก CAPTCHA หรือยัง
+    if (!captchaToken) {
+      setError('กรุณายืนยันว่าคุณไม่ใช่โปรแกรมอัตโนมัติ (CAPTCHA)')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -42,19 +52,15 @@ export default function LoginPage() {
     }
   }
 
+  // ... (ฟังก์ชัน handleContactSubmit คงเดิม)
   const handleContactSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setContactStatus('loading')
     const formData = new FormData(e.currentTarget)
-    
     const result = await sendContactEmail(formData)
-    
     if (result.success) {
       setContactStatus('success')
-      setTimeout(() => {
-        setShowContactModal(false)
-        setContactStatus('idle')
-      }, 2000)
+      setTimeout(() => { setShowContactModal(false); setContactStatus('idle') }, 2000)
     } else {
       setContactStatus('error')
     }
@@ -64,52 +70,28 @@ export default function LoginPage() {
     <>
       <div className="relative min-h-screen flex flex-col lg:flex-row items-center justify-end w-full overflow-hidden bg-gray-950">
         
-        {/* =======================
-            เลเยอร์ 0: รูปภาพพื้นหลัง 
-            🌟 ใช้ animate-in เพื่อให้ซูมออกและเฟดเข้าแบบ CSS เพียวๆ (ไม่กระพริบดำ)
-            ======================= */}
+        {/* เลเยอร์ 0: รูปภาพพื้นหลัง */}
         <div className="absolute inset-0 z-0 animate-in fade-in zoom-in-[1.05] duration-[1500ms] ease-out">
-          <Image
-            src="/login.jpg"
-            alt="Epic Fantasy Guild Background"
-            fill
-            priority
-            className="object-cover"
-            sizes="100vw"
-          />
+          <Image src="/login.jpg" alt="Background" fill priority className="object-cover" sizes="100vw" />
         </div>
-        
-        {/* เลเยอร์สีดรอปความสว่าง */}
         <div className="absolute inset-0 z-10 bg-black/30 dark:bg-black/50 mix-blend-multiply animate-in fade-in duration-[1500ms]" />
 
-        {/* ข้อความต้อนรับฝั่งซ้าย */}
+        {/* ข้อความฝั่งซ้าย */}
         <div className="relative z-20 hidden lg:flex flex-col flex-1 p-12 text-left self-center animate-in fade-in slide-in-from-bottom-12 duration-1000 ease-out">
-          <h1 className="text-5xl font-black tracking-tight text-white sm:text-6xl drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
-            ROOC GUILD<br />MANAGEMENT
-          </h1>
-          <p className="mt-6 text-lg font-medium text-blue-100 max-w-md drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
-            ระบบบริหารจัดการและจัดระเบียบกิลด์ของคุณให้แข็งแกร่ง พร้อมลุยทุกสถานการณ์
-          </p>
+          <h1 className="text-5xl font-black tracking-tight text-white sm:text-6xl drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">ROOC GUILD<br />MANAGEMENT</h1>
+          <p className="mt-6 text-lg font-medium text-blue-100 max-w-md drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">ระบบบริหารจัดการและจัดระเบียบกิลด์ของคุณให้แข็งแกร่ง พร้อมลุยทุกสถานการณ์</p>
         </div>
 
-        {/* =======================
-            ฝั่งขวา: แผงควบคุมฟอร์มสไตล์ Liquid-Glass
-            🌟 ปรับเป็น card layout ตามที่ขอ
-            ======================= */}
-        <div className="relative z-20 w-full lg:w-[40%] min-h-screen flex items-center justify-center lg:justify-end px-6 py-12 sm:px-12 lg:px-16 xl:px-20 animate-in fade-in slide-in-from-right-16 duration-800 ease-out">
-          <div className="w-full max-w-sm p-8 bg-white/10 dark:bg-black/30 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl shadow-2xl">
+        {/* ฝั่งขวา: ฟอร์ม Login */}
+        <div className="relative z-20 w-full lg:w-[40%] min-h-screen flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-16 xl:px-20 bg-white/10 dark:bg-black/30 backdrop-blur-xl lg:backdrop-blur-2xl border-t lg:border-t-0 lg:border-l border-white/20 dark:border-white/10 shadow-[-15px_0_50px_rgba(0,0,0,0.3)] animate-in fade-in slide-in-from-right-16 duration-[800ms] ease-out">
+          
+          <div className="w-full max-w-sm mx-auto">
             <div className="text-center lg:text-left mb-8">
-              <h2 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">
-                ยินดีต้อนรับกลับมา
-              </h2>
-              <p className="mt-2 text-sm text-blue-100/80">
-                ลงชื่อเข้าสู่ระบบเพื่อจัดการข้อมูลกิลด์ของคุณ
-              </p>
+              <h2 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">ยินดีต้อนรับกลับมา</h2>
+              <p className="mt-2 text-sm text-blue-100/80">ลงชื่อเข้าสู่ระบบเพื่อจัดการข้อมูลกิลด์ของคุณ</p>
             </div>
 
             <form className="space-y-6" onSubmit={handleSubmit}>
-              
-              {/* ... โค้ดฟอร์ม Login ทั้งหมดคงเดิม ... */}
               {error && (
                 <div className="rounded-xl bg-red-500/20 p-4 border border-red-500/30 backdrop-blur-md">
                   <p className="text-sm font-medium text-red-200 text-center">{error}</p>
@@ -118,48 +100,56 @@ export default function LoginPage() {
 
               <div className="space-y-5">
                 <div>
-                  <label htmlFor="identifier" className="block text-xs font-bold text-white uppercase tracking-wider mb-2">ชื่อผู้ใช้งาน หรือ อีเมล</label>
-                  <input
-                    id="identifier" type="text" required value={identifier} onChange={(e) => setIdentifier(e.target.value)}
-                    className="block w-full rounded-xl border border-white/20 px-4 py-3 text-white placeholder-white/40 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/10 dark:bg-black/20 backdrop-blur-md transition-all sm:text-sm"
-                    placeholder="Username / Email" autoCapitalize="none" spellCheck={false}
-                  />
+                  <label className="block text-xs font-bold text-white uppercase tracking-wider mb-2">ชื่อผู้ใช้งาน หรือ อีเมล</label>
+                  <input id="identifier" type="text" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} className="block w-full rounded-xl border border-white/20 px-4 py-3 text-white placeholder-white/40 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/10 dark:bg-black/20 backdrop-blur-md transition-all sm:text-sm" placeholder="Username / Email" autoCapitalize="none" spellCheck={false} />
                 </div>
-
                 <div>
-                  <label htmlFor="password" className="block text-xs font-bold text-white uppercase tracking-wider mb-2">รหัสผ่าน</label>
+                  <label className="block text-xs font-bold text-white uppercase tracking-wider mb-2">รหัสผ่าน</label>
                   <div className="relative">
-                    <input 
-                      id="password" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full rounded-xl border border-white/20 px-4 py-3 text-white placeholder-white/40 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/10 dark:bg-black/20 backdrop-blur-md transition-all sm:text-sm"
-                      placeholder="••••••••"
-                    />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white focus:outline-none p-1 text-xs font-bold">
-                      {showPassword ? "ซ่อน" : "แสดง"}
-                    </button>
+                    <input id="password" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} className="block w-full rounded-xl border border-white/20 px-4 py-3 text-white placeholder-white/40 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/10 dark:bg-black/20 backdrop-blur-md transition-all sm:text-sm" placeholder="••••••••" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white focus:outline-none p-1 text-xs font-bold">{showPassword ? "ซ่อน" : "แสดง"}</button>
                   </div>
                 </div>
               </div>
 
+              {/* 🌟 4. วิดเจ็ต CAPTCHA */}
+              <div className="flex justify-center mt-2">
+                <ReCAPTCHA
+                  sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI" // นี่คือ Test Key ของ Google (ใช้ทดสอบได้)
+                  onChange={(token) => setCaptchaToken(token)}
+                  theme="dark" // บังคับธีมมืดให้เข้ากับเว็บ
+                />
+              </div>
+
               <button type="submit" disabled={loading} className="group relative flex w-full justify-center rounded-xl bg-blue-600/80 px-4 py-3.5 text-sm font-bold text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-70 transition-all shadow-lg backdrop-blur-sm">
-                {loading ? 'กำลังเข้าสู่ระบบ...' : 'Sign In'}
+                Sign In
               </button>
 
               <div className="mt-6 flex flex-col items-center gap-4 border-t border-white/10 pt-6 text-center">
-                <p className="text-sm text-blue-100/90">
-                  ยังไม่มีบัญชีใช่ไหม?{' '}
-                  <Link href="/register" className="font-bold text-blue-400 hover:text-blue-300 hover:underline transition-colors">
-                    สมัครสมาชิกที่นี่
-                  </Link>
-                </p>
-                <button type="button" onClick={() => setShowContactModal(true)} className="cursor-pointer text-xs text-white/60 font-medium hover:text-white underline decoration-white/20 transition-colors">
-                  พบปัญหาในการใช้งาน? ติดต่อผู้ดูแลระบบ
-                </button>
+                <p className="text-sm text-blue-100/90">ยังไม่มีบัญชีใช่ไหม? <Link href="/register" className="font-bold text-blue-400 hover:text-blue-300 hover:underline transition-colors">สมัครสมาชิกที่นี่</Link></p>
+                <button type="button" onClick={() => setShowContactModal(true)} className="cursor-pointer text-xs text-white/60 font-medium hover:text-white underline decoration-white/20 transition-colors">พบปัญหาในการใช้งาน? ติดต่อผู้ดูแลระบบ</button>
               </div>
             </form>
           </div>
         </div>
       </div>
+
+      {/* =======================
+          🌟 5. Modal Loading (แสดงตอนกด Login)
+          ======================= */}
+      {loading && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="flex flex-col items-center bg-white/10 dark:bg-black/40 p-8 rounded-3xl border border-white/20 shadow-2xl backdrop-blur-2xl">
+            {/* ไอคอนหมุนๆ */}
+            <svg className="h-14 w-14 animate-spin text-blue-500 mb-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <h3 className="text-xl font-extrabold text-white tracking-widest drop-shadow-md">กำลังเข้าสู่ระบบ</h3>
+            <p className="text-sm text-blue-200/80 mt-2">โปรดรอสักครู่ ระบบกำลังตรวจสอบข้อมูล...</p>
+          </div>
+        </div>
+      )}
 
       {/* =======================
           Contact Modal (คงรูปแบบเดิมไว้ แต่ขอบมนขึ้นให้เข้ากับดีไซน์)

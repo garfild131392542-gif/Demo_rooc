@@ -1,37 +1,44 @@
-// 💡 ต้องมีคำว่า "export default" นำหน้าเสมอ
 export default function MembersLoading() {
-    return (
-        <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-xl p-8 flex flex-col items-center">
 
-            {/* Header Skeleton */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="h-10 w-64 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse" />
-                <div className="flex items-center space-x-2">
-                    <div className="h-5 w-20 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
-                    <div className="h-9 w-40 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
-                </div>
+        {/* ไอคอนกำลังโหลด (Spinner) */}
+        <svg
+          className="h-12 w-12 animate-spin text-blue-600 mb-6"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+
+        <h2 className="text-xl font-bold text-slate-800 mb-2">กำลังโหลดข้อมูลสมาชิก...</h2>
+        <p className="text-sm text-slate-500 mb-8 animate-pulse">โปรดรอสักครู่ ระบบกำลังดึงข้อมูลจากฐานข้อมูล</p>
+
+        {/* Skeleton Card (โครงร่างจำลองระหว่างรอโหลด) */}
+        <div className="w-full space-y-4 bg-slate-50 rounded-2xl p-6 border border-slate-100 shadow-inner">
+          <div className="animate-pulse flex space-x-4">
+            <div className="flex-1 space-y-6 py-1">
+              <div className="h-2 bg-slate-200 rounded w-1/4"></div>
+              <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+
+              <div className="space-y-3 pt-4 border-t border-slate-200">
+                <div className="h-2 bg-slate-200 rounded w-1/3"></div>
+                <div className="h-3 bg-slate-200 rounded w-full"></div>
+                <div className="h-3 bg-slate-200 rounded w-5/6"></div>
+              </div>
+
+              <div className="space-y-3 pt-4 border-t border-slate-200">
+                <div className="h-2 bg-slate-200 rounded w-1/4"></div>
+                <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+              </div>
             </div>
-
-            {/* Table Skeleton */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                <div className="grid grid-cols-5 bg-gray-50 dark:bg-gray-900/50 p-4 border-b border-gray-100 dark:border-gray-700">
-                    {[...Array(5)].map((_, i) => (
-                        <div key={i} className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                    ))}
-                </div>
-
-                <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {[...Array(10)].map((_, i) => (
-                        <div key={i} className="grid grid-cols-5 p-4 items-center">
-                            <div className="h-4 w-8 bg-gray-100 dark:bg-gray-700/50 rounded animate-pulse" />
-                            <div className="h-5 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                            <div className="h-6 w-24 bg-gray-100 dark:bg-gray-700 rounded-full animate-pulse" />
-                            <div className="h-4 w-16 bg-emerald-100 dark:bg-emerald-900/20 rounded animate-pulse" />
-                            <div className="h-4 w-16 bg-rose-100 dark:bg-rose-900/20 rounded animate-pulse" />
-                        </div>
-                    ))}
-                </div>
-            </div>
+          </div>
         </div>
-    )
+
+      </div>
+    </div>
+  )
 }

@@ -177,20 +177,9 @@ export default function ProfileForm({
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 space-y-6"
-    >
-      {message && (
-        <div
-          className={`p-4 rounded-md font-medium text-sm ${message.type === "success" ? "bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800" : "bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800"}`}
-        >
-          {message.text}
-        </div>
-      )}
-
+    <div className="relative">
       {(isAiLoading || isPending) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-50 pointer-events-auto flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/95 p-6 text-center shadow-2xl backdrop-blur-md dark:bg-slate-900/95 dark:text-white">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-600 text-white">
               <svg
@@ -224,7 +213,19 @@ export default function ProfileForm({
         </div>
       )}
 
-      {/* 💡 ส่วนอัปโหลดรูปให้ AI */}
+      <form
+        onSubmit={handleSubmit}
+        className={`${isAiLoading || isPending ? 'pointer-events-none opacity-80' : ''} bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 space-y-6`}
+      >
+        {message && (
+          <div
+            className={`p-4 rounded-md font-medium text-sm ${message.type === "success" ? "bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800" : "bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800"}`}
+          >
+            {message.text}
+          </div>
+        )}
+
+        {/* 💡 ส่วนอัปโหลดรูปให้ AI */}
       <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg border border-indigo-100 dark:border-indigo-800 flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-indigo-900 dark:text-indigo-200 flex items-center gap-2">
@@ -534,5 +535,6 @@ export default function ProfileForm({
         </button>
       </div>
     </form>
+  </div>
   );
 }

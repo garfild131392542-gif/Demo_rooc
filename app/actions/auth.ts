@@ -159,3 +159,42 @@ export async function logoutAction() {
     return { success: false, error: err.message || 'เกิดข้อผิดพลาดในการออกจากระบบ' }
   }
 }
+
+export async function forgotPasswordAction(identifier: string) {
+  if (!identifier || !identifier.trim()) {
+    return { success: false, error: 'กรุณากรอกชื่อผู้ใช้งานหรืออีเมล' }
+  }
+
+  const finalIdentifier = identifier.trim()
+  const finalEmail = finalIdentifier.includes('@')
+    ? finalIdentifier.toLowerCase()
+    : `${finalIdentifier.toLowerCase()}@member.rooc`
+
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase.auth.resetPasswordForEmail(finalEmail)
+
+    if (error) {
+      const isUsername = !finalIdentifier.includes('@')
+      const fallbackMessage = isUsername
+        ? 'ไม่พบบัญชีที่ตรงกับชื่อผู้ใช้งานนี้ หากคุณไม่สามารถรับอีเมลได้ กรุณาติดต่อผู้ดูแลระบบ'
+        : 'ไม่พบบัญชีที่ใช้อีเมลนี้'
+
+      return {
+        success: false,
+        error: error.message || fallbackMessage,
+      }
+    }
+
+    return {
+      success: true,
+      email: finalEmail,
+      message: `ระบบได้ส่งลิงก์รีเซ็ตรหัสผ่านไปยัง ${finalEmail} แล้ว`,
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || 'เกิดข้อผิดพลาดในการส่งคำขอรีเซ็ตรหัสผ่าน'
+    }
+  }
+}

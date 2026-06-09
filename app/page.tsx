@@ -2,6 +2,7 @@ import { getSession } from '@/app/actions/auth'
 import { createClient } from '@/lib/supabase/server'
 import Dashboard from '@/components/Dashboard'
 import type { Guild } from '@/types/database'
+import { redirect } from 'next/navigation' // 🌟 1. อย่าลืม import redirect
 
 function calculateDaysRemaining(trialEndsAt: string | null): number {
   if (!trialEndsAt) return 0
@@ -28,38 +29,44 @@ export default async function HomePage() {
   if (session) {
     const myGuildId = sessionAny?.profile?.guild_id
 
-    // ต้องยูสเซอร์มีกิลด์ก่อนถึงจะเริ่มดึงข้อมูลสมาชิกในกิลด์
-    if (myGuildId) {
-      isAdmin = sessionAny?.profile?.role === 'admin'
-
-      const profilesQuery = supabase
-        .from('profiles')
-        .select('*')
-        .eq('guild_id', myGuildId)
-        .order('id', { ascending: true })
-
-      const guildQuery = supabase
-        .from('guilds')
-        .select('trial_ends_at')
-        .eq('id', myGuildId)
-        .maybeSingle()
-
-      const [profilesResult, guildResult] = await Promise.all([
-        profilesQuery,
-        guildQuery,
-      ])
-
-      if (profilesResult.error) {
-        console.error('Error fetching profiles:', profilesResult.error.message)
-      } else {
-        profiles = profilesResult.data || []
-      }
-
-      const guildData = (guildResult.data ?? null) as Guild | null
-      if (guildData?.trial_ends_at) {
-        trialDaysRemaining = calculateDaysRemaining(guildData.trial_ends_at)
-      }
+    // 🌟 2. เพิ่ม Logic ตรงนี้: ถ้าไม่มีกิลด์ ให้เด้งไปหน้า profile-setup ทันที!
+    if (!myGuildId) {
+      redirect('/profile-setup')
     }
+
+    // ถ้าผ่านเงื่อนไขด้านบนมาได้ แปลว่ามีกิลด์แล้ว ให้ทำงานตามปกติ
+    isAdmin = sessionAny?.profile?.role === 'admin'
+
+    const profilesQuery = supabase
+      .from('profiles')
+      .select('*')
+      .eq('guild_id', myGuildId)
+      .order('id', { ascending: true })
+
+    const guildQuery = supabase
+      .from('guilds')
+      .select('trial_ends_at')
+      .eq('id', myGuildId)
+      .maybeSingle()
+
+    const [profilesResult, guildResult] = await Promise.all([
+      profilesQuery,
+      guildQuery,
+    ])
+
+    if (profilesResult.error) {
+      console.error('Error fetching profiles:', profilesResult.error.message)
+    } else {
+      profiles = profilesResult.data || []
+    }
+
+    const guildData = (guildResult.data ?? null) as Guild | null
+    if (guildData?.trial_ends_at) {
+      trialDaysRemaining = calculateDaysRemaining(guildData.trial_ends_at)
+    }
+  } else {
+    // 🌟 3. (เสริม) ถ้ายังไม่ล็อกอิน ให้เด้งไปหน้า login
+    redirect('/login')
   }
 
   return (

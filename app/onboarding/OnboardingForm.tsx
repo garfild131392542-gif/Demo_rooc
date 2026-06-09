@@ -154,23 +154,23 @@ export function OnboardingForm() {
   };
 
   return (
-    // ✨ Parent container จัดกึ่งกลางหน้าจอ และเพิ่ม Background อ่อนๆ
     <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4 dark:bg-gray-950/20 transition-colors duration-300">
-      {/* ✨ Main Card Container: จำกัดความกว้าง, เพิ่ม Shadow, Border, Rounded */}
       <div className="w-full max-w-2xl bg-white p-8 md:p-12 rounded-3xl border border-slate-100 shadow-xl dark:bg-gray-900 dark:border-gray-800 transition-all duration-300">
+        
         {/* Progress Section */}
         <div className="mb-2 border-b border-slate-100 pb-8 dark:border-gray-800">
           <ProgressBar currentStep={currentStep} totalSteps={3} />
         </div>
+        
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-xl p-4 mb-8 animate-in fade-in duration-200 text-center font-medium">
             <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
           </div>
         )}
+        
         {/* STEP 1: Guild Info */}
         {currentStep === 1 && (
           <div className="flex flex-col gap-3 animate-in fade-in duration-300 relative">
-            {/* Step Header */}
             <div className="mb-2">
               <h1 className="text-2xl font-extrabold text-gray-950 dark:text-white tracking-tight">
                 ลงทะเบียนข้อมูลกิลด์
@@ -239,23 +239,33 @@ export function OnboardingForm() {
               rows={5}
             />
 
-            <div className="pt-4">
+            {/* 🌟 ปรับปรุงโซนปุ่มกดใน Step 1 ให้มีปุ่มย้อนกลับไปหน้าตั้งหลักหลัก */}
+            <div className="pt-4 flex flex-col sm:flex-row gap-3">
               <button
+                type="button"
+                onClick={() => router.push("/profile-setup")}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-slate-700 dark:text-white font-bold py-3.5 px-6 rounded-xl transition-all cursor-pointer text-base text-center"
+              >
+                ⬅ ย้อนกลับ
+              </button>
+              
+              <button
+                type="button"
                 onClick={handleNext}
                 disabled={
                   !guildUrlStatus.available || !formData.guildName.trim()
                 }
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:dark:bg-gray-700 disabled:text-slate-500 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md disabled:cursor-not-allowed cursor-pointer text-base"
+                className="flex-[2] bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:dark:bg-gray-700 disabled:text-slate-500 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md disabled:cursor-not-allowed cursor-pointer text-base"
               >
                 ขั้นตอนถัดไป ➔
               </button>
             </div>
           </div>
         )}
+
         {/* STEP 2: Contact Info */}
         {currentStep === 2 && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-300">
-            {/* Step Header */}
             <div className="mb-2">
               <h1 className="text-2xl font-extrabold text-gray-950 dark:text-white tracking-tight">
                 ข้อมูลการติดต่อ
@@ -265,7 +275,6 @@ export function OnboardingForm() {
               </p>
             </div>
 
-            {/* Contact Email Section */}
             <div className="bg-emerald-50/60 dark:bg-emerald-950/20 p-6 rounded-2xl border border-emerald-100 dark:border-emerald-900/40 shadow-inner">
               <FormInput
                 label="อีเมลติดต่อจริง"
@@ -310,6 +319,7 @@ export function OnboardingForm() {
             </div>
           </div>
         )}
+
         {/* STEP 3: Success Screen */}
         {currentStep === 3 && (
           <div className="flex flex-col gap-6 items-center py-4 animate-in zoom-in-95 duration-300 relative">
@@ -324,53 +334,33 @@ export function OnboardingForm() {
                   </p>
                 </div>
 
-                {/* บล็อกพรีวิวข้อมูลก่อนส่งขึ้นเซิร์ฟเวอร์ (Summary Data Preview) */}
                 <div className="w-full max-w-md bg-slate-50 dark:bg-gray-800/40 p-5 rounded-2xl border border-slate-100 dark:border-gray-800/80 space-y-3.5 text-sm">
                   <div className="flex justify-between items-start border-b border-slate-200/60 pb-2 dark:border-gray-700/60">
-                    <span className="text-slate-500 dark:text-slate-400 font-medium">
-                      ชื่อกิลด์:
-                    </span>
-                    <span className="text-gray-950 dark:text-white font-bold text-right">
-                      {formData.guildName}
-                    </span>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">ชื่อกิลด์:</span>
+                    <span className="text-gray-950 dark:text-white font-bold text-right">{formData.guildName}</span>
                   </div>
 
                   <div className="flex justify-between items-start border-b border-slate-200/60 pb-2 dark:border-gray-700/60">
-                    <span className="text-slate-500 dark:text-slate-400 font-medium">
-                      ลิงก์กิลด์ (URL):
-                    </span>
-                    <span className="text-blue-600 dark:text-blue-400 font-mono font-semibold text-right">
-                      /g/{formData.guildUrl}
-                    </span>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">ลิงก์กิลด์ (URL):</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-mono font-semibold text-right">/g/{formData.guildUrl}</span>
                   </div>
 
                   <div className="flex justify-between items-start border-b border-slate-200/60 pb-2 dark:border-gray-700/60">
-                    <span className="text-slate-500 dark:text-slate-400 font-medium">
-                      อีเมลติดต่อ:
-                    </span>
-                    <span className="text-gray-950 dark:text-white font-medium text-right">
-                      {formData.contactEmail}
-                    </span>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">อีเมลติดต่อ:</span>
+                    <span className="text-gray-950 dark:text-white font-medium text-right">{formData.contactEmail}</span>
                   </div>
 
                   {formData.discordLink && (
                     <div className="flex justify-between items-start border-b border-slate-200/60 pb-2 dark:border-gray-700/60">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">
-                        ลิงก์ Discord:
-                      </span>
-                      <span className="text-gray-950 dark:text-white font-medium truncate max-w-[220px] text-right font-mono text-xs">
-                        {formData.discordLink}
-                      </span>
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">ลิงก์ Discord:</span>
+                      <span className="text-gray-950 dark:text-white font-medium truncate max-w-[220px] text-right font-mono text-xs">{formData.discordLink}</span>
                     </div>
                   )}
 
                   <div className="flex flex-col gap-1.5 pt-1">
-                    <span className="text-slate-500 dark:text-slate-400 font-medium">
-                      รายละเอียดกิลด์:
-                    </span>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">รายละเอียดกิลด์:</span>
                     <p className="text-gray-700 dark:text-gray-300 text-xs bg-white dark:bg-gray-900 p-3 rounded-xl border border-slate-200/50 dark:border-gray-800 break-words max-h-24 overflow-y-auto leading-relaxed">
-                      {formData.guildDescription ||
-                        "- ไม่ได้ระบุข้อมูลรายละเอียด -"}
+                      {formData.guildDescription || "- ไม่ได้ระบุข้อมูลรายละเอียด -"}
                     </p>
                   </div>
                 </div>
@@ -388,23 +378,18 @@ export function OnboardingForm() {
                     disabled={isLoading}
                     className="flex-[2] bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold py-3 px-5 rounded-xl transition-all shadow-md disabled:cursor-not-allowed cursor-pointer text-sm"
                   >
-                    {isLoading
-                      ? "กำลังตั้งค่าระบบกิลด์..."
-                      : "ยืนยันสร้างกิลด์เลย"}
+                    {isLoading ? "กำลังตั้งค่าระบบกิลด์..." : "ยืนยันสร้างกิลด์เลย"}
                   </button>
                 </div>
               </>
             ) : (
               <>
-                {/* ส่วนของการแสดงสถานะสมัครกิลด์สำเร็จ (Success State) สามารถใช้โค้ดเดิมได้เลย */}
-                
                 <div className="text-center space-y-2">
                   <h2 className="text-3xl font-extrabold text-gray-950 dark:text-white tracking-tight">
                     จัดตั้งกิลด์สำเร็จแล้ว!
                   </h2>
                   <p className="text-base text-slate-600 dark:text-slate-400 leading-relaxed">
-                    คัดลอกลิงก์คำเชิญด้านล่าง
-                    และส่งต่อให้สมาชิกเพื่อเข้าร่วมกิลด์
+                    คัดลอกลิงก์คำเชิญด้านล่าง และส่งต่อให้สมาชิกเพื่อเข้าร่วมกิลด์
                   </p>
                 </div>
 

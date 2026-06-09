@@ -7,7 +7,7 @@ export interface OnboardingFormData {
   guildName: string
   guildUrl: string
   guildDescription: string
-  discordLink?: string
+  discordLink?: string // รองรับข้อมูลลิงก์ Discord จากหน้าบ้าน
   contactEmail: string 
 }
 
@@ -78,13 +78,15 @@ export async function completeOnboardingAction(
       .insert([
         {
           owner_id: userId,
-          name: formData.guildName,
-          guild_url: formData.guildUrl,
-          description: formData.guildDescription, 
+          name: formData.guildName.trim(),
+          guild_url: formData.guildUrl.trim().toLowerCase(),
+          description: formData.guildDescription.trim(), 
           status: 'active', 
           invite_code: inviteCode,
           trial_ends_at: trialEndsAt.toISOString(),
-          contact_email: formData.contactEmail 
+          contact_email: formData.contactEmail.trim(),
+          // 🌟 เพิ่มการแมปข้อมูล discord_link ลงฐานข้อมูลตรงนี้ครับ (ถ้าไม่มีส่งค่ามาจะบันทึกเป็น null)
+          discord_link: formData.discordLink ? formData.discordLink.trim() : null
         }
       ])
       .select('id')

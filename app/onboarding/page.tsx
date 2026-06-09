@@ -11,22 +11,28 @@ export default async function OnboardingPage() {
     redirect('/login')
   }
 
-  // 2. เช็คแค่กิลด์อย่างเดียว: ถ้ามีกิลด์แล้ว บังคับเด้งไปหน้า Profile Setup ทันที 
-  // (ไม่ต้องไปเช็คซ้ำซ้อนว่ามี Profile หรือยัง เพราะยังไงเพิ่งสร้างกิลด์เสร็จก็ต้องไปกรอก Profile อยู่ดี)
-  const { data: existingGuild } = await supabase
-    .from('guilds')
-    .select('id')
-    .eq('owner_id', user.id)
-    .maybeSingle()
+  // ดึงข้อมูล profile มาตรวจสอบทั้ง guild_id และข้อมูลตัวละคร (เช่น job_name)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('guild_id, job_name')
+    .eq('id', user.id)
+    .single()
 
-  if (existingGuild) {
+  // 🌟 ด่านที่ 1: ถ้าเขามีกิลด์อยู่แล้ว (ไม่ว่าจะสร้างเองหรือเข้าร่วม) ให้กลับหน้า Dashboard
+  if (profile?.guild_id) {
+    redirect('/')
+  }
+
+  // 🌟 ด่านที่ 2: ถ้าเขาไม่มีกิลด์ "แต่" ยังไม่เคยตั้งข้อมูลตัวละครเลย 
+  // (แปลว่าแอบพิมพ์ URL /onboarding เข้ามาตรงๆ โดยไม่ผ่านหน้า Hub)
+  // ให้เตะกลับไปหน้า Hub เพื่อให้เขาเลือกว่าจะ "สร้าง" หรือ "เข้าร่วม" ให้ถูกต้องก่อน
+  if (!profile?.job_name) {
     redirect('/profile-setup')
   }
 
-  // 3. ไม่ต้อง Query หาชื่อจาก guild_owners ให้เสียเวลา บังคับแสดงข้อความต้อนรับไปเลย
+  // 🌟 ด่านที่ 3: ไม่มีกิลด์ + มีข้อมูลตัวละครแล้ว = คนนี้ตั้งใจมาสร้างกิลด์จริงๆ อนุญาตให้เห็นฟอร์มได้
   return (
     <div className="container mx-auto p-4">
-      
       <OnboardingForm />
     </div>
   )

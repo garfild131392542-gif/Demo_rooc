@@ -65,9 +65,10 @@ export default async function HomePage() {
   return (
     <div className="w-full mt-10 max-w-[1450px] mx-auto px-4 ">
       {/* Trial Countdown Banner */}
-      {session && trialDaysRemaining > 0 && (
+      {session && trialDaysRemaining > 0 && isAdmin && (
         <div className="mb-6 mx-10 bg-linear-to-r from-blue-50 to-blue-100 border border-blue-300 rounded-lg px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          {/* Full Banner - Hidden on sm/md, visible on lg */}
+          <div className="hidden lg:flex items-center gap-3 flex-1">
             <div className="shrink-0">
               <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zm-11-1a1 1 0 11-2 0 1 1 0 012 0z" clipRule="evenodd" />
@@ -82,11 +83,18 @@ export default async function HomePage() {
               </p>
             </div>
           </div>
-          {isAdmin && (
-            <a href="/billing" className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors">
+
+          {/* Button Only - Visible on sm/md */}
+          <div className="lg:hidden w-full">
+            <a href="/billing" className="inline-block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors">
               จัดการการเรียกเก็บเงิน
             </a>
-          )}
+          </div>
+
+          {/* Button on Full Banner - lg and above */}
+          <a href="/billing" className="hidden lg:block shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors">
+            จัดการการเรียกเก็บเงิน
+          </a>
         </div>
       )}
 

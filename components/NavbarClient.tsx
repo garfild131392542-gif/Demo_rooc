@@ -119,13 +119,16 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
             <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
                 <div className="flex justify-between h-16 sm:h-18">
 
-                    <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="flex items-center sm:gap-4">
                         {/* 🌟 แสดงชื่อกิลด์ที่ดึงมาจากฐานข้อมูลแบบเรียลไทม์ */}
-                        <Link href="/" className="flex items-center font-bold text-x2l sm:text-xl tracking-tighter hover:scale-105 transition-transform">
-                            {guildName}<span className="ml-1 text-indigo-200 text-sm sm:text-base">Guild</span>
-                        </Link>
+                        <div>
 
-                        <div className="hidden sm:flex gap-4">
+                        <Link href="/" className="flex items-center font-bold text-2xl sm:text-2xl tracking-tighter hover:scale-105 transition-transform">
+                            {guildName}<span className="ml-1 text-indigo-200  sm:text-xl">Guild</span>
+                        </Link>
+                        </div>
+
+                        <div className="hidden sm:flex gap-1">
                             {[
                                 { name: 'Dashboard', href: '/' },
                                 { name: 'Guild', href: '/guild/edit' },
@@ -173,7 +176,8 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                 <span className="text-xs font-mono opacity-80 bg-black/20 px-2 py-1 rounded-md border border-white/5">
                                     <span className="text-indigo-200">{enrichedSession.display_name}</span>
                                     <span className="mx-1 opacity-40">|</span>
-                                    <span className="hidden xl:inline">{enrichedSession.uid_game}</span>
+                                    {/* show uid_game from lg and up (was xl) so it's visible on tablet/desktop */}
+                                    <span className="hidden lg:inline">{enrichedSession.uid_game}</span>
                                 </span>
                             </div>
                             <form onSubmit={handleLogout}>
@@ -217,7 +221,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                         variants={menuVariants}
                         className="sm:hidden overflow-hidden bg-gray-700/95 dark:bg-gray-950/95 backdrop-blur-xl border-t border-white/10"
                     >
-                        <div className="px-4 pt-2 pb-6 space-y-2">
+                        <div className="px-4 pb-6 space-y-2">
                             {[
                                 { name: 'Dashboard', href: '/' },
                                 { name: 'Guild', href: '/guild/edit' },
@@ -228,7 +232,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                 <motion.div key={item.name} variants={itemVariants}>
                                     <Link
                                         href={item.href}
-                                        className="block px-4 py-3 rounded-xl text-lg font-medium hover:bg-white/10 active:bg-white/20 transition-colors"
+                                        className="block px-4 py-3 rounded-xl text-md font-medium hover:bg-white/10 active:bg-white/20 transition-colors"
                                     >
                                         {item.name}
                                     </Link>

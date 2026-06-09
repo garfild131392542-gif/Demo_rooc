@@ -20,9 +20,15 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   
-  // State สำหรับ Modal ลืมรหัสผ่าน
+  // ==========================================
+  // 🌟 State สำหรับ Modal รีเซ็ตรหัสผ่าน (แบบตรวจสอบรหัสกิลด์)
+  // ==========================================
   const [showForgotModal, setShowForgotModal] = useState(false)
-  const [forgotIdentifier, setForgotIdentifier] = useState('')
+  const [forgotUsername, setForgotUsername] = useState('')
+  const [forgotInviteCode, setForgotInviteCode] = useState('')
+  const [forgotNewPassword, setForgotNewPassword] = useState('')
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false)
+  
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotError, setForgotError] = useState<string | null>(null)
   const [forgotSuccess, setForgotSuccess] = useState<string | null>(null)
@@ -33,7 +39,7 @@ export default function LoginPage() {
   // State สำหรับเก็บค่า Token จาก CAPTCHA
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
 
-  // ฟังก์ชันจัดการตอนกดส่งขอรีเซ็ตรหัสผ่าน
+  // 🌟 ฟังก์ชันจัดการตอนกดส่งขอรีเซ็ตรหัสผ่าน
   const handleForgotSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setForgotError(null)
@@ -41,13 +47,21 @@ export default function LoginPage() {
     setForgotLoading(true)
 
     try {
-      const result = await forgotPasswordAction(forgotIdentifier)
+      // โยนข้อมูล 3 ตัวไปให้ Backend ตรวจสอบ
+      const result = await forgotPasswordAction({
+        username: forgotUsername,
+        inviteCode: forgotInviteCode,
+        newPassword: forgotNewPassword
+      })
 
       if (!result.success) {
-        setForgotError(result.error || 'เกิดข้อผิดพลาด กรุณาลองอีกครั้ง')
+        setForgotError(result.error || 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง')
       } else {
-        setForgotSuccess(result.message || `ระบบได้ส่งลิงก์รีเซ็ตรหัสผ่านไปยังอีเมลของคุณแล้ว`)
-        setForgotIdentifier('') // ล้างข้อมูลช่องกรอก
+        setForgotSuccess('เปลี่ยนรหัสผ่านสำเร็จ! คุณสามารถเข้าสู่ระบบด้วยรหัสใหม่ได้ทันที')
+        // ล้างฟอร์ม
+        setForgotUsername('')
+        setForgotInviteCode('')
+        setForgotNewPassword('')
       }
     } catch (err: any) {
       setForgotError(err.message || 'เกิดข้อผิดพลาดที่ไม่รู้จัก')
@@ -213,7 +227,7 @@ export default function LoginPage() {
       )}
 
       {/* =======================
-          🌟 6. Forgot Password Modal (เพิ่มเข้ามาให้สมบูรณ์)
+          🌟 6. Forgot Password Modal (แบบยืนยันรหัสเชิญกิลด์)
           ======================= */}
       {showForgotModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
@@ -221,58 +235,109 @@ export default function LoginPage() {
             
             {/* ปุ่มปิดกากบาท */}
             <button 
-              onClick={() => setShowForgotModal(false)} 
+              onClick={() => {
+                setShowForgotModal(false)
+                setForgotSuccess(null)
+                setForgotError(null)
+              }} 
               className="absolute top-5 right-5 text-white/50 hover:text-white transition-colors cursor-pointer"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
 
             <div className="text-center lg:text-left mb-6 mt-2">
-              <h3 className="text-2xl font-extrabold text-white tracking-tight drop-shadow-sm">รีเซ็ตรหัสผ่าน</h3>
-              <p className="mt-2 text-sm text-blue-100/80">กรอกชื่อผู้ใช้งานหรืออีเมลเพื่อรับลิงก์กู้คืน</p>
+              <h3 className="text-2xl font-extrabold text-white tracking-tight drop-shadow-sm">ตั้งรหัสผ่านใหม่</h3>
+              <p className="mt-2 text-sm text-blue-100/80">ยืนยันตัวตนด้วยชื่อผู้ใช้งานและรหัสเชิญกิลด์</p>
             </div>
 
-            <form onSubmit={handleForgotSubmit} className="space-y-5">
-              {forgotError && (
-                <div className="rounded-xl bg-red-500/20 p-4 border border-red-500/30 backdrop-blur-md">
-                  <p className="text-sm font-medium text-red-200 text-center">{forgotError}</p>
+            {forgotSuccess ? (
+              <div className="text-center space-y-4">
+                <div className="rounded-xl bg-green-500/20 p-6 border border-green-500/30 backdrop-blur-md">
+                  <svg className="w-12 h-12 text-green-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <p className="text-sm font-bold text-green-200">{forgotSuccess}</p>
                 </div>
-              )}
-              {forgotSuccess && (
-                <div className="rounded-xl bg-green-500/20 p-4 border border-green-500/30 backdrop-blur-md">
-                  <p className="text-sm font-medium text-green-200 text-center">{forgotSuccess}</p>
-                </div>
-              )}
-
-              <div>
-                <label htmlFor="forgotIdentifier" className="block text-xs font-bold text-white uppercase tracking-wider mb-2">
-                  ชื่อผู้ใช้งาน
-                </label>
-                <input
-                  id="forgotIdentifier"
-                  type="text"
-                  required
-                  value={forgotIdentifier}
-                  onChange={(e) => setForgotIdentifier(e.target.value)}
-                  className="block w-full rounded-xl border border-white/20 px-4 py-3 text-white placeholder-white/40 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/10 dark:bg-black/20 backdrop-blur-md transition-all sm:text-sm"
-                  placeholder="Username / Email"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                />
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(false)}
+                  className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm font-bold text-white hover:bg-white/20 transition-all border border-white/20"
+                >
+                  กลับไปหน้าเข้าสู่ระบบ
+                </button>
               </div>
+            ) : (
+              <form onSubmit={handleForgotSubmit} className="space-y-4">
+                {forgotError && (
+                  <div className="rounded-xl bg-red-500/20 p-4 border border-red-500/30 backdrop-blur-md">
+                    <p className="text-sm font-medium text-red-200 text-center">{forgotError}</p>
+                  </div>
+                )}
 
-              <button
-                type="submit"
-                disabled={forgotLoading}
-                className="group relative flex w-full justify-center rounded-xl bg-blue-600/80 px-4 py-3.5 text-sm font-bold text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-70 transition-all shadow-lg backdrop-blur-sm"
-              >
-                {forgotLoading ? 'กำลังส่งคำขอ...' : 'ส่งลิงก์รีเซ็ตรหัสผ่าน'}
-              </button>
+                <div>
+                  <label htmlFor="forgotUsername" className="block text-xs font-bold text-white uppercase tracking-wider mb-2">
+                    ชื่อผู้ใช้งาน (Username)
+                  </label>
+                  <input
+                    id="forgotUsername"
+                    type="text"
+                    required
+                    value={forgotUsername}
+                    onChange={(e) => setForgotUsername(e.target.value)}
+                    className="block w-full rounded-xl border border-white/20 px-4 py-3 text-white placeholder-white/40 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/10 dark:bg-black/20 backdrop-blur-md transition-all sm:text-sm"
+                    placeholder="กรอกชื่อผู้ใช้งานของคุณ"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                  />
+                </div>
 
-              <p className="text-[11px] text-center text-white/40 leading-relaxed mt-4">
-                ระบบจะส่งลิงก์ไปยังอีเมลที่คุณใช้สมัครสมาชิก หากไม่ได้รับกรุณาตรวจสอบใน Junk Mail
-              </p>
-            </form>
+                <div>
+                  <label htmlFor="forgotInviteCode" className="block text-xs font-bold text-white uppercase tracking-wider mb-2">
+                    รหัสเชิญกิลด์ที่สังกัด
+                  </label>
+                  <input
+                    id="forgotInviteCode"
+                    type="text"
+                    required
+                    value={forgotInviteCode}
+                    onChange={(e) => setForgotInviteCode(e.target.value)}
+                    className="block w-full rounded-xl border border-white/20 px-4 py-3 text-white placeholder-white/40 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/10 dark:bg-black/20 backdrop-blur-md transition-all sm:text-sm"
+                    placeholder="เช่น ROOC-XYZ123"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="forgotNewPassword" className="block text-xs font-bold text-white uppercase tracking-wider mb-2">
+                    รหัสผ่านใหม่
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="forgotNewPassword"
+                      type={showForgotNewPassword ? "text" : "password"}
+                      required
+                      value={forgotNewPassword}
+                      onChange={(e) => setForgotNewPassword(e.target.value)}
+                      className="block w-full rounded-xl border border-white/20 px-4 py-3 text-white placeholder-white/40 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/10 dark:bg-black/20 backdrop-blur-md transition-all sm:text-sm"
+                      placeholder="••••••••"
+                      minLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white focus:outline-none p-1 text-xs font-bold"
+                    >
+                      {showForgotNewPassword ? "ซ่อน" : "แสดง"}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="group relative flex w-full justify-center rounded-xl bg-blue-600/80 px-4 py-3.5 text-sm font-bold text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-70 transition-all shadow-lg backdrop-blur-sm mt-2"
+                >
+                  {forgotLoading ? 'กำลังตรวจสอบ...' : 'ยืนยันและเปลี่ยนรหัสผ่าน'}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}

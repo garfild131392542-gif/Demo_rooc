@@ -2,7 +2,7 @@
 
 import { cache } from 'react'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 /**
  * Get current user session with profile data
@@ -160,41 +160,76 @@ export async function logoutAction() {
   }
 }
 
-export async function forgotPasswordAction(identifier: string) {
-  if (!identifier || !identifier.trim()) {
-    return { success: false, error: 'กรุณากรอกชื่อผู้ใช้งานหรืออีเมล' }
+export async function forgotPasswordAction(data: { username: string, inviteCode: string, newPassword: string }) {
+  // 1. ตรวจสอบว่ากรอกข้อมูลครบถ้วนหรือไม่
+  if (!data.username || !data.inviteCode || !data.newPassword) {
+    return { success: false, error: 'กรุณากรอกข้อมูลให้ครบถ้วน' }
   }
 
-  const finalIdentifier = identifier.trim()
-  const finalEmail = finalIdentifier.includes('@')
-    ? finalIdentifier.toLowerCase()
-    : `${finalIdentifier.toLowerCase()}@member.rooc`
+  if (data.newPassword.length < 6) {
+    return { success: false, error: 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 6 ตัวอักษร' }
+  }
 
   try {
-    const supabase = await createClient()
-    const { data, error } = await supabase.auth.resetPasswordForEmail(finalEmail)
+    // 🌟 2. สร้าง Supabase Client ด้วย Service Role Key (สิทธิ์ Admin)
+    // จำเป็นต้องใช้สิทธิ์ Admin ถึงจะสามารถเปลี่ยนรหัสผ่านให้คนอื่นโดยไม่ต้องส่งอีเมลยืนยันได้
+    const supabaseAdmin = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
-    if (error) {
-      const isUsername = !finalIdentifier.includes('@')
-      const fallbackMessage = isUsername
-        ? 'ไม่พบบัญชีที่ตรงกับชื่อผู้ใช้งานนี้ หากคุณไม่สามารถรับอีเมลได้ กรุณาติดต่อผู้ดูแลระบบ'
-        : 'ไม่พบบัญชีที่ใช้อีเมลนี้'
+    // 3. ค้นหา Profile จาก Username ที่ระบุ
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, guild_id')
+      .eq('username', data.username.trim())
+      .single()
 
-      return {
-        success: false,
-        error: error.message || fallbackMessage,
-      }
+    if (profileError || !profile) {
+      return { success: false, error: 'ไม่พบชื่อผู้ใช้งานนี้ในระบบ' }
     }
 
-    return {
-      success: true,
-      email: finalEmail,
-      message: `ระบบได้ส่งลิงก์รีเซ็ตรหัสผ่านไปยัง ${finalEmail} แล้ว`,
+    if (!profile.guild_id) {
+      return { success: false, error: 'ชื่อผู้ใช้งานนี้ยังไม่ได้สังกัดกิลด์ใดๆ' }
     }
+
+    // 4. ค้นหากิลด์ และตรวจสอบรหัสเชิญ (Invite Code)
+    const { data: guild, error: guildError } = await supabaseAdmin
+      .from('guilds')
+      .select('invite_code')
+      .eq('id', profile.guild_id)
+      .single()
+
+    if (guildError || !guild) {
+      return { success: false, error: 'ไม่พบข้อมูลกิลด์ของบัญชีนี้' }
+    }
+
+    // เทียบรหัสเชิญว่าตรงกันหรือไม่ (เช็ค Case Sensitive)
+    if (guild.invite_code !== data.inviteCode.trim()) {
+      return { success: false, error: 'รหัสเชิญกิลด์ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง' }
+    }
+
+    // 🌟 5. ถ้าข้อมูลตรงทั้งหมด สั่งบังคับเปลี่ยนรหัสผ่านด้วย Admin API
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      profile.id, // auth_user_id (id จากตาราง profiles ตรงกับตาราง auth.users)
+      { password: data.newPassword }
+    )
+
+    if (updateError) {
+      return { success: false, error: 'เกิดข้อผิดพลาดในการอัปเดตรหัสผ่าน: ' + updateError.message }
+    }
+
+    // สำเร็จ!
+    return { 
+      success: true, 
+      message: 'ตั้งรหัสผ่านใหม่สำเร็จแล้ว' 
+    }
+
   } catch (err: any) {
+    console.error('Reset Password Error:', err)
     return {
       success: false,
-      error: err.message || 'เกิดข้อผิดพลาดในการส่งคำขอรีเซ็ตรหัสผ่าน'
+      error: 'เกิดระบบขัดข้อง โปรดลองอีกครั้งในภายหลัง'
     }
   }
 }

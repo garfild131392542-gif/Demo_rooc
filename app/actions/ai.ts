@@ -4,54 +4,70 @@ import { GoogleGenerativeAI } from "@google/generative-ai"
 
 export async function extractStatsFromImage(base64Image: string, mimeType: string) {
   try {
-    const base64Data = base64Image.split(',')[1];
+    // 🌟 แก้ไข 1: เช็คก่อนว่ามีเครื่องหมาย ',' ไหม ป้องกันการหั่นสตริงพัง
+    const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
 
     // ==========================================
-    // STEP 1: ใช้ Google Cloud Vision API ดึงข้อความ (เร็วมาก)
+    // STEP 1: ใช้ Google Cloud Vision API ดึงข้อความ
     // ==========================================
     const visionApiKey = process.env.GOOGLE_CLOUD_VISION_API_KEY; 
     
+    if (!visionApiKey) {
+      throw new Error("ไม่พบ GOOGLE_CLOUD_VISION_API_KEY ในไฟล์ .env");
+    }
+
     const visionResponse = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${visionApiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         requests: [{
           image: { content: base64Data },
-          features: [{ type: "TEXT_DETECTION" }] // เน้นอ่าน Text อย่างเดียว
+          // 🌟 แก้ไข 2: เปลี่ยนเป็น DOCUMENT_TEXT_DETECTION เหมาะกับ UI เกมที่ตัวหนังสือแน่นๆ
+          features: [{ type: "DOCUMENT_TEXT_DETECTION" }] 
         }]
       })
     });
 
     const visionData = await visionResponse.json();
     
+    if (visionData.error) {
+       console.error("Vision API Error:", visionData.error);
+       throw new Error(`Google Vision API Error: ${visionData.error.message}`);
+    }
+
     if (!visionData.responses?.[0]?.textAnnotations) {
-       throw new Error("ไม่พบตัวหนังสือในภาพ");
+       throw new Error("ระบบ OCR ไม่พบตัวหนังสือในภาพเลย");
     }
 
     // ได้ข้อความดิบๆ ออกมาทั้งหมดจากภาพ
     const rawTextFromImage = visionData.responses[0].textAnnotations[0].description;
+    console.log("✅ [Step 1] Vision API อ่านข้อความสำเร็จ:", rawTextFromImage.substring(0, 50) + "...");
 
     // ==========================================
-    // STEP 2: ให้ Gemini จับคู่และจัด JSON (เร็วขึ้นเพราะประมวลผลแค่ Text)
+    // STEP 2: ให้ Gemini จับคู่และจัด JSON
     // ==========================================
     const apiKeys = [
-  process.env.GEMINI_API_KEY_1,
-  process.env.GEMINI_API_KEY_2,
-  process.env.GEMINI_API_KEY_3,
-  process.env.GEMINI_API_KEY_4,
-].filter(Boolean) as string[];
+      process.env.GEMINI_API_KEY_1,
+      process.env.GEMINI_API_KEY_2,
+      process.env.GEMINI_API_KEY_3,
+      process.env.GEMINI_API_KEY_4,
+    ].filter(Boolean) as string[];
+
+    if (apiKeys.length === 0) {
+      throw new Error("ไม่พบ GEMINI_API_KEY ในไฟล์ .env");
+    }
 
     const randomKey = apiKeys[Math.floor(Math.random() * apiKeys.length)];
     const genAI = new GoogleGenerativeAI(randomKey);
     
+    // 🌟 แก้ไข 3: เปลี่ยนโมเดลเป็น gemini-1.5-flash หรือ gemini-2.0-flash
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       generationConfig: {
         responseMimeType: "application/json",
       }
     });
 
-    // ปรับ Prompt เล็กน้อย โดยนำ rawText ยัดเข้าไปแทนรูปภาพ
     const prompt = `
       Analyze the following raw text extracted from a Ragnarok screenshot via OCR.
       Extract the requested numeric stats.
@@ -94,12 +110,12 @@ export async function extractStatsFromImage(base64Image: string, mimeType: strin
       }
     `;
 
-    // สังเกตว่าเราไม่ได้ส่งรูปภาพ (inlineData) ไปแล้ว ส่งแค่ prompt ที่มี Text
     const result = await model.generateContent(prompt);
     const text = result.response.text();
     
-    console.log("Raw AI Response:", text);
+    console.log("✅ [Step 2] Gemini จัดรูปแบบสำเร็จ");
     
+    // JSON.parse ตัว response ที่ได้มา
     const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     const stats = JSON.parse(cleanedText);
 
@@ -107,7 +123,7 @@ export async function extractStatsFromImage(base64Image: string, mimeType: strin
 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("Extraction Error:", error);
+    console.error("❌ Extraction Error:", message);
     return { success: false, error: "อ่านข้อมูลไม่สำเร็จ: " + message };
   }
 }

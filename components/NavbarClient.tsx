@@ -9,7 +9,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { SunIcon, MoonIcon } from '@heroicons/react/24/outline'
 // 🌟 นำเข้า Supabase Client สำหรับฝั่ง Client Component
 import { createClient } from '@/lib/supabase/client'
-import { Profile } from '@/types/database'
 
 type SessionType = {
     uid_game: string;
@@ -117,16 +116,16 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
 
     return (
         <nav className="sticky top-0 z-[100] bg-blue-500/90 dark:bg-gray-900/90 backdrop-blur-md text-white shadow-lg transition-colors border-b border-white/10">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between h-16">
+            <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+                <div className="flex justify-between h-16 sm:h-18">
 
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-3 sm:gap-4">
                         {/* 🌟 แสดงชื่อกิลด์ที่ดึงมาจากฐานข้อมูลแบบเรียลไทม์ */}
-                        <Link href="/" className="gap-1 flex items-center font-bold text-xl tracking-tighter hover:scale-105 transition-transform">
-                            {guildName}<span className="gap-1 ml-1 text-indigo-200">Guild</span>
+                        <Link href="/" className="flex items-center font-bold text-x2l sm:text-xl tracking-tighter hover:scale-105 transition-transform">
+                            {guildName}<span className="ml-1 text-indigo-200 text-sm sm:text-base">Guild</span>
                         </Link>
 
-                        <div className="hidden md:flex ml-10 space-x-1">
+                        <div className="hidden sm:flex gap-4">
                             {[
                                 { name: 'Dashboard', href: '/' },
                                 { name: 'Guild', href: '/guild/edit' },
@@ -136,20 +135,20 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                 <Link
                                     key={item.name}
                                     href={item.href}
-                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-white/10 ${pathname === item.href ? 'bg-white/20' : ''}`}
+                                    className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all hover:bg-white/10 ${pathname === item.href ? 'bg-white/20' : ''}`}
                                 >
                                     {item.name}
                                 </Link>
                             ))}
                             {enrichedSession.role === 'admin' && (
-                                <Link href="/guild-admin/credentials" className="px-3 py-2 rounded-lg text-sm font-medium transition-all hover:bg-white/10 bg-indigo-500/30 border border-white/20">
-                                    จัดการข้อมูลสมาชิกกิล
+                                <Link href="/guild-admin/credentials" className="px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all hover:bg-white/10 bg-indigo-500/30 border border-white/20">
+                                    จัดการสมาชิก
                                 </Link>
                             )}
                         </div>
                     </div>
 
-                    <div className="flex items-center space-x-2 md:space-x-4 pl-4">
+                    <div className="flex items-center gap-1 sm:gap-2 lg:gap-4 pl-2 sm:pl-4">
                         {/* Dark Mode Switch */}
                         <button
                             type="button"
@@ -159,26 +158,26 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                         >
                             <span className="sr-only">Toggle Dark Mode</span>
 
-                            <div className="relative h-6 w-6">
+                            <div className="relative h-5 w-5 sm:h-6 sm:w-6">
                                 <div className={`absolute inset-0 transition-transform duration-500 ease-in-out ${isDarkMode ? 'rotate-[180deg] opacity-0 scale-50' : 'rotate-0 opacity-100 scale-100'}`}>
-                                    <SunIcon className="h-6 w-6 text-yellow-300" />
+                                    <SunIcon className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-300" />
                                 </div>
                                 <div className={`absolute inset-0 transition-transform duration-500 ease-in-out ${isDarkMode ? 'rotate-0 opacity-100 scale-100' : 'rotate-[-180deg] opacity-0 scale-50'}`}>
-                                    <MoonIcon className="h-6 w-6 text-indigo-300" />
+                                    <MoonIcon className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-300" />
                                 </div>
                             </div>
                         </button>
 
-                        <div className="hidden md:flex items-center space-x-4 border-l border-white/20 pl-4">
-                            <div className="flex items-center space-x-1">
+                        <div className="hidden sm:flex items-center gap-2 lg:gap-4 border-l border-white/20 pl-2 lg:pl-4">
+                            <div className="hidden lg:flex items-center space-x-1">
                                 <span className="text-xs font-mono opacity-80 bg-black/20 px-2 py-1 rounded-md border border-white/5">
                                     <span className="text-indigo-200">{enrichedSession.display_name}</span>
                                     <span className="mx-1 opacity-40">|</span>
-                                    <span>{enrichedSession.uid_game}</span>
+                                    <span className="hidden xl:inline">{enrichedSession.uid_game}</span>
                                 </span>
                             </div>
                             <form onSubmit={handleLogout}>
-                                <button type="submit" className="hover cursor-pointer text-sm bg-red-600/95 py-1 px-2 rounded font-semibold text-red-200 hover:text-white hover:bg-red-600/10 transition-colors">
+                                <button type="submit" className="hover cursor-pointer text-xs sm:text-sm bg-red-600/95 py-1 px-2 sm:px-3 rounded font-semibold text-red-200 hover:text-white hover:bg-red-600/10 transition-colors">
                                     Logout
                                 </button>
                             </form>
@@ -187,7 +186,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                         {/* Animated Hamburger Button */}
                         <button
                             onClick={() => setIsOpen(!isOpen)}
-                            className="md:hidden p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all active:scale-95"
+                            className="sm:hidden p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all active:scale-95"
                         >
                             <div className="w-6 h-5 relative flex flex-col justify-between items-center">
                                 <motion.span
@@ -216,7 +215,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                         animate="open"
                         exit="closed"
                         variants={menuVariants}
-                        className="md:hidden overflow-hidden bg-gray-700/95 dark:bg-gray-950/95 backdrop-blur-xl border-t border-white/10"
+                        className="sm:hidden overflow-hidden bg-gray-700/95 dark:bg-gray-950/95 backdrop-blur-xl border-t border-white/10"
                     >
                         <div className="px-4 pt-2 pb-6 space-y-2">
                             {[

@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
+import Image from 'next/image'
 import GuildInviteForm from './GuildInviteForm'
 
 export default async function GuildInvitePage({
@@ -27,19 +28,20 @@ export default async function GuildInvitePage({
   const guildAny = guild as any
 
   return (
-    <div className="w-full mt-10 max-w-5xl mx-auto px-4">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-blue-600">Guild Invite</h1>
-        <p className="text-gray-600 dark:text-gray-300 mt-2">
-          เข้าร่วมกิลด์: <span className="font-bold">{guildAny.name}</span>
-        </p>
-        
+    <div className="relative min-h-screen overflow-hidden bg-slate-950">
+      <div className="absolute inset-0">
+        <Image src="/invite.png" alt="Invite background" fill priority className="object-cover" />
       </div>
+      <div className="absolute inset-0 bg-black/25 dark:bg-black/40" />
 
-      <GuildInviteForm
-        guildId={guildAny.id}
-        guildName={guildAny.name}
-      />
+      <div className="relative flex min-h-screen items-center justify-center px-4 py-16">
+        <div className="w-full max-w-2xl">
+          <GuildInviteForm
+            guildId={guildAny.id}
+            guildName={guildAny.name}
+          />
+        </div>
+      </div>
     </div>
   )
 }

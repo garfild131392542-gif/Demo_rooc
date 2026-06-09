@@ -52,8 +52,8 @@ function generateWelcomeEmailHTML(
           <div style="background: white; border-left: 4px solid #667eea; padding: 20px; margin: 30px 0; border-radius: 4px;">
             <h2 style="margin: 0 0 12px 0; font-size: 18px; color: #667eea;">สิ่งที่คุณควรรู้</h2>
             <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
-              <li style="margin-bottom: 8px;">✅ ทดลองใช้งานฟรี <strong>14 วัน</strong> ยังไม่หมดอายุ</li>
-              <li style="margin-bottom: 8px;">✅ เต็มที่สิทธิ์ในการจัดการสมาชิก</li>
+              <li style="margin-bottom: 8px;">✅ ทดลองใช้งานฟรี <strong>14 วัน</strong>
+              <li style="margin-bottom: 8px;">✅ สิทธิ์ในการจัดการสมาชิก</li>
               <li style="margin-bottom: 8px;">✅ ลิงก์เชิญพร้อมใช้งาน</li>
             </ul>
           </div>
@@ -61,7 +61,7 @@ function generateWelcomeEmailHTML(
           <!-- Login CTA -->
           <div style="margin: 30px 0; text-align: center;">
             <p style="margin-bottom: 15px; font-size: 14px; color: #666;">เข้าสู่ระบบเพื่อเริ่มจัดการกิลด์ของคุณ</p>
-            <a href="${loginUrl}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; transition: background 0.3s;">
+            <a href="https://rooc-manage.xyz/login" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; transition: background 0.3s;">
               เข้าสู่ระบบ
             </a>
           </div>
@@ -97,8 +97,8 @@ function generateWelcomeEmailHTML(
 
           <!-- Footer -->
           <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #666;">
-            <p style="margin: 5px 0;">หากมีคำถาม สามารถติดต่อเราได้ที่</p>
-            <p style="margin: 5px 0; color: #667eea;">support@guildmanagement.com</p>
+            <p style="margin: 5px 0;">หากมีคำถามหรือติดปัญหาตรงไหน สามารถแจ้งเราได้ที่หน้าล็อคอิน</p>
+            
           </div>
         </div>
       </div>
@@ -151,7 +151,7 @@ export async function sendWelcomeEmailAction(
       const resend = new Resend(process.env.RESEND_API_KEY)
 
       const response = await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+        from: process.env.RESEND_FROM_EMAIL || 'Rooc_Management@resend.dev',
         to: email,
         subject,
         html,

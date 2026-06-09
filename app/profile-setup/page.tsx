@@ -95,7 +95,7 @@ const result = await setupProfileAction(payload as any); // ใส่ as any ไ
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  ชื่อตัวละคร (Display Name)
+                  ชื่อตัวละคร
                 </label>
                 <input
                   type="text"
@@ -110,7 +110,7 @@ const result = await setupProfileAction(payload as any); // ใส่ as any ไ
                   htmlFor="job_name"
                   className="block text-sm font-medium text-slate-700 mb-1"
                 >
-                  อาชีพ (Job Name)
+                  อาชีพ
                 </label>
                 <select
                   id="job_name"

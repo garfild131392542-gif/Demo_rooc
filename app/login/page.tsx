@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState , useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { loginAction } from '@/app/actions/auth'
 import { sendContactEmail } from '@/app/actions/contact'
@@ -11,6 +11,7 @@ import ReCAPTCHA from "react-google-recaptcha"
 
 export default function LoginPage() {
   const router = useRouter()
+  const recaptchaRef = useRef<any>(null)
 
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
@@ -28,15 +29,21 @@ export default function LoginPage() {
     e.preventDefault()
     setError(null)
     
-    // 🌟 3. เช็คก่อนว่าติ๊ก CAPTCHA หรือยัง
-    if (!captchaToken) {
-      setError('กรุณายืนยันว่าคุณไม่ใช่โปรแกรมอัตโนมัติ (CAPTCHA)')
-      return
-    }
-
+    // เริ่มแสดง Modal Loading หมุนๆ ขึ้นมาก่อนเลย เพื่อให้ผู้ใช้รู้ว่ากดติดแล้ว
     setLoading(true)
 
     try {
+      // 🌟 สั่งให้ Invisible reCAPTCHA ทำงานเบื้องหลัง
+      // มันจะไปเรียกใช้กล่อง reCAPTCHA ที่เราซ่อนไว้ให้ตรวจสอบว่าใช่บอทไหม
+      const token = await recaptchaRef.current.executeAsync()
+      
+      if (!token) {
+        setError('การยืนยันตัวตนล้มเหลว โปรดลองอีกครั้ง')
+        setLoading(false)
+        return
+      }
+
+      // ถ้าผ่าน reCAPTCHA ค่อยส่งข้อมูลไปล็อกอินจริง
       const result = await loginAction(identifier, password)
 
       if (!result.success) {
@@ -71,9 +78,18 @@ export default function LoginPage() {
       <div className="relative min-h-screen flex flex-col lg:flex-row items-center justify-end w-full overflow-hidden bg-gray-950">
         
         {/* เลเยอร์ 0: รูปภาพพื้นหลัง */}
-        <div className="absolute inset-0 z-0 animate-in fade-in zoom-in-[1.05] duration-[1500ms] ease-out">
-          <Image src="/login.jpg" alt="Background" fill priority className="object-cover" sizes="100vw" />
-        </div>
+        <div className="absolute inset-0 z-0 animate-in fade-in duration-[1500ms] ease-out">
+            <Image
+              src="/login.png"
+              alt="Epic Fantasy Guild Background"
+              fill
+              priority
+              // 🌟 ใส่ quality={95} เพื่อความคมชัดสูงสุด
+              quality={95}
+              className="object-cover object-center"
+              sizes="100vw"
+            />
+          </div>
         <div className="absolute inset-0 z-10 bg-black/30 dark:bg-black/50 mix-blend-multiply animate-in fade-in duration-[1500ms]" />
 
         {/* ข้อความฝั่งซ้าย */}
@@ -83,13 +99,12 @@ export default function LoginPage() {
         </div>
 
         {/* ฝั่งขวา: ฟอร์ม Login */}
-        <div className="relative z-20 w-full lg:w-[40%] min-h-screen flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-16 xl:px-20 bg-white/10 dark:bg-black/30 backdrop-blur-xl lg:backdrop-blur-2xl border-t lg:border-t-0 lg:border-l border-white/20 dark:border-white/10 shadow-[-15px_0_50px_rgba(0,0,0,0.3)] animate-in fade-in slide-in-from-right-16 duration-[800ms] ease-out">
-          
-          <div className="w-full max-w-sm mx-auto">
-            <div className="text-center lg:text-left mb-8">
-              <h2 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">ยินดีต้อนรับกลับมา</h2>
-              <p className="mt-2 text-sm text-blue-100/80">ลงชื่อเข้าสู่ระบบเพื่อจัดการข้อมูลกิลด์ของคุณ</p>
-            </div>
+        <div className="relative z-20 w-full lg:w-[40%] min-h-screen flex items-center justify-center lg:justify-end px-6 py-12 sm:px-12 lg:px-16 xl:px-20 animate-in fade-in slide-in-from-right-16 duration-800 ease-out">
+        <div className="w-full max-w-sm p-8 bg-white/10 dark:bg-black/30 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl shadow-2xl">
+          <div className="text-center lg:text-left mb-6">
+            <h2 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">ยินดีต้อนรับกลับมา</h2>
+            <p className="mt-2 text-sm text-blue-100/80">ลงชื่อเข้าสู่ระบบเพื่อจัดการข้อมูลกิลด์ของคุณ</p>
+          </div>
 
             <form className="space-y-6" onSubmit={handleSubmit}>
               {error && (
@@ -100,11 +115,11 @@ export default function LoginPage() {
 
               <div className="space-y-5">
                 <div>
-                  <label className="block text-xs font-bold text-white uppercase tracking-wider mb-2">ชื่อผู้ใช้งาน หรือ อีเมล</label>
-                  <input id="identifier" type="text" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} className="block w-full rounded-xl border border-white/20 px-4 py-3 text-white placeholder-white/40 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/10 dark:bg-black/20 backdrop-blur-md transition-all sm:text-sm" placeholder="Username / Email" autoCapitalize="none" spellCheck={false} />
+                  <label className="block text-sm font-bold text-white uppercase tracking-wider mb-2">ชื่อผู้ใช้งาน</label>
+                  <input id="identifier" type="text" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} className="block w-full rounded-xl border border-white/20 px-4 py-3 text-white placeholder-white/40 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/10 dark:bg-black/20 backdrop-blur-md transition-all sm:text-sm" placeholder="Username" autoCapitalize="none" spellCheck={false} />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-white uppercase tracking-wider mb-2">รหัสผ่าน</label>
+                  <label className="block text-sm font-bold text-white uppercase tracking-wider mb-2">รหัสผ่าน</label>
                   <div className="relative">
                     <input id="password" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} className="block w-full rounded-xl border border-white/20 px-4 py-3 text-white placeholder-white/40 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/10 dark:bg-black/20 backdrop-blur-md transition-all sm:text-sm" placeholder="••••••••" />
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white focus:outline-none p-1 text-xs font-bold">{showPassword ? "ซ่อน" : "แสดง"}</button>
@@ -112,18 +127,22 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* 🌟 4. วิดเจ็ต CAPTCHA */}
-              <div className="flex justify-center mt-2">
+              {/* 🌟 Invisible reCAPTCHA - Hidden */}
+              <div className="hidden">
                 <ReCAPTCHA
-                  sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI" // นี่คือ Test Key ของ Google (ใช้ทดสอบได้)
-                  onChange={(token) => setCaptchaToken(token)}
-                  theme="dark" // บังคับธีมมืดให้เข้ากับเว็บ
+                  ref={recaptchaRef}
+                  sitekey="6LdoDxUtAAAAAFCw0hxJQuNZhbeNBMFWbbK6zI3V"
+                  size="invisible"
                 />
               </div>
 
               <button type="submit" disabled={loading} className="group relative flex w-full justify-center rounded-xl bg-blue-600/80 px-4 py-3.5 text-sm font-bold text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-70 transition-all shadow-lg backdrop-blur-sm">
-                Sign In
+                เข้าสู่ระบบ
               </button>
+              <div className="mt-4 text-[10px] text-white text-center px-4 leading-relaxed">
+  This site is protected by reCAPTCHA and the Google <br className="hidden sm:block"/>
+  <a href="https://policies.google.com/privacy" className="hover:text-white/60 transition-colors">Privacy Policy</a> and <a href="https://policies.google.com/terms" className="hover:text-white/60 transition-colors">Terms of Service</a> apply.
+</div>
 
               <div className="mt-6 flex flex-col items-center gap-4 border-t border-white/10 pt-6 text-center">
                 <p className="text-sm text-blue-100/90">ยังไม่มีบัญชีใช่ไหม? <Link href="/register" className="font-bold text-blue-400 hover:text-blue-300 hover:underline transition-colors">สมัครสมาชิกที่นี่</Link></p>
@@ -138,7 +157,7 @@ export default function LoginPage() {
           🌟 5. Modal Loading (แสดงตอนกด Login)
           ======================= */}
       {loading && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="flex flex-col items-center bg-white/10 dark:bg-black/40 p-8 rounded-3xl border border-white/20 shadow-2xl backdrop-blur-2xl">
             {/* ไอคอนหมุนๆ */}
             <svg className="h-14 w-14 animate-spin text-blue-500 mb-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

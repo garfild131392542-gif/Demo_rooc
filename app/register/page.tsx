@@ -10,16 +10,18 @@ export default function RegisterPage() {
     <div className="relative min-h-screen flex flex-col lg:flex-row items-center justify-end w-full overflow-hidden bg-gray-950">
       
       {/* 🌟 1. รูปภาพพื้นหลัง */}
-      <div className="absolute inset-0 z-0 animate-in fade-in zoom-in-[1.05] duration-[1500ms] ease-out">
-        <Image
-          src="/register.jpg"
-          alt="Epic Fantasy Guild Background"
-          fill
-          priority
-          className="object-cover"
-          sizes="100vw"
-        />
-      </div>
+      <div className="absolute inset-0 z-0 animate-in fade-in duration-[1500ms] ease-out">
+    <Image
+      src="/register.png"
+      alt="Epic Fantasy Guild Background"
+      fill
+      priority
+      // 🌟 ใส่ quality={95} เพื่อความคมชัดสูงสุด
+      quality={95}
+      className="object-cover object-center"
+      sizes="100vw"
+    />
+  </div>
       
       {/* เลเยอร์สีดรอปความสว่าง */}
       <div className="absolute inset-0 z-10 bg-black/40 dark:bg-black/60 mix-blend-multiply animate-in fade-in duration-[1500ms]" />
@@ -43,7 +45,7 @@ export default function RegisterPage() {
             <h2 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">
               ลงทะเบียน
             </h2>
-            <p className="mt-2 text-sm text-blue-100/80">
+            <p className="mt-2 text-sm text-white">
               สร้างบัญชี Guild ของคุณวันนี้เพื่อเริ่มต้นใช้งาน
             </p>
           </div>

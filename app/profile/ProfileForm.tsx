@@ -282,7 +282,7 @@ export default function ProfileForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            UID (Game) - อ่านได้อย่างเดียว
+            Username - อ่านได้อย่างเดียว
           </label>
           <input
             type="text"
@@ -296,7 +296,7 @@ export default function ProfileForm({
             htmlFor="display_name"
             className="block text-sm font-medium text-gray-700 dark:text-gray-300"
           >
-            ชื่อตัวละคร (Display Name)
+            ชื่อตัวละคร 
           </label>
           <input
             id="display_name"
@@ -314,7 +314,7 @@ export default function ProfileForm({
           htmlFor="job_name"
           className="block text-sm font-medium text-gray-700 dark:text-gray-300"
         >
-          อาชีพ (Job Name)
+          อาชีพ 
         </label>
         <select
           id="job_name"

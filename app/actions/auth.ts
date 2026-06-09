@@ -182,7 +182,7 @@ export async function forgotPasswordAction(data: { username: string, inviteCode:
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('id, guild_id')
-      .eq('username', data.username.trim())
+      .eq('uid_game', data.username.trim())
       .single()
 
     if (profileError || !profile) {

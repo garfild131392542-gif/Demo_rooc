@@ -14,9 +14,9 @@ export default async function OnboardingPage() {
   // ดึงข้อมูล profile มาตรวจสอบทั้ง guild_id และข้อมูลตัวละคร (เช่น job_name)
   const { data: profile } = await (supabase as any)
     .from('profiles')
-    .select('guild_id')
+    .select('guild_id, job_name')
     .eq('id', user.id)
-    .maybeSingle()
+    .single()
 
   // 🌟 ด่านที่ 1: ถ้าเขามีกิลด์อยู่แล้ว (ไม่ว่าจะสร้างเองหรือเข้าร่วม) ให้กลับหน้า Dashboard
   if (profile?.guild_id) {

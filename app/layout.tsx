@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "ระบบจัดการสมาชิกกิล",
-  description: "ROOC Management System Demo",
+  description: "ROOC Management System By แมวส้ม",
 };
 
 export default function RootLayout({

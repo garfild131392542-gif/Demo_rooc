@@ -1,55 +1,75 @@
 'use server'
 
-import { createAdminClient } from '@/lib/supabase/server'
-import { getSession } from './auth'
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
 
-// ฟังก์ชันสร้างกิลด์ใหม่ (สถานะ pending)
-export async function createNewGuild(formData: FormData) {
-  const session = await getSession()
-  if (!session) return { success: false, error: 'กรุณาล็อกอินก่อนสร้างกิลด์' }
+interface UpdateGuildData {
+  name: string
+  description: string
+  discordLink: string
+}
 
-  // เปลี่ยนชื่อตัวแปรเป็น adminClient ให้สื่อความหมายและตรงกับไฟล์อื่นๆ
-  const adminClient = await createAdminClient() 
+/**
+ * 🌟 ฟังก์ชันอัปเดตข้อมูลกิลด์ (เฉพาะผู้ใช้ที่มี Role เป็น Admin เท่านั้น)
+ */
+export async function updateGuildAction(guildId: string, data: UpdateGuildData) {
+  try {
+    const supabase = await createClient()
 
-  const guildName = formData.get('guildName') as string
-  const serverName = formData.get('serverName') as string
+    // 1. ตรวจสอบสถานะเซสชันการล็อกอินของผู้ใช้ปัจจุบัน
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData.user) {
+      return { success: false, error: 'เซสชันหมดอายุหรือสิทธิ์การใช้งานไม่ถูกต้อง กรุณาล็อกอินใหม่' }
+    }
 
-  const inviteCode = 'ROOC-' + Math.random().toString(36).substring(2, 6).toUpperCase()
+    const userId = authData.user.id
 
-  // 1. สร้างกิลด์ลงฐานข้อมูล
-  const { data: guild, error: guildError } = await (adminClient as any)
-    .from('guilds')
-    .insert([
-      {
-        name: guildName,
-        server_name: serverName,
-        owner_id: session.user.id,
-        invite_code: inviteCode,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-      }
-    ])
-    .select('id') // เลือกแค่ id เพื่อเอาไปผูกกับ Profile ต่อ
-    .single()
+    // 2. 🔒 ตรวจสอบความปลอดภัยด่านที่สอง (Double Check Role Security)
+    // คิวรีเช็คที่ตาราง profiles อีกครั้งว่าคนยิง API นี้เป็น 'admin' ของกิลด์นี้จริงไหม เพื่อป้องกันคนแอบยิงสคริปต์แก้ไขข้อมูล
+    const { data: profile, error: profileError } = await (supabase as any)
+      .from('profiles')
+      .select('role, guild_id')
+      .eq('id', userId)
+      .single()
 
-  if (guildError || !guild) {
-    return { success: false, error: guildError?.message || 'ไม่สามารถสร้างกิลด์ได้' }
+    if (profileError || !profile) {
+      return { success: false, error: 'ไม่พบข้อมูลโปรไฟล์ตัวละครของคุณในระบบ' }
+    }
+
+    // 👍 คราวนี้บรรทัดนี้จะไม่แดง และจะไม่ขึ้น Type Error ตอน Build แล้วครับ!
+    if (profile.role !== 'admin' || profile.guild_id !== guildId) {
+      return { success: false, error: '💥 คุณไม่มีสิทธิ์เข้าถึงหรือแก้ไขข้อมูลระบบกิลด์นี้เด็ดขาด' }
+    }
+
+    // 3. 💾 เริ่มทำการบันทึกอัปเดตข้อมูลลงตาราง guilds
+    // อัปเดตเฉพาะ 3 ฟิลด์ที่เปิดสิทธิ์ให้แก้ (ชื่อ, รายละเอียด, ลิงก์ Discord) ส่วน URL กิลด์ และรหัสเชิญจะปลอดภัย 100% เพราะไม่มีในคำสั่งนี้
+    const { error: updateError } = await (supabase as any) // 🌟 เติม (supabase as any) ครอบไว้ตรงนี้ครับ
+      .from('guilds')
+      .update({
+        name: data.name.trim(),
+        description: data.description.trim(), 
+        discord_link: data.discordLink.trim() || null
+      })
+      .eq('id', guildId)
+
+    if (updateError) {
+      console.error('Update guild database error:', updateError.message)
+      return { success: false, error: 'บันทึกข้อมูลลงฐานข้อมูลล้มเหลว: ' + updateError.message }
+    }
+
+    // 4. 🔄 สั่งให้ Next.js ทำการล้างข้อมูลหน้าเก่าที่เคยแคชไว้ (Revalidate)
+    // เพื่อให้เวลาหน้าเว็บโหลดใหม่ จะดึงชื่อกิลด์และรายละเอียดที่แก้ไขล่าสุดไปโชว์ในทันทีไม่ต้องกดรีเฟรชเอง
+    revalidatePath('/guild/edit')
+
+    return { 
+      success: true 
+    }
+
+  } catch (error: any) {
+    console.error('Unexpected error in updateGuildAction:', error)
+    return {
+      success: false,
+      error: error.message || 'เกิดข้อผิดพลาดที่ไม่รู้จักในระบบเซิร์ฟเวอร์หลังบ้าน'
+    }
   }
-
-  // 🌟🌟🌟 2. [REFACTORED] เชื่อมโยง Profile เข้ากับ Guild ที่เพิ่งสร้างทันที 🌟🌟🌟
-  const { error: profileUpdateError } = await (adminClient as any)
-    .from('profiles')
-    .update({
-      guild_id: guild.id,
-      role: 'admin' // เลื่อนยศให้เป็น admin อัตโนมัติ
-    })
-    .eq('id', session.user.id)
-
-  if (profileUpdateError) {
-    console.error('Error linking profile after guild creation:', profileUpdateError)
-    // เราไม่ return error กลับไปให้ระบบพังเพราะกิลด์ถูกสร้างสำเร็จแล้ว แต่ log แจ้งเตือนไว้
-  }
-  // 🌟🌟🌟===========================================================🌟🌟🌟
-
-  return { success: true, guildId: guild.id, inviteCode }
 }

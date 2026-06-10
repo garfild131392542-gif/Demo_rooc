@@ -77,6 +77,7 @@ export default function LoginPage() {
       if (!token) {
         setError('การยืนยันตัวตนล้มเหลว โปรดลองอีกครั้ง')
         setLoading(false)
+        recaptchaRef.current?.reset()
         return
       }
 
@@ -85,6 +86,7 @@ export default function LoginPage() {
       if (!result.success) {
         setError(result.error || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ')
         setLoading(false)
+        recaptchaRef.current?.reset()
         return
       }
 
@@ -92,6 +94,7 @@ export default function LoginPage() {
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดที่ไม่รู้จัก โปรดลองอีกครั้ง')
       setLoading(false)
+      recaptchaRef.current?.reset()
     }
   }
 

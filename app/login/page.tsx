@@ -1,13 +1,13 @@
 'use client'
 
-import { useState , useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { loginAction ,forgotPasswordAction } from '@/app/actions/auth'
+import { loginAction, forgotPasswordAction } from '@/app/actions/auth'
 import { sendContactEmail } from '@/app/actions/contact'
 import Link from 'next/link'
 import Image from 'next/image'
 
-// 🌟 1. Import reCAPTCHA
+// 🌟 Import reCAPTCHA
 import ReCAPTCHA from "react-google-recaptcha"
 
 export default function LoginPage() {
@@ -36,9 +36,6 @@ export default function LoginPage() {
   const [showContactModal, setShowContactModal] = useState(false)
   const [contactStatus, setContactStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
 
-  // State สำหรับเก็บค่า Token จาก CAPTCHA
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
-
   // 🌟 ฟังก์ชันจัดการตอนกดส่งขอรีเซ็ตรหัสผ่าน
   const handleForgotSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -47,7 +44,6 @@ export default function LoginPage() {
     setForgotLoading(true)
 
     try {
-      // โยนข้อมูล 3 ตัวไปให้ Backend ตรวจสอบ
       const result = await forgotPasswordAction({
         username: forgotUsername,
         inviteCode: forgotInviteCode,
@@ -58,7 +54,6 @@ export default function LoginPage() {
         setForgotError(result.error || 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง')
       } else {
         setForgotSuccess('เปลี่ยนรหัสผ่านสำเร็จ! คุณสามารถเข้าสู่ระบบด้วยรหัสใหม่ได้ทันที')
-        // ล้างฟอร์ม
         setForgotUsername('')
         setForgotInviteCode('')
         setForgotNewPassword('')
@@ -77,7 +72,6 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      // สั่งให้ Invisible reCAPTCHA ทำงานเบื้องหลัง
       const token = await recaptchaRef.current.executeAsync()
       
       if (!token) {
@@ -141,7 +135,9 @@ export default function LoginPage() {
 
         {/* ฝั่งขวา: ฟอร์ม Login */}
         <div className="relative z-20 w-full lg:w-[40%] min-h-screen flex items-center justify-center lg:justify-end px-6 py-12 sm:px-12 lg:px-16 xl:px-20 animate-in fade-in slide-in-from-right-16 duration-800 ease-out">
-          <div className="w-full max-w-sm p-8 bg-white/10 dark:bg-black/30 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl shadow-2xl">
+          
+          {/* 💡 เติม relative และ overflow-hidden ล็อกขอบเขตการเบลอให้อยู่แค่ในฟอร์มนี้ */}
+          <div className="w-full max-w-sm p-8 bg-white/10 dark:bg-black/30 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl shadow-2xl relative overflow-hidden">
             <div className="text-center lg:text-left mb-6">
               <h2 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">ยินดีต้อนรับกลับมา</h2>
               <p className="mt-2 text-sm text-blue-100/80">ลงชื่อเข้าสู่ระบบเพื่อจัดการข้อมูลกิลด์ของคุณ</p>
@@ -192,7 +188,7 @@ export default function LoginPage() {
                 />
               </div>
 
-              <button type="submit" disabled={loading} className="group relative flex w-full justify-center rounded-xl bg-blue-600/80 px-4 py-3.5 text-sm font-bold text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-70 transition-all shadow-lg backdrop-blur-sm">
+              <button type="submit" disabled={loading} className="cursor-pointer group relative flex w-full justify-center rounded-xl bg-blue-600/80 px-4 py-3.5 text-sm font-bold text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-70 transition-all shadow-lg backdrop-blur-sm">
                 เข้าสู่ระบบ
               </button>
               
@@ -206,28 +202,36 @@ export default function LoginPage() {
                 <button type="button" onClick={() => setShowContactModal(true)} className="cursor-pointer text-xs text-white/60 font-medium hover:text-white underline decoration-white/20 transition-colors">พบปัญหาในการใช้งาน? ติดต่อผู้ดูแลระบบ</button>
               </div>
             </form>
+
+            {/* 💡 ย้ายโค้ด Loading มาไว้ด้านในตรงนี้ และปรับสไตล์ให้เป็น Dark Glassmorphism คุมเฉพาะกรอบฟอร์ม */}
+            {loading && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+                <div className="flex flex-col items-center bg-white/10 dark:bg-black/40 p-6 rounded-2xl border border-white/20 shadow-2xl backdrop-blur-2xl text-center mx-4">
+                  <svg 
+                    className="h-12 w-12 animate-spin text-blue-500 mb-4" 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    fill="none" 
+                    viewBox="0 0 24 24"
+                  >
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <h3 className="text-lg font-extrabold text-white tracking-widest drop-shadow-md">
+                    กำลังเข้าสู่ระบบ
+                  </h3>
+                  <p className="text-xs text-blue-200/80 mt-2">
+                    โปรดรอสักครู่ ระบบกำลังตรวจสอบข้อมูล...
+                  </p>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       </div>
 
       {/* =======================
-          5. Modal Loading (แสดงตอนกด Login)
-          ======================= */}
-      {loading && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="flex flex-col items-center bg-white/10 dark:bg-black/40 p-8 rounded-3xl border border-white/20 shadow-2xl backdrop-blur-2xl">
-            <svg className="h-14 w-14 animate-spin text-blue-500 mb-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <h3 className="text-xl font-extrabold text-white tracking-widest drop-shadow-md">กำลังเข้าสู่ระบบ</h3>
-            <p className="text-sm text-blue-200/80 mt-2">โปรดรอสักครู่ ระบบกำลังตรวจสอบข้อมูล...</p>
-          </div>
-        </div>
-      )}
-
-      {/* =======================
-          🌟 6. Forgot Password Modal (แบบยืนยันรหัสเชิญกิลด์)
+          🌟 Forgot Password Modal (แบบยืนยันรหัสเชิญกิลด์)
           ======================= */}
       {showForgotModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
@@ -342,12 +346,11 @@ export default function LoginPage() {
         </div>
       )}
 
-
       {/* =======================
           Contact Modal (สไตล์ Liquid-Glass)
           ======================= */}
       {showContactModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-md p-8 bg-white/10 dark:bg-black/40 backdrop-blur-2xl border border-white/20 dark:border-white/10 rounded-3xl shadow-2xl relative">
             
             {/* ปุ่มกากบาทปิด Modal */}

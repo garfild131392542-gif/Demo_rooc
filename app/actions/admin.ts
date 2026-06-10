@@ -294,33 +294,68 @@ export async function resetMemberPassword(userId: string, newPassword: string) {
 
 export async function toggleMemberLeave(id: string, is_on_leave: boolean) {
   try {
-    const admin = await checkGuildAdmin();
     const supabase = await createAdminClient();
+    
+    // 1. ดึงข้อมูล User ปัจจุบันที่กำลังกดปุ่มก่อน (ต้องเช็กว่าเป็นเจ้าของ ID ไหม)
+    const { data: { user } } = await supabase.auth.getUser(); 
+    if (!user) return { success: false, error: "ไม่พบเซสชันผู้ใช้งาน" };
 
+    const currentUserId = user.id;
+    let hasPermission = false;
+    let targetGuildId = null;
+
+    // 2. เช็กเงื่อนไขสิทธิ์การเข้าถึง
+    if (currentUserId === id) {
+      // กรณีที่ 1: สิทธิ์ของ Member (กดลาให้ตัวเอง) -> ให้ผ่านได้เลย
+      hasPermission = true;
+    } else {
+      // กรณีที่ 2: คนกดไม่ใช่เจ้าของ ID -> ต้องเช็กว่าเป็น Admin ของกิลด์นั้นไหม
+      try {
+        const admin = await checkGuildAdmin();
+        if (admin) {
+          hasPermission = true;
+          targetGuildId = admin.guild_id; // เก็บค่า guild_id ของแอดมินไว้ใช้คิวรี
+        }
+      } catch (adminError) {
+        // ถ้าไม่ใช่ Admin และไม่ใช่เจ้าของ ID ก็ปัดตกไป
+        return { success: false, error: "คุณไม่มีสิทธิ์จัดการข้อมูลนี้" };
+      }
+    }
+
+    if (!hasPermission) {
+      return { success: false, error: "คุณไม่มีสิทธิ์เข้าถึงฟังก์ชันนี้" };
+    }
+
+    // 3. เตรียมข้อมูลที่จะอัปเดต
     const updateData: any = { is_on_leave };
     if (is_on_leave === true) {
       updateData.party_id = null;
       updateData.slot_index = null;
     }
 
-    const { data, error } = await (supabase as any)
-      .from("profiles")
-      .update(updateData)
-      .eq("id", id)
-      .eq("guild_id", admin.guild_id!)
-      .select();
+    // 4. สั่งอัปเดตข้อมูลลงฐานข้อมูล
+    let query: any = (supabase as any).from("profiles").update(updateData).eq("id", id);
+
+    // ถ้าเป็นแอดมินจัดการ ให้ล็อกคิวรีเพิ่มเพื่อความปลอดภัยว่าต้องเป็นคนในกิลด์เดียวกัน
+    if (currentUserId !== id && targetGuildId) {
+      query = query.eq("guild_id", targetGuildId);
+    }
+
+    const { data, error } = await query.select();
 
     if (error) return { success: false, error: error.message };
     if (!data || data.length === 0) {
       return {
         success: false,
-        error: "อัปเดตไม่สำเร็จ: ข้อมูลอยู่นอกเหนือสิทธิ์การจัดการของกิลด์คุณ",
+        error: "อัปเดตไม่สำเร็จ: ไม่พบข้อมูลหรืออยู่นอกเหนือสิทธิ์การจัดการของคุณ",
       };
     }
 
+    // เคลียร์แคชหน้าเว็บเพื่อให้เห็นข้อมูลอัปเดตล่าสุด
     revalidatePath("/guild-admin/credentials");
     revalidatePath("/");
     return { success: true };
+    
   } catch (e: any) {
     return {
       success: false,

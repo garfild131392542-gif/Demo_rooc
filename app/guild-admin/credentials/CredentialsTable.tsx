@@ -63,6 +63,10 @@ function formatUpdatedAt(last_stat_update?: string) {
 export default function CredentialsTable({ initialData }: { initialData: ManagementItem[] }) {
   const [data, setData] = useState(initialData)
   const [isPending, startTransition] = useTransition()
+  const [modal, setModal] = useState<{
+  type: "success" | "error";
+  text: string;
+} | null>(null);
 
   const [editingMember, setEditingMember] = useState<ManagementItem | null>(null)
   const [isCreating, setIsCreating] = useState(false)
@@ -127,20 +131,39 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
   }
 
   const handleToggleLeave = (id: string, currentStatus: boolean) => {
-    startTransition(async () => {
-      try {
-        setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: !currentStatus } : p))
-        const result = await toggleMemberLeave(id, !currentStatus)
-        if (!result?.success) {
-          setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: currentStatus } : p))
-          alert(result?.error || 'Failed to update leave status')
-        }
-      } catch (err) {
+  startTransition(async () => {
+    try {
+      // Optimistic Update เปลี่ยนที่หน้าจอก่อน
+      setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: !currentStatus } : p))
+      
+      const result = await toggleMemberLeave(id, !currentStatus)
+      
+      if (!result?.success) {
+        // ถ้าล้มเหลว ให้ย้อนกลับเป็นค่าเดิม และเปิด Modal แจ้งเตือน Error
         setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: currentStatus } : p))
-        alert('ระบบหลังบ้านขัดข้อง กรุณาลองใหม่อีกครั้ง')
+        setModal({
+          type: "error",
+          text: result?.error || 'ไม่สามารถอัปเดตสถานะลากิจกรรมได้'
+        })
+      } else {
+        // 💡 ถ้าสำเร็จ เปิด Modal แจ้งเตือน Success
+        setModal({
+          type: "success",
+          text: !currentStatus 
+            ? "ลากิจกรรมเรียบร้อยแล้ว ✅" 
+            : "เข้าร่วมปกติเรียบร้อยแล้ว ✅"
+        })
       }
-    })
-  }
+    } catch (err) {
+      // เกิด Exception ย้อนกลับเป็นค่าเดิม และเปิด Modal แจ้งเตือนระบบขัดข้อง
+      setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: currentStatus } : p))
+      setModal({
+        type: "error",
+        text: 'ระบบหลังบ้านขัดข้อง กรุณาลองใหม่อีกครั้ง'
+      })
+    }
+  })
+}
 
   // 🌟 ฟังก์ชันสุ่มรหัสผ่านชั่วคราวความยาว 8 หลักให้แอดมินนำไปใช้งานง่ายๆ
   const handleGenerateRandomPassword = () => {
@@ -231,6 +254,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
 
   return (
     <>
+    
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden relative z-10">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <h2 className="text-xl font-semibold">จัดการสมาชิกในกิล</h2>
@@ -341,7 +365,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                       }}
                       className="cursor-pointer inline-flex items-center justify-center px-2.5 py-1.5 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-800/50 dark:border-amber-700"
                     >
-                      🔑 Reset PW
+                      Reset PW
                     </button>
                     <button
                       onClick={() => handleDelete(item.id)}
@@ -588,6 +612,50 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
           </div>
         </div>
       )}
+
+      {/* ⏳ Modal กำลังดำเนินการ... (สไตล์จากหน้า Profile) */}
+      {isPending && (
+        <div className="fixed inset-0 z-[100] pointer-events-auto flex items-center justify-center bg-black/40 p-4 transition-opacity">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/95 p-6 text-center shadow-2xl backdrop-blur-md dark:bg-slate-900/95 dark:text-white animate-in zoom-in-95 duration-200">
+            
+            {/* วงกลมไอคอนโหลด */}
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg">
+              <svg
+                className="h-8 w-8 animate-spin"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v8z"
+                />
+              </svg>
+            </div>
+            
+            {/* ข้อความ */}
+            <p className="text-lg font-bold text-gray-900 dark:text-white">
+              กำลังดำเนินการ...
+            </p>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              ระบบกำลังอัปเดตสถานะลากิจกรรม โปรดรอสักครู่
+            </p>
+            
+          </div>
+        </div>
+      )}
     </>
   )
+
+  
 }
+
+

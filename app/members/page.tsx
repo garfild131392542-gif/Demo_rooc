@@ -37,7 +37,7 @@ export default async function MembersPage() {
       <header className="mb-6">
         <h1 className="text-3xl font-bold mb-2">รายชื่อสมาชิกในกิล</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          ตารางทำเนียบจัดอันดับความแข็งแกร่งแยกตามสายอาชีพภายในกิลด์ของคุณ
+          จัดอันดับความแข็งแกร่งแยกตามสายอาชีพภายในกิลด์ของคุณ
         </p>
       </header>
       

@@ -528,11 +528,11 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                   {/* คู่ HP และ SP */}
                   <div>
                     <label className="block text-sm font-medium text-green-600 dark:text-green-400 mb-1">HP</label>
-                    <input name="hp" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
+                    <input name="hp" type="number" defaultValue={editingMember.hp ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-sky-600 dark:text-sky-400 mb-1">SP</label>
-                    <input name="sp" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
+                    <input name="sp" type="number" defaultValue={editingMember.sp ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-red-600 dark:text-red-400 mb-1">P.ATK</label>
@@ -560,11 +560,11 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Ignore P.DEF</label>
-                    <input name="ignore_pdef" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
+                    <input name="ignore_pdef" type="number" defaultValue={editingMember.ignore_pdef ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-fuchsia-600 dark:text-fuchsia-400 mb-1">Ignore M.DEF</label>
-                    <input name="ignore_mdef" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
+                    <input name="ignore_mdef" type="number" defaultValue={editingMember.ignore_mdef ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">P.Reduc</label>
@@ -576,11 +576,11 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-emerald-600 dark:text-emerald-400 mb-1">PvP Reduc</label>
-                    <input name="pvp_reduc" type="number" defaultValue={editingMember.pvp_reduc} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                    <input name="pvp_reduc" type="number" defaultValue={editingMember.pvp_reduc ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-rose-600 dark:text-rose-400 mb-1">PvP DMG</label>
-                    <input name="pvp_dmg" type="number" defaultValue={editingMember.pvp_dmg} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                    <input name="pvp_dmg" type="number" defaultValue={editingMember.pvp_dmg ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
                   </div>
                 </div>
               </form>

@@ -37,6 +37,10 @@ export type Profile = {
   m_dmg: number;
   p_reduc: number;
   m_reduc: number;
+  hp: number;
+  sp: number;
+  ignore_pdef: number;
+  ignore_mdef: number;
 
   // Guild & Authorization
   guild_id?: string | null;

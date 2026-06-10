@@ -1,8 +1,11 @@
-'use server'
+"use server";
 
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export async function extractStatsFromImage(base64Image: string, mimeType: string) {
+export async function extractStatsFromImage(
+  base64Image: string,
+  mimeType: string,
+) {
   try {
     const apiKeys = [
       process.env.GEMINI_API_KEY_1,
@@ -19,14 +22,14 @@ export async function extractStatsFromImage(base64Image: string, mimeType: strin
     const randomKey = apiKeys[Math.floor(Math.random() * apiKeys.length)];
 
     const genAI = new GoogleGenerativeAI(randomKey);
-    
+
     // 💡 เพิ่ม generationConfig เพื่อบังคับให้ AI ตอบกลับมาเป็น JSON 100% ไม่มีข้อความอื่นปน
-    const model = genAI.getGenerativeModel({ 
+    const model = genAI.getGenerativeModel({
       model: "gemini-3.1-flash-lite", // แนะนำให้ใช้ flash-latest เพราะอ่านข้อมูลได้เร็วและรองรับ JSON ได้ดีมาก
       generationConfig: {
         responseMimeType: "application/json",
-      }
-    })
+      },
+    });
 
     const prompt = `
       ดูรูปภาพหน้าจอเกม Ragnarok นี้ 
@@ -42,6 +45,10 @@ export async function extractStatsFromImage(base64Image: string, mimeType: strin
       8. M.DMG Reduction (ตัวเลขทศนิยม ฝั่งที่มีเครื่องหมาย %)
       9. PVP DMG Bonus (จำนวนเต็ม)
       10. PVP DMG Reduction หรือค่าที่อยู่บรรทัดสุดท้ายอยู่ซ้ายมือของค่า PVP DMG Bonus (จำนวนเต็ม)
+      11.11. HP (จำนวนเต็ม)
+12. SP (จำนวนเต็ม)
+13. Ignore P.DEF (จำนวนเต็ม)
+14. Ignore M.DEF (จำนวนเต็ม)
       
       คำแนะนำสำคัญระดับสูง (อ่านให้ละเอียด):
       - สำหรับค่าที่ 5 ถึง 8: ให้ดึงเฉพาะตัวเลขฝั่งที่เป็นเปอร์เซ็นต์ (%) มาตอบ โดยไม่ต้องใส่เครื่องหมาย % (เช่น ในรูปคือ 35.83% ให้ตอบ 35.83)
@@ -59,35 +66,41 @@ export async function extractStatsFromImage(base64Image: string, mimeType: strin
         "m_reduc": 0.0,
         "pvp_dmg": 0,
         "pvp_reduc": 0
+        "hp": 0, "sp": 0, "ignore_pdef": 0, "ignore_mdef": 0
       }
-    `
+    `;
 
-    const base64Data = base64Image.split(',')[1]
+    const base64Data = base64Image.split(",")[1];
 
     const result = await model.generateContent([
       prompt,
       {
         inlineData: {
           data: base64Data,
-          mimeType: mimeType
-        }
-      }
-    ])
+          mimeType: mimeType,
+        },
+      },
+    ]);
 
-    const text = result.response.text()
-    
+    const text = result.response.text();
+
     // 💡 ปริ้นดูผลลัพธ์ดิบๆ จาก AI ใน Terminal ของ VS Code เผื่อเช็คเวลามีปัญหา
-    console.log("Raw AI Response:", text)
-    
-    const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim()
+    console.log("Raw AI Response:", text);
+
+    const cleanedText = text
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
 
     // ข้อมูลจะเป็น JSON แน่นอน จึงแปลงได้เลย
-    const stats = JSON.parse(cleanedText)
+    const stats = JSON.parse(cleanedText);
 
-    return { success: true, data: stats }
-
+    return { success: true, data: stats };
   } catch (error: any) {
-    console.error("AI Error:", error)
-    return { success: false, error: "AI อ่านภาพไม่สำเร็จ: " + (error.message || "รูปแบบข้อมูลผิดพลาด") }
+    console.error("AI Error:", error);
+    return {
+      success: false,
+      error: "AI อ่านภาพไม่สำเร็จ: " + (error.message || "รูปแบบข้อมูลผิดพลาด"),
+    };
   }
 }

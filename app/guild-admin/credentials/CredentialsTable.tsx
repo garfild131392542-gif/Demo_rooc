@@ -22,9 +22,14 @@ type ManagementItem = {
   m_dmg: number
   p_reduc: number
   m_reduc: number
+  hp:number
+  sp:number
+  ignore_pdef: number
+  ignore_mdef: number
   is_on_leave: boolean
   updated_at?: string
   last_stat_update?: string;
+
 }
 
 function needsUpdate(last_stat_update?: string) {
@@ -209,12 +214,16 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       "ชื่อตัวละคร": item.display_name || "-",
       "อาชีพ": item.job_name || "-",
       "ระดับสิทธิ์": item.role === 'admin' ? 'ผู้ดูแลระบบ' : 'สมาชิก',
+      "HP": item.hp || 0,
+      "SP": item.sp || 0,
       "P.ATK": item.p_atk || 0,
       "M.ATK": item.m_atk || 0,
       "P.DEF": item.p_def || 0,
       "M.DEF": item.m_def || 0,
       "P.DMG": item.p_dmg || 0,
       "M.DMG": item.m_dmg || 0,
+      "Ignore P.DEF": item.ignore_pdef || 0,
+      "Ignore M.DEF": item.ignore_mdef || 0,
       "P.REDUC": item.p_reduc || 0,
       "M.REDUC": item.m_reduc || 0,
       "PVP DMG": item.pvp_dmg || 0,
@@ -415,6 +424,17 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                     </select>
                   </div>
                   {/* Stats Inputs */}
+
+                  {/* คู่ HP และ SP */}
+                  <div>
+                    <label className="block text-sm font-medium text-green-600 dark:text-green-400 mb-1">HP</label>
+                    <input name="hp" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-sky-600 dark:text-sky-400 mb-1">SP</label>
+                    <input name="sp" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-red-600 dark:text-red-400 mb-1">P.ATK</label>
                     <input name="p_atk" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
@@ -438,6 +458,14 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                   <div>
                     <label className="block text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">M.DMG</label>
                     <input name="m_dmg" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Ignore P.DEF</label>
+                    <input name="ignore_pdef" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-fuchsia-600 dark:text-fuchsia-400 mb-1">Ignore M.DEF</label>
+                    <input name="ignore_mdef" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">P.Reduc</label>
@@ -476,10 +504,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
             <div className="overflow-y-auto p-6">
               <form onSubmit={handleEditSubmit} id="edit-form">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="sm:col-span-2 lg:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UID Game <span className="text-red-500">*</span></label>
-                    <input name="uid_game" defaultValue={editingMember.uid_game} required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
-                  </div>
+                  
                   <div className="sm:col-span-2 lg:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อตัวละคร <span className="text-red-500">*</span></label>
                     <input name="display_name" defaultValue={editingMember.display_name} required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
@@ -499,6 +524,16 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                     </select>
                   </div>
                   {/* Stats Inputs */}
+
+                  {/* คู่ HP และ SP */}
+                  <div>
+                    <label className="block text-sm font-medium text-green-600 dark:text-green-400 mb-1">HP</label>
+                    <input name="hp" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-sky-600 dark:text-sky-400 mb-1">SP</label>
+                    <input name="sp" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-red-600 dark:text-red-400 mb-1">P.ATK</label>
                     <input name="p_atk" type="number" defaultValue={editingMember.p_atk ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
@@ -522,6 +557,14 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                   <div>
                     <label className="block text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">M.DMG</label>
                     <input name="m_dmg" type="number" defaultValue={editingMember.m_dmg ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Ignore P.DEF</label>
+                    <input name="ignore_pdef" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-fuchsia-600 dark:text-fuchsia-400 mb-1">Ignore M.DEF</label>
+                    <input name="ignore_mdef" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">P.Reduc</label>

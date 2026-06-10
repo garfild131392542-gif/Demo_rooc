@@ -2,9 +2,9 @@
 
 import { useState, useTransition, useRef } from "react";
 import { updateMyProfile } from "@/app/actions/profile";
-import { extractStatsFromImage } from "@/app/actions/ai"; 
+import { extractStatsFromImage } from "@/app/actions/ai";
 // 💡 [เพิ่มใหม่] นำเข้า Action สำหรับลากิจกรรม (ตรวจสอบให้แน่ใจว่า path และชื่อฟังก์ชันถูกต้อง)
-import { toggleMemberLeave } from "@/app/actions/admin"; 
+import { toggleMemberLeave } from "@/app/actions/admin";
 import { Profile } from "@/components/Dashboard";
 
 export default function ProfileForm({
@@ -24,8 +24,8 @@ export default function ProfileForm({
   const loadingText = isAiLoading
     ? "กำลังอ่านภาพจาก AI..."
     : isPending
-    ? "กำลังบันทึกข้อมูล..."
-    : "";
+      ? "กำลังบันทึกข้อมูล..."
+      : "";
 
   // 💡 [เพิ่มใหม่] State สำหรับเก็บสถานะการลากิจกรรม
   const [isOnLeave, setIsOnLeave] = useState(!!initialProfile.is_on_leave);
@@ -41,6 +41,10 @@ export default function ProfileForm({
     m_dmg: initialProfile.m_dmg ?? 0,
     p_reduc: initialProfile.p_reduc ?? 0,
     m_reduc: initialProfile.m_reduc ?? 0,
+    hp: initialProfile.hp ?? 0,
+    sp: initialProfile.sp ?? 0,
+    ignore_pdef: initialProfile.ignore_pdef ?? 0,
+    ignore_mdef: initialProfile.ignore_mdef ?? 0,
   });
 
   const handleStatChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,9 +53,9 @@ export default function ProfileForm({
   };
 
   // 💡 [เพิ่มใหม่] ฟังก์ชันสำหรับจัดการการกด Toggle ลากิจกรรม
- const handleToggleLeave = () => {
+  const handleToggleLeave = () => {
     const newStatus = !isOnLeave;
-    
+
     // อัปเดต UI ทันทีเพื่อให้ดูรวดเร็ว (Optimistic Update)
     setIsOnLeave(newStatus);
     setMessage(null);
@@ -60,7 +64,7 @@ export default function ProfileForm({
       try {
         // ส่ง Request ไปอัปเดตที่หลังบ้าน
         const result = await toggleMemberLeave(initialProfile.id, newStatus);
-        
+
         if (!result?.success) {
           // ถ้าล้มเหลว ให้ย้อนกลับเป็นค่าเดิม
           setIsOnLeave(!newStatus);
@@ -72,7 +76,9 @@ export default function ProfileForm({
           // ถ้าสำเร็จ โชว์ข้อความแจ้งเตือนเล็กน้อย
           setMessage({
             type: "success",
-            text: newStatus ? "🏖️ เปิดสถานะลากิจกรรมเรียบร้อยแล้ว" : "✅ ปิดสถานะลากิจกรรม (พร้อมเข้าร่วมปกติ)",
+            text: newStatus
+              ? "🏖️ เปิดสถานะลากิจกรรมเรียบร้อยแล้ว"
+              : "✅ ปิดสถานะลากิจกรรม (พร้อมเข้าร่วมปกติ)",
           });
         }
       } catch (err) {
@@ -81,7 +87,7 @@ export default function ProfileForm({
       } finally {
         // 💡 ล้าง Timer เก่าทิ้งก่อน (ถ้ามี) ป้องกันบั๊กเวลากดสวิตช์รัวๆ
         if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
-        
+
         // 💡 ตั้งเวลา 3 วินาที (3000 ms) ให้รีเซ็ตข้อความเป็น null (ข้อความหายไป)
         alertTimerRef.current = setTimeout(() => {
           setMessage(null);
@@ -111,12 +117,12 @@ export default function ProfileForm({
                   type: file.type,
                 });
               };
-            })
-        )
+            }),
+        ),
       );
 
       const results = await Promise.all(
-        base64Images.map((img) => extractStatsFromImage(img.base64, img.type))
+        base64Images.map((img) => extractStatsFromImage(img.base64, img.type)),
       );
 
       const successResults = results.filter((r) => r.success && r.data);
@@ -126,8 +132,11 @@ export default function ProfileForm({
 
         if (successResults.length === 2 && successResults[1].data) {
           const data2 = successResults[1].data;
-          const selectValue = (val1: number | undefined, val2: number | undefined) => {
-            return (val1 !== undefined && val1 !== 0) ? val1 : (val2 || 0);
+          const selectValue = (
+            val1: number | undefined,
+            val2: number | undefined,
+          ) => {
+            return val1 !== undefined && val1 !== 0 ? val1 : val2 || 0;
           };
 
           mergedData.p_atk = selectValue(mergedData.p_atk, data2.p_atk);
@@ -139,7 +148,20 @@ export default function ProfileForm({
           mergedData.p_reduc = selectValue(mergedData.p_reduc, data2.p_reduc);
           mergedData.m_reduc = selectValue(mergedData.m_reduc, data2.m_reduc);
           mergedData.pvp_dmg = selectValue(mergedData.pvp_dmg, data2.pvp_dmg);
-          mergedData.pvp_reduc = selectValue(mergedData.pvp_reduc, data2.pvp_reduc);
+          mergedData.pvp_reduc = selectValue(
+            mergedData.pvp_reduc,
+            data2.pvp_reduc,
+          );
+          mergedData.hp = selectValue(mergedData.hp, data2.hp);
+          mergedData.sp = selectValue(mergedData.sp, data2.sp);
+          mergedData.ignore_pdef = selectValue(
+            mergedData.ignore_pdef,
+            data2.ignore_pdef,
+          );
+          mergedData.ignore_mdef = selectValue(
+            mergedData.ignore_mdef,
+            data2.ignore_mdef,
+          );
         }
 
         setStats({
@@ -153,6 +175,10 @@ export default function ProfileForm({
           m_reduc: mergedData.m_reduc || stats.m_reduc,
           pvp_dmg: mergedData.pvp_dmg || stats.pvp_dmg,
           pvp_reduc: mergedData.pvp_reduc || stats.pvp_reduc,
+          hp: mergedData.hp || stats.hp,
+          sp: mergedData.sp || stats.sp,
+          ignore_pdef: mergedData.ignore_pdef || stats.ignore_pdef,
+          ignore_mdef: mergedData.ignore_mdef || stats.ignore_mdef,
         });
 
         const imageCount = filesToProcess.length;
@@ -164,15 +190,22 @@ export default function ProfileForm({
               : "🤖 AI อ่านสเตตัสเรียบร้อยแล้ว กรุณาตรวจสอบและกดบันทึก!",
         });
       } else {
-        let userFriendlyMessage = "🤔 AI มองเห็นตัวเลขไม่ชัดเจน รบกวนแคปรูปใหม่ให้เห็นสเตตัสครบถ้วน แล้วลองอีกครั้งนะครับ";
+        let userFriendlyMessage =
+          "🤔 AI มองเห็นตัวเลขไม่ชัดเจน รบกวนแคปรูปใหม่ให้เห็นสเตตัสครบถ้วน แล้วลองอีกครั้งนะครับ";
         const errorMessage = results[0]?.error || "";
-        
+
         if (errorMessage.includes("503")) {
-          userFriendlyMessage = "⏳ ตอนนี้มีผู้ใช้งาน AI พร้อมกันจำนวนมาก รบกวนรอสัก 1 นาทีแล้วกดอัปโหลดใหม่นะครับ";
-        } else if (errorMessage.includes("429") || errorMessage.includes("Quota")) {
-          userFriendlyMessage = "🛑 โควต้า AI สำหรับวันนี้เต็มแล้วครับ รบกวนกรอกตัวเลขด้วยตัวเองไปก่อนนะครับ";
+          userFriendlyMessage =
+            "⏳ ตอนนี้มีผู้ใช้งาน AI พร้อมกันจำนวนมาก รบกวนรอสัก 1 นาทีแล้วกดอัปโหลดใหม่นะครับ";
+        } else if (
+          errorMessage.includes("429") ||
+          errorMessage.includes("Quota")
+        ) {
+          userFriendlyMessage =
+            "🛑 โควต้า AI สำหรับวันนี้เต็มแล้วครับ รบกวนกรอกตัวเลขด้วยตัวเองไปก่อนนะครับ";
         } else if (errorMessage.includes("404")) {
-          userFriendlyMessage = "🔧 ระบบ AI กำลังปิดปรับปรุงชั่วคราว รบกวนกรอกข้อมูลด้วยตัวเองไปก่อนนะครับ";
+          userFriendlyMessage =
+            "🔧 ระบบ AI กำลังปิดปรับปรุงชั่วคราว รบกวนกรอกข้อมูลด้วยตัวเองไปก่อนนะครับ";
         }
 
         setMessage({
@@ -262,8 +295,6 @@ export default function ProfileForm({
           </div>
         )}
 
-        
-
         {/* ส่วนอัปโหลดรูปให้ AI */}
         <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg border border-indigo-100 dark:border-indigo-800 flex items-center justify-between">
           <div>
@@ -271,7 +302,8 @@ export default function ProfileForm({
               ✨ Auto Fill ด้วย AI (Beta)
             </h3>
             <p className="text-xs text-indigo-700 dark:text-indigo-400 mt-1">
-              อัปโหลดรูปสเตตัส 1-2 รูปในเกม เพื่อให้ระบบ AI อ่านแล้วกรอกตัวเลขให้อัตโนมัติ
+              อัปโหลดรูปสเตตัส 1-2 รูปในเกม เพื่อให้ระบบ AI
+              อ่านแล้วกรอกตัวเลขให้อัตโนมัติ
             </p>
           </div>
           <div>
@@ -326,7 +358,8 @@ export default function ProfileForm({
               🏖️ สถานะลากิจกรรม
             </h3>
             <p className="text-xs text-rose-700 dark:text-rose-400 mt-1">
-              เปิดสถานะนี้เมื่อไม่สามารถเข้าร่วมกิจกรรมกิลด์ได้ (ระบบจะอัปเดตทันทีเมื่อกด)
+              เปิดสถานะนี้เมื่อไม่สามารถเข้าร่วมกิจกรรมกิลด์ได้
+              (ระบบจะอัปเดตทันทีเมื่อกด)
             </p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
@@ -405,6 +438,32 @@ export default function ProfileForm({
         </div>
 
         <div className="grid grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+          <div>
+            <label className="block text-sm font-medium text-green-600 dark:text-green-400">
+              HP
+            </label>
+            <input
+              name="hp"
+              type="number"
+              min="0"
+              value={stats.hp}
+              onChange={handleStatChange}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 dark:bg-gray-700 dark:border-gray-600 font-semibold"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-blue-500 dark:text-blue-300">
+              SP
+            </label>
+            <input
+              name="sp"
+              type="number"
+              min="0"
+              value={stats.sp}
+              onChange={handleStatChange}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 dark:bg-gray-700 dark:border-gray-600 font-semibold"
+            />
+          </div>
           <div>
             <label
               htmlFor="p_atk"
@@ -509,6 +568,32 @@ export default function ProfileForm({
               value={stats.m_dmg}
               onChange={handleStatChange}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-semibold"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-600 dark:text-slate-400">
+              Ignore P.DEF
+            </label>
+            <input
+              name="ignore_pdef"
+              type="number"
+              min="0"
+              value={stats.ignore_pdef}
+              onChange={handleStatChange}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 dark:bg-gray-700 dark:border-gray-600 font-semibold"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-600 dark:text-slate-400">
+              Ignore M.DEF
+            </label>
+            <input
+              name="ignore_mdef"
+              type="number"
+              min="0"
+              value={stats.ignore_mdef}
+              onChange={handleStatChange}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 dark:bg-gray-700 dark:border-gray-600 font-semibold"
             />
           </div>
 

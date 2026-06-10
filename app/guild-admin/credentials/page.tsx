@@ -72,6 +72,11 @@ export default async function AdminCredentialsPage() {
     p_reduc: p.p_reduc,
     m_reduc: p.m_reduc,
 
+    hp: p.hp,
+    sp: p.sp,
+    ignore_pdef: p.ignore_pdef,
+    ignore_mdef: p.ignore_mdef,
+
     is_on_leave: p.is_on_leave || false,
     updated_at: p.updated_at,
     last_stat_update: p.last_stat_update,

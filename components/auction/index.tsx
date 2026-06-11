@@ -19,7 +19,8 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
   // 🌟 ดึงค่าตั้งต้นจาก Database มาแสดงเป็นค่าเริ่มต้นให้แอดมิน
   const [limits, setLimits] = useState(() => {
     const init = { Album: 1, Puppet: 2, White: 10, RedBlack: 10 }
-    todayItems.forEach((item: any) => {
+    // เติม ?. ตรงนี้ เพื่อบอกว่าถ้า todayItems มีค่า ค่อย .forEach
+    todayItems?.forEach((item: any) => {
       if (item.item_name in init) (init as any)[item.item_name] = item.personal_limit
     })
     return init
@@ -32,19 +33,19 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
       White: { startPage: '', startSlot: '', endPage: '', endSlot: '', total: 0 },
       RedBlack: { startPage: '', startSlot: '', endPage: '', endSlot: '', total: 0 },
     }
-    todayItems.forEach((item: any) => {
+    // เติม ?. ตรงนี้
+    todayItems?.forEach((item: any) => {
       if (item.item_name in init) (init as any)[item.item_name].total = item.total_quantity
     })
     return init
   })
 
   // 🌟 ลอจิกจัดสล็อตแบบ Live Preview (Real-time)
-  const mappedSlots = useMemo(() => {
+ const mappedSlots = useMemo(() => {
     let slots: any[] = []
     const priorityOrder: ('Album' | 'Puppet' | 'White' | 'RedBlack')[] = ['Album', 'Puppet', 'White', 'RedBlack']
 
     priorityOrder.forEach(type => {
-      // 💡 ถ้าเป็นแอดมิน ให้ใช้ค่าที่กำลังพิมพ์อยู่ (Live Preview) ถ้าเป็นสมาชิกรอใช้ค่าจาก DB
       let availableStock = 0;
       let limit = 1;
 
@@ -52,7 +53,8 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
         availableStock = positions[type].total;
         limit = limits[type];
       } else {
-        const session = todayItems.find((s: any) => s.item_name === type)
+        // 🌟 ดักเผื่อ todayItems เป็น undefined
+        const session = (todayItems || []).find((s: any) => s.item_name === type)
         if (session) {
           availableStock = session.total_quantity;
           limit = session.personal_limit;
@@ -61,7 +63,7 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
 
       if (availableStock <= 0) return
 
-      const queues = memberQueues.filter((q: any) => q.item_type === type)
+      const queues = (memberQueues || []).filter((q: any) => q.item_type === type)
 
       queues.forEach((userQueue: any) => {
         if (availableStock <= 0) return

@@ -45,7 +45,7 @@ export default function AuctionWindow({
               if (isAdmin && positions) {
                 totalQty = positions[type].total;
               } else {
-                const sessionItem = todayItems.find((s: any) => s.item_name === type);
+                const sessionItem = (todayItems || []).find((s: { item_name?: string; total_quantity?: number }) => s.item_name === type);
                 totalQty = sessionItem ? sessionItem.total_quantity : 0;
               }
               

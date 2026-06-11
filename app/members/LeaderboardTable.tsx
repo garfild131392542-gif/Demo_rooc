@@ -424,6 +424,26 @@ export default function LeaderboardTable({
                   >
                     {profile.pvp_reduc ?? 0}
                   </td>
+                  <td
+                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("hp")}`}
+                  >
+                    {profile.hp ?? 0}
+                  </td>
+                  <td
+                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("sp")}`}
+                  >
+                    {profile.sp ?? 0}
+                  </td>
+                  <td
+                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("ignore_pdef")}`}
+                  >
+                    {profile.ignore_pdef ?? 0}
+                  </td>
+                  <td
+                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("ignore_mdef")}`}
+                  >
+                    {profile.ignore_mdef ?? 0}
+                  </td>
                 </tr>
               ))}
 

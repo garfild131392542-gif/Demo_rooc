@@ -23,7 +23,13 @@ export default async function ProfilePage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="flex justify-center items-center text-3xl font-bold mb-6">My Profile</h1>
-      <ProfileForm initialProfile={profile} />
+     <ProfileForm 
+  initialProfile={{
+    ...profile,
+    uid_game: profile.uid_game || '', // ถ้าเป็น null ให้ใส่เป็นข้อความว่างๆ แทน
+    display_name: profile.display_name || '',
+  } as any} 
+/>
     </div>
   )
 }

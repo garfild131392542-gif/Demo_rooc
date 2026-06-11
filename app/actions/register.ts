@@ -2,7 +2,7 @@
 
 import { registerAction as registerAuthAction } from './auth'
 import {
-  validatePhoneNumber,
+  
   validatePassword,
   validatePasswordMatch,
 } from '@/lib/validations'

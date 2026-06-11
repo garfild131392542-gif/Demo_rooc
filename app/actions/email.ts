@@ -1,4 +1,6 @@
 'use server'
+import { Resend } from 'resend';
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface SendWelcomeEmailParams {
   email: string
@@ -35,13 +37,11 @@ function generateWelcomeEmailHTML(
     </head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333;">
       <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <!-- Header -->
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 20px; border-radius: 8px 8px 0 0; text-align: center;">
           <h1 style="margin: 0; font-size: 28px; font-weight: bold;">🎉 ยินดีต้อนรับ!</h1>
           <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.95;">Guild Management System</p>
         </div>
 
-        <!-- Content -->
         <div style="background: #f9fafb; padding: 40px 20px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none;">
           <p style="margin-top: 0; font-size: 16px;">สวัสดี ${displayName || 'Guild Admin'},</p>
           
@@ -58,7 +58,6 @@ function generateWelcomeEmailHTML(
             </ul>
           </div>
 
-          <!-- Login CTA -->
           <div style="margin: 30px 0; text-align: center;">
             <p style="margin-bottom: 15px; font-size: 14px; color: #666;">เข้าสู่ระบบเพื่อเริ่มจัดการกิลด์ของคุณ</p>
             <a href="https://rooc-manage.xyz/login" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; transition: background 0.3s;">
@@ -69,7 +68,6 @@ function generateWelcomeEmailHTML(
           ${
             hasInviteLink
               ? `
-          <!-- Invite Link Section -->
           <div style="background: #f0f9ff; border: 1px solid #bfdbfe; padding: 20px; border-radius: 6px; margin: 30px 0;">
             <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #1e40af;">🔗 ลิงก์เชิญสมาชิก</h3>
             <p style="margin: 0 0 12px 0; font-size: 13px; color: #475569;">แชร์ลิงก์นี้เพื่อเชิญสมาชิกใหม่ให้เข้าร่วมกิลด์ของคุณ:</p>
@@ -82,7 +80,6 @@ function generateWelcomeEmailHTML(
           </div>
           `
               : `
-          <!-- Setup Instructions -->
           <div style="background: #fef3c7; border: 1px solid #fcd34d; padding: 20px; border-radius: 6px; margin: 30px 0;">
             <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #92400e;">📋 ขั้นตอนต่อไป</h3>
             <p style="margin: 0 0 12px 0; font-size: 13px; color: #78350f;">หลังจากเข้าสู่ระบบ ให้ทำการ:</p>
@@ -95,7 +92,6 @@ function generateWelcomeEmailHTML(
           `
           }
 
-          <!-- Footer -->
           <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #666;">
             <p style="margin: 5px 0;">หากมีคำถามหรือติดปัญหาตรงไหน สามารถแจ้งเราได้ที่หน้าล็อคอิน</p>
             
@@ -147,7 +143,7 @@ export async function sendWelcomeEmailAction(
     try {
       // Dynamically import Resend only when needed
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { Resend } = require('resend')
+      const { Resend } = await import('resend') // 👈 แก้ไขแค่บรรทัดนี้จาก require เป็น await import ครับ
       const resend = new Resend(process.env.RESEND_API_KEY)
 
       const response = await resend.emails.send({

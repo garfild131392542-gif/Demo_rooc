@@ -1,6 +1,7 @@
 'use server'
 
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { getSession } from './auth'
 import { sendWelcomeEmailAction } from './email' 
 
 export interface OnboardingFormData {
@@ -54,19 +55,12 @@ export async function completeOnboardingAction(
       return { success: false, error: 'This guild URL is no longer available' }
     }
 
-    const supabase = await createClient()
-
-    const { data: authData, error: authError } = await supabase.auth.getUser()
-    if (authError || !authData.user) {
+    const session = await getSession()
+    if (!session?.profile || !session.profile.id) {
       return { success: false, error: 'User session not found' }
     }
-    const userId = authData.user.id
-    
-    // ดึงค่า Email จากระบบ Auth เพื่อนำมาสกัดเป็น Username ล็อกอิน
-    const userEmail = authData.user.email || ''
-    const extractedUsername = userEmail.includes('@member.rooc')
-      ? userEmail.split('@')[0]
-      : userEmail
+    const userId = session.profile.id
+    const extractedUsername = session.profile.uid_game || ''
 
     const trialEndsAt = new Date()
     trialEndsAt.setDate(trialEndsAt.getDate() + 14) 

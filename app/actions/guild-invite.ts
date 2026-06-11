@@ -94,6 +94,16 @@ export async function registerMemberWithGuildInvite(
     return { success: false, error: profileError.message }
   }
 
+  // ✅ สร้าง session ให้กับผู้ใช้หลัง signup เพื่อให้ logged in ทันที
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: virtualEmail,
+    password: normalizedPassword,
+  })
+
+  if (signInError) {
+    return { success: false, error: 'สมัครสมาชิกสำเร็จ แต่ไม่สามารถเข้าสู่ระบบได้ โปรดลองล็อกอินด้วยตนเอง' }
+  }
+
   redirect('/')
 }
 

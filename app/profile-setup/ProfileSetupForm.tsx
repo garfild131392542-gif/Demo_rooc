@@ -89,8 +89,9 @@ export default function ProfileSetupForm({ initialProfile }: ProfileSetupFormPro
               <input type="text" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="กรอกชื่อตัวละครในเกม" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">UID ในเกม</label>
-              <input type="text" required value={uidGame} onChange={(e) => setUidGame(e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="กรอก UID ของคุณ" />
+              <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+              <input type="text" disabled value={uidGame} className="w-full rounded-xl border border-slate-300 bg-slate-100 px-4 py-2.5 text-slate-500 outline-none transition" placeholder="Username ของคุณ" />
+              <p className="mt-2 text-xs text-slate-500">Username จะถูกดึงจากข้อมูลบัญชีของคุณและไม่สามารถแก้ไขได้ที่หน้านี้</p>
             </div>
             <div>
               <label htmlFor="job_name" className="block text-sm font-medium text-slate-700 mb-1">อาชีพ</label>

@@ -30,7 +30,7 @@ export default function BillingPage() {
         <div className="bg-gradient-to-r from-purple-900/50 to-indigo-900/50 rounded-2xl border border-purple-500/30 p-8 mb-8">
           <div className="text-center mb-6">
             <h3 className="text-2xl font-bold text-white mb-2">💖 ช่วยสนับสนุนค่าเซอร์เวอร์</h3>
-            <p className="text-purple-200">ระบบนี้ต้องใช้ทรัพยากรในการดำเนินการ ช่วยน้อย ช่วยมากเรา appreciate ทั้งนั้น</p>
+            <p className="text-purple-200">ขอขอบคุณทุกท่านที่สนับสนุนครับ ผมจะตั้งใจพัฒนาให้ดียิ่งขึ้นครบ</p>
           </div>
           <div className="flex justify-center mb-6">
             <img 

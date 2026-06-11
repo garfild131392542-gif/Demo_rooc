@@ -1,191 +1,452 @@
-/**
- * Supabase Database Type Definitions
- * Auto-generated style type definitions for the Supabase schema
- * 
- * In production, you would generate this using:
- * npx supabase gen types typescript --project-id YOUR_PROJECT_ID > types/supabase.ts
- * 
- * For now, this is a manual definition matching migrations/003_saas_schema_update.sql
- */
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
-      profile: {
-        Row: {
-          id: string
-          uid_game: string
-          email: string | null
-          display_name: string
-          job_name: string
-          role: 'admin' | 'member'
-          guild_id: string | null
-          avatar_url: string
-          p_atk: number
-          m_atk: number
-          p_def: number
-          m_def: number
-          p_dmg: number
-          m_dmg: number
-          p_reduc: number
-          m_reduc: number
-          pvp_dmg: number
-          pvp_reduc: number
-          party_id: number | null
-          slot_index: number | null
-          is_on_leave: boolean
-          created_at: string
-          updated_at: string
-          last_stat_update: string | null
-        }
-        Insert: {
-          id: string
-          uid_game: string
-          email?: string | null
-          display_name: string
-          job_name: string
-          role?: 'admin' | 'member'
-          guild_id?: string | null
-          avatar_url?: string
-          p_atk?: number
-          m_atk?: number
-          p_def?: number
-          m_def?: number
-          p_dmg?: number
-          m_dmg?: number
-          p_reduc?: number
-          m_reduc?: number
-          pvp_dmg?: number
-          pvp_reduc?: number
-          party_id?: number | null
-          slot_index?: number | null
-          is_on_leave?: boolean
-          created_at?: string
-          updated_at?: string
-          last_stat_update?: string | null
-        }
-        Update: {
-          id?: string
-          uid_game?: string
-          email?: string | null
-          display_name?: string
-          job_name?: string
-          role?: 'admin' | 'member'
-          guild_id?: string | null
-          avatar_url?: string
-          p_atk?: number
-          m_atk?: number
-          p_def?: number
-          m_def?: number
-          p_dmg?: number
-          m_dmg?: number
-          p_reduc?: number
-          m_reduc?: number
-          pvp_dmg?: number
-          pvp_reduc?: number
-          party_id?: number | null
-          slot_index?: number | null
-          is_on_leave?: boolean
-          created_at?: string
-          updated_at?: string
-          last_stat_update?: string | null
-        }
-      }
-      guilds: {
-        Row: {
-          id: string
-          owner_id: string
-          name: string
-          server_name: string
-          status: 'pending' | 'approved' | 'rejected'
-          guild_url: string | null
-          trial_ends_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          owner_id: string
-          name: string
-          server_name: string
-          status?: 'pending' | 'approved' | 'rejected'
-          guild_url?: string | null
-          trial_ends_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          owner_id?: string
-          name?: string
-          server_name?: string
-          status?: 'pending' | 'approved' | 'rejected'
-          guild_url?: string | null
-          trial_ends_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
       admins: {
         Row: {
-          id: string
+          created_at: string | null
           email: string | null
-          display_name: string | null
-          role: 'admin' | 'super_admin'
-          created_at?: string
-          updated_at?: string
+          id: string
+          role: string | null
         }
         Insert: {
-          id: string
+          created_at?: string | null
           email?: string | null
-          display_name?: string | null
-          role?: 'admin' | 'super_admin'
-          created_at?: string
-          updated_at?: string
+          id: string
+          role?: string | null
         }
         Update: {
-          id?: string
+          created_at?: string | null
           email?: string | null
-          display_name?: string | null
-          role?: 'admin' | 'super_admin'
-          created_at?: string
-          updated_at?: string
+          id?: string
+          role?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "admins_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auction_queues: {
+        Row: {
+          guild_id: string | null
+          id: string
+          item_name: string
+          queue_timestamp: string | null
+          received_qty: number
+          requested_qty: number
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          guild_id?: string | null
+          id?: string
+          item_name: string
+          queue_timestamp?: string | null
+          received_qty?: number
+          requested_qty?: number
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          guild_id?: string | null
+          id?: string
+          item_name?: string
+          queue_timestamp?: string | null
+          received_qty?: number
+          requested_qty?: number
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auction_queues_guild_id_fkey"
+            columns: ["guild_id"]
+            isOneToOne: false
+            referencedRelation: "guilds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auction_queues_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auction_sessions: {
+        Row: {
+          created_at: string | null
+          guild_id: string | null
+          id: string
+          item_name: string
+          item_priority: number
+          personal_limit: number
+          session_date: string
+          status: string | null
+          total_quantity: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          guild_id?: string | null
+          id?: string
+          item_name: string
+          item_priority?: number
+          personal_limit?: number
+          session_date: string
+          status?: string | null
+          total_quantity?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          guild_id?: string | null
+          id?: string
+          item_name?: string
+          item_priority?: number
+          personal_limit?: number
+          session_date?: string
+          status?: string | null
+          total_quantity?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auction_sessions_guild_id_fkey"
+            columns: ["guild_id"]
+            isOneToOne: false
+            referencedRelation: "guilds"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       guild_owners: {
         Row: {
-          id: string
+          created_at: string
           email: string | null
           first_name: string
+          id: string
           last_name: string
           phone_number: string
-          created_at: string
         }
         Insert: {
-          id: string
+          created_at?: string
           email?: string | null
           first_name: string
+          id: string
           last_name: string
           phone_number: string
-          created_at?: string
         }
         Update: {
-          id?: string
+          created_at?: string
           email?: string | null
           first_name?: string
+          id?: string
           last_name?: string
           phone_number?: string
-          created_at?: string
         }
+        Relationships: []
+      }
+      guilds: {
+        Row: {
+          contact_email: string | null
+          created_at: string | null
+          description: string
+          discord_link: string | null
+          guild_url: string | null
+          id: string
+          invite_code: string
+          name: string
+          owner_id: string
+          status: string | null
+          trial_ends_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          contact_email?: string | null
+          created_at?: string | null
+          description: string
+          discord_link?: string | null
+          guild_url?: string | null
+          id?: string
+          invite_code: string
+          name: string
+          owner_id: string
+          status?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          contact_email?: string | null
+          created_at?: string | null
+          description?: string
+          discord_link?: string | null
+          guild_url?: string | null
+          id?: string
+          invite_code?: string
+          name?: string
+          owner_id?: string
+          status?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          display_name: string | null
+          guild_id: string | null
+          hp: number | null
+          id: string
+          ignore_mdef: number | null
+          ignore_pdef: number | null
+          is_on_leave: boolean | null
+          job_name: string | null
+          last_stat_update: string | null
+          m_atk: number | null
+          m_def: number | null
+          m_dmg: number | null
+          m_reduc: number | null
+          p_atk: number | null
+          p_def: number | null
+          p_dmg: number | null
+          p_reduc: number | null
+          party_id: number | null
+          pvp_dmg: number | null
+          pvp_reduc: number | null
+          role: string | null
+          slot_index: number | null
+          sp: number | null
+          uid_game: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          guild_id?: string | null
+          hp?: number | null
+          id?: string
+          ignore_mdef?: number | null
+          ignore_pdef?: number | null
+          is_on_leave?: boolean | null
+          job_name?: string | null
+          last_stat_update?: string | null
+          m_atk?: number | null
+          m_def?: number | null
+          m_dmg?: number | null
+          m_reduc?: number | null
+          p_atk?: number | null
+          p_def?: number | null
+          p_dmg?: number | null
+          p_reduc?: number | null
+          party_id?: number | null
+          pvp_dmg?: number | null
+          pvp_reduc?: number | null
+          role?: string | null
+          slot_index?: number | null
+          sp?: number | null
+          uid_game?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          guild_id?: string | null
+          hp?: number | null
+          id?: string
+          ignore_mdef?: number | null
+          ignore_pdef?: number | null
+          is_on_leave?: boolean | null
+          job_name?: string | null
+          last_stat_update?: string | null
+          m_atk?: number | null
+          m_def?: number | null
+          m_dmg?: number | null
+          m_reduc?: number | null
+          p_atk?: number | null
+          p_def?: number | null
+          p_dmg?: number | null
+          p_reduc?: number | null
+          party_id?: number | null
+          pvp_dmg?: number | null
+          pvp_reduc?: number | null
+          role?: string | null
+          slot_index?: number | null
+          sp?: number | null
+          uid_game?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_guild_id_fkey"
+            columns: ["guild_id"]
+            isOneToOne: false
+            referencedRelation: "guilds"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
-    Views: {}
-    Functions: {}
-    Enums: {
-      profile_role: 'admin' | 'member'
-      guild_status: 'pending' | 'approved' | 'rejected'
-      admin_role: 'admin' | 'super_admin'
+    Views: {
+      [_ in never]: never
     }
-    CompositeTypes: {}
+    Functions: {
+      get_my_guild_id: { Args: never; Returns: string }
+      is_admin: { Args: never; Returns: boolean }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
 }
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const

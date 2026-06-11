@@ -35,7 +35,6 @@ export async function saveAuctionSession(items: { item_type: ItemType; total_qua
       status: 'active'
     }))
 
-    // 🌟 แก้ไขตรงนี้: เติม as any เพื่อให้ TypeScript เลิกงอแง
     const { error } = await supabase.from('auction_sessions').insert(insertData as any)
     if (error) throw error
 
@@ -64,6 +63,7 @@ export async function joinAuctionQueue(itemType: ItemType, requestedQty: number)
       .maybeSingle()
 
     if (existingQueue) {
+      // 🌟 ใส่ as any ตรงอัปเดต
       await supabase
         .from('auction_queues')
         .update({ 
@@ -72,7 +72,7 @@ export async function joinAuctionQueue(itemType: ItemType, requestedQty: number)
         })
         .eq('id', existingQueue.id)
     } else {
-      // 🌟 แก้ไขตรงนี้: เติม as any ท้าย Array ด้วยเช่นกัน
+      // 🌟 ใส่ as any ตรงอินเสิร์ตใหม่
       await supabase
         .from('auction_queues')
         .insert([{

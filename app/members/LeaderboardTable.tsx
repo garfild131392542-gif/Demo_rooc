@@ -5,22 +5,22 @@ import { getJobIconUrl } from "@/components/helpers";
 
 type LeaderboardProfile = {
   id: string;
-  display_name: string;
-  job_name: string;
-  pvp_reduc: number;
-  pvp_dmg: number;
-  p_def: number;
-  m_def: number;
-  p_atk: number;
-  m_atk: number;
-  p_dmg: number;
-  m_dmg: number;
-  p_reduc: number;
-  m_reduc: number;
-  hp: number;
-  sp: number;
-  ignore_pdef: number;
-  ignore_mdef: number;
+  display_name: string | null ;
+  job_name: string | null ;
+  pvp_reduc: number | null;
+  pvp_dmg: number | null;
+  p_def: number | null;
+  m_def: number | null;
+  p_atk: number | null;
+  m_atk: number | null;
+  p_dmg: number | null;
+  m_dmg: number | null;
+  p_reduc: number | null;
+  m_reduc: number | null;
+  hp: number | null;
+  sp: number | null;
+  ignore_pdef: number | null;
+  ignore_mdef: number | null;
 };
 
 const SORT_OPTIONS = [

@@ -2,10 +2,11 @@
 
 import { useState, useTransition, useRef } from "react";
 import Image from "next/image";
+import MemberForm from "@/components/auction/MemberForm";
 import { updateMyProfile } from "@/app/actions/profile";
 import { extractStatsFromImage } from "@/app/actions/ai";
 import { toggleMemberLeave } from "@/app/actions/admin";
-import { getMyAuctionReservations, updateAuctionQueueReservation, deleteAuctionQueueReservation } from "@/app/actions/auction";
+import { getMyAuctionReservations, updateAuctionQueueReservation, deleteAuctionQueueReservation, joinAuctionQueue } from "@/app/actions/auction";
 import { ITEM_CONFIG } from "@/components/auction/constants";
 import { Profile } from "@/components/Dashboard";
 
@@ -76,6 +77,8 @@ export default function ProfileForm({
   const [isReservationLoading, setIsReservationLoading] = useState(false);
   const [reservationActionLoading, setReservationActionLoading] = useState(false);
   const [reservationDraftQty, setReservationDraftQty] = useState<Record<string, string>>({});
+  const [reservationQtys, setReservationQtys] = useState<Record<'Album' | 'Puppet' | 'White' | 'RedBlack', string>>({ Album: '', Puppet: '', White: '', RedBlack: '' });
+  const [isReservationSubmitting, setIsReservationSubmitting] = useState(false);
 
   const openReservationModal = () => {
     setReservationModalOpen(true);
@@ -88,6 +91,7 @@ export default function ProfileForm({
     setReservationDraftQty({});
     setIsReservationLoading(false);
   };
+
 
   const fetchReservations = async () => {
     setIsReservationLoading(true);
@@ -167,6 +171,42 @@ export default function ProfileForm({
     } finally {
       setReservationActionLoading(false);
     }
+  };
+
+  const handleMemberRegister = async () => {
+    const selectedItems = Object.entries(reservationQtys)
+      .map(([key, value]) => ({
+        itemType: key as 'Album' | 'Puppet' | 'White' | 'RedBlack',
+        qty: parseInt(value, 10),
+      }))
+      .filter((entry) => !isNaN(entry.qty) && entry.qty > 0);
+
+    if (selectedItems.length === 0) {
+      setMessage({ type: 'error', text: 'กรุณาเลือกไอเทมและจำนวนก่อนครับ' });
+      return;
+    }
+
+    setIsReservationSubmitting(true);
+    setMessage(null);
+    let lastError = '';
+
+    for (const { itemType, qty } of selectedItems) {
+      const res = await joinAuctionQueue(itemType as any, qty);
+      if (!res.success) {
+        lastError = res.error || 'เกิดข้อผิดพลาดขณะบันทึก';
+        break;
+      }
+    }
+
+    if (!lastError) {
+      setMessage({ type: 'success', text: 'ลงทะเบียนจองคิวสำเร็จ!' });
+      setReservationQtys({ Album: '', Puppet: '', White: '', RedBlack: '' });
+      await fetchReservations();
+    } else {
+      setMessage({ type: 'error', text: 'เกิดข้อผิดพลาด: ' + lastError });
+    }
+
+    setIsReservationSubmitting(false);
   };
 
   const [isOnLeave, setIsOnLeave] = useState(!!initialProfile.is_on_leave);
@@ -333,7 +373,7 @@ export default function ProfileForm({
 
   return (
     // 🌟 ขยายความกว้างสูงสุดเป็น 1450px และเพิ่ม Padding
-    <div className="relative w-full max-w-[1450px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="relative w-full max-w-362.5 mx-auto px-4 sm:px-6 lg:px-8 py-8">
       
       {/* Loading Overlay */}
       {(isAiLoading || isPending) && (
@@ -392,7 +432,7 @@ export default function ProfileForm({
               </div>
               <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-4 mt-1">
                 <input type="checkbox" className="sr-only peer" checked={isOnLeave} onChange={handleToggleLeave} disabled={isPending || isAiLoading} />
-                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-rose-500 disabled:opacity-50"></div>
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-rose-500 disabled:opacity-50"></div>
               </label>
             </div>
           </div>
@@ -434,7 +474,7 @@ export default function ProfileForm({
             </div>
           </div>
 
-          {/* 📦 Auction Action Card */}
+          
           <div className="bg-indigo-50 dark:bg-indigo-900/10 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-800/30">
             <h3 className="font-bold text-indigo-900 dark:text-indigo-300 mb-2">จัดการคิวประมูล</h3>
             <p className="text-xs text-indigo-700 dark:text-indigo-400 mb-5">ดูประวัติหรือแก้ไขจำนวนกล่องที่คุณต้องการรับจากการประมูล</p>
@@ -446,7 +486,7 @@ export default function ProfileForm({
         </div>
 
         {/* 💻 Column ขวา: ให้พื้นที่กว้างขึ้นในจอใหญ่ (xl:col-span-9) */}
-        <div className="lg:col-span-8 xl:col-span-9">
+        <div className="lg:col-span-5 xl:col-span-6">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col h-full">
             
             <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -463,14 +503,14 @@ export default function ProfileForm({
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
                     </svg>
-                  ) : "✨ ให้ AI ช่วยอ่านรูป"}
+                  ) : "ให้ AI ช่วยอ่านค่า"}
                 </button>
               </div>
             </div>
 
             {/* 🌟 เพิ่มช่องไฟให้กว้างขึ้น (p-8, gap-5, xl:gap-6) */}
             <div className="p-6 xl:p-8 flex-1 bg-slate-50/50 dark:bg-slate-900/20">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 xl:gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 xl:gap-4">
                 <StatInput label="Max HP" name="hp" value={stats.hp} colorClass="text-emerald-600 dark:text-emerald-400" onChange={handleStatChange} />
                 <StatInput label="Max SP" name="sp" value={stats.sp} colorClass="text-sky-500 dark:text-sky-400" onChange={handleStatChange} />
                 <StatInput label="P.ATK" name="p_atk" value={stats.p_atk} colorClass="text-rose-600 dark:text-rose-400" onChange={handleStatChange} />
@@ -505,20 +545,26 @@ export default function ProfileForm({
       {reservationModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-3xl overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-indigo-50 to-indigo-50/50 dark:from-indigo-950/20 dark:to-slate-950 px-6 py-4">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 dark:border-slate-800 bg-linear-to-r from-indigo-50 to-indigo-50/50 dark:from-indigo-950/20 dark:to-slate-950 px-6 py-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <span className="text-xl">📦</span> รายการจองคิวประมูล
+                  <span className="text-xl">📦</span> คิวประมูลของฉัน
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
-                  <span>✏️</span> ตรวจสอบและแก้ไขจำนวนที่ต้องการรับ
+                  <span>✏️</span> เลือกจำนวนไอเทมและจัดการคิวประมูลของคุณในหน้าต่างเดียว
                 </p>
               </div>
               <button type="button" onClick={closeReservationModal} className="self-start rounded-full border border-slate-300 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 transition-colors">
                 ปิดหน้าต่าง
               </button>
             </div>
-            <div className="p-6 max-h-[70vh] overflow-y-auto">
+            <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
+              <MemberForm
+                reservationQtys={reservationQtys}
+                setReservationQtys={setReservationQtys}
+                handleMemberRegister={handleMemberRegister}
+                isSaving={isReservationSubmitting || isPending || isAiLoading}
+              />
               {isReservationLoading ? (
                 <div className="text-center py-16 text-slate-500 dark:text-slate-400 flex flex-col items-center gap-3">
                   <svg className="animate-spin h-6 w-6 text-indigo-500" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
@@ -534,7 +580,7 @@ export default function ProfileForm({
                         <div>
                           <div className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                             <div className="w-6 h-6 relative shrink-0">
-                              <Image src={ITEM_CONFIG[reservation.item_name as keyof typeof ITEM_CONFIG].icon} alt={ITEM_CONFIG[reservation.item_name as keyof typeof ITEM_CONFIG].label} fill className="object-contain" />
+                              <Image src={ITEM_CONFIG[reservation.item_name as keyof typeof ITEM_CONFIG].icon} alt={ITEM_CONFIG[reservation.item_name as keyof typeof ITEM_CONFIG].label} fill className="object-contain" sizes="24px" />
                             </div>
                             {ITEM_CONFIG[reservation.item_name as keyof typeof ITEM_CONFIG].label}
                           </div>
@@ -552,7 +598,7 @@ export default function ProfileForm({
                             </span>
                           </div>
                         </div>
-                        <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/10 border border-indigo-200 dark:border-indigo-800/30 px-4 py-3 text-sm font-semibold text-indigo-700 dark:text-indigo-300 shadow-sm flex items-center gap-2">
+                        <div className="rounded-xl bg-linear-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/10 border border-indigo-200 dark:border-indigo-800/30 px-4 py-3 text-sm font-semibold text-indigo-700 dark:text-indigo-300 shadow-sm flex items-center gap-2">
                           <span>✅</span>
                           <span>ได้รับแล้ว <span className="text-indigo-600 dark:text-indigo-400 text-lg mx-1 font-bold">{reservation.received_qty}</span> ชิ้น</span>
                         </div>

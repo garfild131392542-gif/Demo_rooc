@@ -1,9 +1,14 @@
-import { getTodayAuctionDashboard } from '@/app/actions/auction'
+import { getAuctionHistory, getTodayAuctionDashboard } from '@/app/actions/auction'
 
 import AuctionBoard from '@/components/auction' // ดึงจากโฟลเดอร์มาเลย
 
 export default async function AuctionPage() {
   const result = await getTodayAuctionDashboard()
+  const historyResult = await getAuctionHistory()
+  const auctionData = {
+    ...result,
+    history: historyResult.success ? historyResult.history : []
+  }
   
   // สร้าง Server Action แบบ inline เล็กๆ เพื่อส่งเป็น prop ให้ onRefresh()
   async function reloadData() {
@@ -14,7 +19,7 @@ export default async function AuctionPage() {
 
   return (
     <div className="p-4 sm:p-8  min-h-screen">
-      <AuctionBoard data={result} onRefresh={reloadData} />
+      <AuctionBoard data={auctionData} onRefresh={reloadData} />
     </div>
   )
 }

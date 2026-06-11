@@ -129,6 +129,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                     { name: 'Guild', href: '/guild/edit' },
                                     { name: 'My Profile', href: '/profile' },
                                     { name: 'Members', href: '/members' },
+                                    { name: 'Auction', href: '/auction' },
                                 ].map((item) => (
                                     <Link
                                         key={item.name}
@@ -224,6 +225,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                     { name: 'Guild', href: '/guild/edit' },
                                     { name: 'My Profile', href: '/profile' },
                                     { name: 'Members', href: '/members' },
+                                    { name: 'Auction', href: '/auction' },
                                     ...(enrichedSession.role === 'admin' ? [{ name: 'จัดการข้อมูลสมาชิกกิล', href: '/guild-admin/credentials' }] : [])
                                 ].map((item) => (
                                     <motion.div key={item.name} variants={itemVariants}>

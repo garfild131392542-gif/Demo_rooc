@@ -141,6 +141,66 @@ export type Database = {
           },
         ]
       }
+      auction_history: {
+        Row: {
+          awarded_at: string
+          created_at: string
+          guild_id: string | null
+          id: string
+          item_name: string
+          note: string | null
+          awarded_qty: number
+          requested_qty: number
+          session_date: string
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          awarded_at?: string
+          created_at?: string
+          guild_id?: string | null
+          id?: string
+          item_name: string
+          note?: string | null
+          awarded_qty?: number
+          requested_qty?: number
+          session_date: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          awarded_at?: string
+          created_at?: string
+          guild_id?: string | null
+          id?: string
+          item_name?: string
+          note?: string | null
+          awarded_qty?: number
+          requested_qty?: number
+          session_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auction_history_guild_id_fkey"
+            columns: ["guild_id"]
+            isOneToOne: false
+            referencedRelation: "guilds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auction_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guild_owners: {
         Row: {
           created_at: string

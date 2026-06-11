@@ -19,14 +19,11 @@ export default function AdminLimits({ limits, setLimits }: AdminLimitsProps) {
         <span className="text-blue-600 dark:text-blue-400">ลิมิตประมูลต่อคน</span>
       </h3>
       
-      <div className="space-y-3">
+      <div className="grid grid-cols-4 gap-1">
         {(['Album', 'Puppet', 'White', 'RedBlack'] as const).map(type => (
-          <div key={`limit-${type}`} className="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-6 h-6 relative shrink-0">
-                <Image src={ITEM_CONFIG[type].icon} alt={ITEM_CONFIG[type].label} fill className="object-contain" />
-              </div>
-              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 truncate">{ITEM_CONFIG[type].label}</span>
+          <div key={`limit-${type}`} className="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm transition-colors">
+            <div className={`w-16 h-16 bg-linear-to-b ${ITEM_CONFIG[type].color} rounded-lg border border-slate-200 dark:border-slate-600 flex items-center justify-center relative mb-3 shadow-inner`}>
+              <Image src={ITEM_CONFIG[type].icon} alt={ITEM_CONFIG[type].label} fill className="object-contain p-1" sizes="64px" />
             </div>
             <input
               type="number"
@@ -39,7 +36,7 @@ export default function AdminLimits({ limits, setLimits }: AdminLimitsProps) {
                   [type]: value === '' ? '' : parseInt(value) || 1,
                 }))
               }}
-              className="w-14 p-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded text-sm text-center font-black text-blue-600 dark:text-blue-400 outline-none focus:border-blue-500 shrink-0"
+              className="w-full text-center text-xl font-black font-mono bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg p-2 outline-none focus:border-blue-500 text-blue-600 dark:text-blue-400"
             />
           </div>
         ))}

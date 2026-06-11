@@ -30,7 +30,7 @@ export default async function GuildInvitePage({
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950">
       <div className="absolute inset-0">
-        <Image src="/invite.png" alt="Invite background" fill priority className="object-cover" />
+        <Image src="/invite.png" alt="Invite background" fill priority className="object-cover" sizes="100vw" />
       </div>
       <div className="absolute inset-0 bg-black/25 dark:bg-black/40" />
 

@@ -26,6 +26,23 @@ export default function BillingPage() {
             เริ่มต้นใช้งานระดับ PRO วันนี้ โดยไม่มีค่าใช้จ่ายแอบแฝง
           </p>
         </div>
+        {/* Support Server Costs */}
+        <div className="bg-gradient-to-r from-purple-900/50 to-indigo-900/50 rounded-2xl border border-purple-500/30 p-8 mb-8">
+          <div className="text-center mb-6">
+            <h3 className="text-2xl font-bold text-white mb-2">💖 ช่วยสนับสนุนค่าเซอร์เวอร์</h3>
+            <p className="text-purple-200">ระบบนี้ต้องใช้ทรัพยากรในการดำเนินการ ช่วยน้อย ช่วยมากเรา appreciate ทั้งนั้น</p>
+          </div>
+          <div className="flex justify-center mb-6">
+            <img 
+              src="/paytome.jpg" 
+              alt="PayToMe QR Code" 
+              className="w-48 h-48 rounded-lg shadow-lg hover:shadow-purple-500/50 transition-shadow"
+            />
+          </div>
+          <p className="text-center text-purple-100 text-sm">
+            สแกน QR Code เพื่อช่วยสนับสนุนค่าใช้จ่ายในการบำรุงรักษาระบบ
+          </p>
+        </div>
 
         {/* Pricing Card */}
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden mb-8 transform transition-all hover:scale-[1.01] duration-300">
@@ -111,6 +128,8 @@ export default function BillingPage() {
             </div>
           </div>
         </div>
+
+        
 
         {/* Back Link */}
         <div className="text-center">

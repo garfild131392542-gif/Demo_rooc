@@ -1,7 +1,6 @@
 'use client'
 
 import Image from 'next/image'
-
 import { useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { ITEM_CONFIG } from './constants'
@@ -91,8 +90,10 @@ export default function AdminForm({ positions, setPositions, onSave, isSaving }:
           {(['Album', 'Puppet', 'White', 'RedBlack'] as const).map(type => {
             const totalValue = displayTotal(type)
             return (
-              <div key={`total-${type}`} className="flex flex-col items-center justify-center p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm">
-                <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold mb-1 truncate w-full text-center">{ITEM_CONFIG[type].label}</span>
+              <div key={`total-${type}`} className="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm">
+                <div className={`w-16 h-16 bg-linear-to-b ${ITEM_CONFIG[type].color} rounded-lg border border-slate-200 dark:border-slate-600 flex items-center justify-center relative mb-2 shadow-inner`}>
+                  <Image src={ITEM_CONFIG[type].icon} alt={ITEM_CONFIG[type].label} fill className="object-contain p-1" sizes="64px" />
+                </div>
                 <input
                   type="number"
                   min={0}
@@ -112,12 +113,11 @@ export default function AdminForm({ positions, setPositions, onSave, isSaving }:
         <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2">2. ระบุพิกัดจากหน้าต่างเกม</div>
         <div className="space-y-2.5 flex-1">
           {(['Album', 'Puppet', 'White', 'RedBlack'] as const).map(type => (
-            <div key={`calc-${type}`} className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-              <div className="flex items-center gap-1.5 mb-2 px-1">
-                <div className="w-6 h-6 relative shrink-0">
-                  <Image src={ITEM_CONFIG[type].icon} alt={ITEM_CONFIG[type].label} fill className="object-contain" />
+            <div key={`calc-${type}`} className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-center gap-1.5 mb-3 px-1">
+                <div className={`w-12 h-12 bg-linear-to-b ${ITEM_CONFIG[type].color} rounded-lg border border-slate-200 dark:border-slate-600 flex items-center justify-center relative shadow-inner shrink-0`}>
+                  <Image src={ITEM_CONFIG[type].icon} alt={ITEM_CONFIG[type].label} fill className="object-contain p-1" sizes="48px" />
                 </div>
-                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">{ITEM_CONFIG[type].label}</span>
               </div>
               <div className="flex items-center gap-1">
                 <input type="number" min={1} placeholder="หน้า" value={positions[type].startPage} onChange={e => handlePosChange(type, 'startPage', e.target.value)} className="w-full p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded text-[10px] text-center outline-none focus:border-blue-500" />

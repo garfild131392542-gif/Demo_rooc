@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { ITEM_CONFIG } from './constants'
 
 export default function AuctionWindow({ 
@@ -51,7 +52,9 @@ export default function AuctionWindow({
               
               return (
                 <div key={`summary-${type}`} className="flex items-center gap-2 bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-lg p-2 shadow-sm transition-colors">
-                  <div className={`w-8 h-8 bg-gradient-to-b ${ITEM_CONFIG[type].color} rounded-md border border-slate-200 dark:border-slate-600/30 flex items-center justify-center text-lg shrink-0`}>{ITEM_CONFIG[type].icon}</div>
+                  <div className={`w-8 h-8 bg-gradient-to-b ${ITEM_CONFIG[type].color} rounded-md border border-slate-200 dark:border-slate-600/30 flex items-center justify-center shrink-0 relative`}>
+                    <Image src={ITEM_CONFIG[type].icon} alt={ITEM_CONFIG[type].label} fill className="object-contain p-1" />
+                  </div>
                   <div className="min-w-0 flex-1">
                     <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase block truncate">{ITEM_CONFIG[type].label}</span>
                     <span className="text-sm font-black text-orange-600 dark:text-amber-400 font-mono">{totalQty} <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">ชิ้น</span></span>

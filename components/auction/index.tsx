@@ -110,18 +110,36 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
     setIsSaving(false)
   }
 
-  const handleAdminSave = async () => {
+  const handleAdminSave = async (draftTotals?: Record<'Album' | 'Puppet' | 'White' | 'RedBlack', number | ''>) => {
     if (!confirm('ยืนยันการบันทึกข้อมูล? ระบบจะเรียงคิวและแจกจ่ายสล็อตจริงให้ลูกกิลด์ตามยอดนี้')) return
     setIsSaving(true)
+
+    const totals = {
+      Album: draftTotals?.Album ?? positions.Album.total,
+      Puppet: draftTotals?.Puppet ?? positions.Puppet.total,
+      White: draftTotals?.White ?? positions.White.total,
+      RedBlack: draftTotals?.RedBlack ?? positions.RedBlack.total,
+    }
+
     const payload = [
-      { item_type: 'Album' as const, total_quantity: positions.Album.total, personal_limit: limits.Album },
-      { item_type: 'Puppet' as const, total_quantity: positions.Puppet.total, personal_limit: limits.Puppet },
-      { item_type: 'White' as const, total_quantity: positions.White.total, personal_limit: limits.White },
-      { item_type: 'RedBlack' as const, total_quantity: positions.RedBlack.total, personal_limit: limits.RedBlack },
+      { item_type: 'Album' as const, total_quantity: Number(totals.Album) || 0, personal_limit: limits.Album },
+      { item_type: 'Puppet' as const, total_quantity: Number(totals.Puppet) || 0, personal_limit: limits.Puppet },
+      { item_type: 'White' as const, total_quantity: Number(totals.White) || 0, personal_limit: limits.White },
+      { item_type: 'RedBlack' as const, total_quantity: Number(totals.RedBlack) || 0, personal_limit: limits.RedBlack },
     ]
     const res = await saveAuctionSession(payload)
-    if (res.success) { alert('บันทึกและจัดคิวสำเร็จ!'); onRefresh() }
-    else { alert('เกิดข้อผิดพลาด: ' + res.error) }
+    if (res.success) {
+      setPositions(prev => ({
+        Album: { ...prev.Album, total: Number(totals.Album) || 0 },
+        Puppet: { ...prev.Puppet, total: Number(totals.Puppet) || 0 },
+        White: { ...prev.White, total: Number(totals.White) || 0 },
+        RedBlack: { ...prev.RedBlack, total: Number(totals.RedBlack) || 0 },
+      }))
+      alert('บันทึกและจัดคิวสำเร็จ!')
+      onRefresh()
+    } else {
+      alert('เกิดข้อผิดพลาด: ' + res.error)
+    }
     setIsSaving(false)
   }
 

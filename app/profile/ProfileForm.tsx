@@ -1,11 +1,55 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
+import Image from "next/image";
 import { updateMyProfile } from "@/app/actions/profile";
 import { extractStatsFromImage } from "@/app/actions/ai";
-// 💡 [เพิ่มใหม่] นำเข้า Action สำหรับลากิจกรรม (ตรวจสอบให้แน่ใจว่า path และชื่อฟังก์ชันถูกต้อง)
 import { toggleMemberLeave } from "@/app/actions/admin";
+import { getMyAuctionReservations, updateAuctionQueueReservation, deleteAuctionQueueReservation } from "@/app/actions/auction";
+import { ITEM_CONFIG } from "@/components/auction/constants";
 import { Profile } from "@/components/Dashboard";
+
+type AuctionItemType = keyof typeof ITEM_CONFIG;
+
+type QueueReservation = {
+  id: string;
+  item_name: AuctionItemType | string;
+  requested_qty: number;
+  received_qty: number;
+  status: string | null;
+  queue_timestamp: string | null;
+};
+
+// 💡 ย้าย StatInput ออกมาไว้นอก ProfileForm
+const StatInput = ({ 
+  label, 
+  name, 
+  value, 
+  colorClass,
+  onChange 
+}: { 
+  label: string, 
+  name: string, 
+  value: number, 
+  colorClass: string,
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void 
+}) => (
+  <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors hover:border-indigo-300 dark:hover:border-indigo-500/50">
+    <label htmlFor={name} className={`block text-xs font-bold mb-2 ${colorClass}`}>
+      {label}
+    </label>
+    <input
+      id={name}
+      name={name}
+      type="number"
+      step={name.includes('dmg') || name.includes('reduc') ? "0.01" : "1"}
+      min="0"
+      value={value}
+      onChange={onChange}
+      className="block w-full rounded-lg border-0 py-2 px-3 text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900/50 ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm font-mono transition-shadow"
+    />
+  </div>
+);
 
 export default function ProfileForm({
   initialProfile,
@@ -27,7 +71,104 @@ export default function ProfileForm({
       ? "กำลังบันทึกข้อมูล..."
       : "";
 
-  // 💡 [เพิ่มใหม่] State สำหรับเก็บสถานะการลากิจกรรม
+  const [reservationModalOpen, setReservationModalOpen] = useState(false);
+  const [reservations, setReservations] = useState<QueueReservation[]>([]);
+  const [isReservationLoading, setIsReservationLoading] = useState(false);
+  const [reservationActionLoading, setReservationActionLoading] = useState(false);
+  const [reservationDraftQty, setReservationDraftQty] = useState<Record<string, string>>({});
+
+  const openReservationModal = () => {
+    setReservationModalOpen(true);
+    fetchReservations();
+  };
+
+  const closeReservationModal = () => {
+    setReservationModalOpen(false);
+    setReservations([]);
+    setReservationDraftQty({});
+    setIsReservationLoading(false);
+  };
+
+  const fetchReservations = async () => {
+    setIsReservationLoading(true);
+    setMessage(null);
+
+    try {
+      const result = await getMyAuctionReservations();
+      if (result.success) {
+        const list = (result.reservations || []) as QueueReservation[];
+        setReservations(list);
+        setReservationDraftQty(
+          list.reduce(
+            (acc, reservation) => ({
+              ...acc,
+              [String(reservation.id)]: String(reservation.requested_qty),
+            }),
+            {} as Record<string, string>,
+          ),
+        );
+      } else {
+        setMessage({ type: "error", text: result.error || "ไม่สามารถโหลดรายการจองคิวได้" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "เกิดข้อผิดพลาดขณะโหลดรายการจองคิว" });
+    } finally {
+      setIsReservationLoading(false);
+    }
+  };
+
+  const handleDraftQtyChange = (id: string, value: string) => {
+    setReservationDraftQty((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleUpdateReservation = async (id: string) => {
+    const value = reservationDraftQty[id];
+    const requestedQty = parseInt(value);
+
+    if (isNaN(requestedQty) || requestedQty < 1) {
+      setMessage({ type: "error", text: "กรุณาใส่จำนวนที่ถูกต้องก่อนบันทึก" });
+      return;
+    }
+
+    setReservationActionLoading(true);
+    setMessage(null);
+
+    try {
+      const result = await updateAuctionQueueReservation(id, requestedQty);
+      if (result.success) {
+        setMessage({ type: "success", text: "อัปเดตรายการจองคิวเรียบร้อยแล้ว" });
+        await fetchReservations();
+      } else {
+        setMessage({ type: "error", text: result.error || "ไม่สามารถอัปเดตรายการได้" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "ระบบผิดพลาด กรุณาลองใหม่อีกครั้ง" });
+    } finally {
+      setReservationActionLoading(false);
+    }
+  };
+
+  const handleDeleteReservation = async (id: string) => {
+    if (!confirm("ยืนยันการยกเลิกการจองคิวนี้?")) return;
+
+    setReservationActionLoading(true);
+    setMessage(null);
+
+    try {
+      const result = await deleteAuctionQueueReservation(id);
+      if (result.success) {
+        setMessage({ type: "success", text: "ลบรายการจองคิวเรียบร้อยแล้ว" });
+        await fetchReservations();
+      } else {
+        setMessage({ type: "error", text: result.error || "ไม่สามารถลบรายการได้" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "ระบบผิดพลาด กรุณาลองใหม่อีกครั้ง" });
+    } finally {
+      setReservationActionLoading(false);
+    }
+  };
+
   const [isOnLeave, setIsOnLeave] = useState(!!initialProfile.is_on_leave);
 
   const [stats, setStats] = useState({
@@ -52,46 +193,29 @@ export default function ProfileForm({
     setStats((prev) => ({ ...prev, [name]: parseFloat(value) || 0 }));
   };
 
-  // 💡 [เพิ่มใหม่] ฟังก์ชันสำหรับจัดการการกด Toggle ลากิจกรรม
   const handleToggleLeave = () => {
     const newStatus = !isOnLeave;
-
-    // อัปเดต UI ทันทีเพื่อให้ดูรวดเร็ว (Optimistic Update)
     setIsOnLeave(newStatus);
     setMessage(null);
 
     startTransition(async () => {
       try {
-        // ส่ง Request ไปอัปเดตที่หลังบ้าน
         const result = await toggleMemberLeave(initialProfile.id, newStatus);
-
         if (!result?.success) {
-          // ถ้าล้มเหลว ให้ย้อนกลับเป็นค่าเดิม
           setIsOnLeave(!newStatus);
-          setMessage({
-            type: "error",
-            text: result?.error || "ไม่สามารถอัปเดตสถานะลากิจกรรมได้",
-          });
+          setMessage({ type: "error", text: result?.error || "ไม่สามารถอัปเดตสถานะลากิจกรรมได้" });
         } else {
-          // ถ้าสำเร็จ โชว์ข้อความแจ้งเตือนเล็กน้อย
           setMessage({
             type: "success",
-            text: newStatus
-              ? "🏖️ เปิดสถานะลากิจกรรมเรียบร้อยแล้ว"
-              : "✅ ปิดสถานะลากิจกรรม (พร้อมเข้าร่วมปกติ)",
+            text: newStatus ? "🏖️ เปิดสถานะลากิจกรรมเรียบร้อยแล้ว" : "✅ ปิดสถานะลากิจกรรม (พร้อมเข้าร่วมปกติ)",
           });
         }
-      } catch (err) {
+      } catch {
         setIsOnLeave(!newStatus);
         setMessage({ type: "error", text: "ระบบขัดข้อง กรุณาลองใหม่อีกครั้ง" });
       } finally {
-        // 💡 ล้าง Timer เก่าทิ้งก่อน (ถ้ามี) ป้องกันบั๊กเวลากดสวิตช์รัวๆ
         if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
-
-        // 💡 ตั้งเวลา 3 วินาที (3000 ms) ให้รีเซ็ตข้อความเป็น null (ข้อความหายไป)
-        alertTimerRef.current = setTimeout(() => {
-          setMessage(null);
-        }, 2000);
+        alertTimerRef.current = setTimeout(() => { setMessage(null); }, 2000);
       }
     });
   };
@@ -112,10 +236,7 @@ export default function ProfileForm({
               const reader = new FileReader();
               reader.readAsDataURL(file);
               reader.onload = () => {
-                resolve({
-                  base64: reader.result as string,
-                  type: file.type,
-                });
+                resolve({ base64: reader.result as string, type: file.type });
               };
             }),
         ),
@@ -132,10 +253,7 @@ export default function ProfileForm({
 
         if (successResults.length === 2 && successResults[1].data) {
           const data2 = successResults[1].data;
-          const selectValue = (
-            val1: number | undefined,
-            val2: number | undefined,
-          ) => {
+          const selectValue = (val1: number | undefined, val2: number | undefined) => {
             return val1 !== undefined && val1 !== 0 ? val1 : val2 || 0;
           };
 
@@ -148,20 +266,11 @@ export default function ProfileForm({
           mergedData.p_reduc = selectValue(mergedData.p_reduc, data2.p_reduc);
           mergedData.m_reduc = selectValue(mergedData.m_reduc, data2.m_reduc);
           mergedData.pvp_dmg = selectValue(mergedData.pvp_dmg, data2.pvp_dmg);
-          mergedData.pvp_reduc = selectValue(
-            mergedData.pvp_reduc,
-            data2.pvp_reduc,
-          );
+          mergedData.pvp_reduc = selectValue(mergedData.pvp_reduc, data2.pvp_reduc);
           mergedData.hp = selectValue(mergedData.hp, data2.hp);
           mergedData.sp = selectValue(mergedData.sp, data2.sp);
-          mergedData.ignore_pdef = selectValue(
-            mergedData.ignore_pdef,
-            data2.ignore_pdef,
-          );
-          mergedData.ignore_mdef = selectValue(
-            mergedData.ignore_mdef,
-            data2.ignore_mdef,
-          );
+          mergedData.ignore_pdef = selectValue(mergedData.ignore_pdef, data2.ignore_pdef);
+          mergedData.ignore_mdef = selectValue(mergedData.ignore_mdef, data2.ignore_mdef);
         }
 
         setStats({
@@ -184,43 +293,25 @@ export default function ProfileForm({
         const imageCount = filesToProcess.length;
         setMessage({
           type: "success",
-          text:
-            imageCount === 2
-              ? "🤖 AI อ่านสเตตัสจากทั้ง 2 รูปเรียบร้อยแล้ว! กรุณาตรวจสอบและกดบันทึก!"
-              : "🤖 AI อ่านสเตตัสเรียบร้อยแล้ว กรุณาตรวจสอบและกดบันทึก!",
+          text: imageCount === 2
+            ? "🤖 AI อ่านสเตตัสจากทั้ง 2 รูปเรียบร้อยแล้ว! กรุณาตรวจสอบและกดบันทึก!"
+            : "🤖 AI อ่านสเตตัสเรียบร้อยแล้ว กรุณาตรวจสอบและกดบันทึก!",
         });
       } else {
-        let userFriendlyMessage =
-          "🤔 AI มองเห็นตัวเลขไม่ชัดเจน รบกวนแคปรูปใหม่ให้เห็นสเตตัสครบถ้วน แล้วลองอีกครั้งนะครับ";
+        let userFriendlyMessage = "🤔 AI มองเห็นตัวเลขไม่ชัดเจน รบกวนแคปรูปใหม่ให้เห็นสเตตัสครบถ้วน แล้วลองอีกครั้งนะครับ";
         const errorMessage = results[0]?.error || "";
 
-        if (errorMessage.includes("503")) {
-          userFriendlyMessage =
-            "⏳ ตอนนี้มีผู้ใช้งาน AI พร้อมกันจำนวนมาก รบกวนรอสัก 1 นาทีแล้วกดอัปโหลดใหม่นะครับ";
-        } else if (
-          errorMessage.includes("429") ||
-          errorMessage.includes("Quota")
-        ) {
-          userFriendlyMessage =
-            "🛑 โควต้า AI สำหรับวันนี้เต็มแล้วครับ รบกวนกรอกตัวเลขด้วยตัวเองไปก่อนนะครับ";
-        } else if (errorMessage.includes("404")) {
-          userFriendlyMessage =
-            "🔧 ระบบ AI กำลังปิดปรับปรุงชั่วคราว รบกวนกรอกข้อมูลด้วยตัวเองไปก่อนนะครับ";
-        }
+        if (errorMessage.includes("503")) userFriendlyMessage = "⏳ ตอนนี้มีผู้ใช้งาน AI พร้อมกันจำนวนมาก รบกวนรอสัก 1 นาทีแล้วกดอัปโหลดใหม่นะครับ";
+        else if (errorMessage.includes("429") || errorMessage.includes("Quota")) userFriendlyMessage = "🛑 โควต้า AI สำหรับวันนี้เต็มแล้วครับ รบกวนกรอกตัวเลขด้วยตัวเองไปก่อนนะครับ";
+        else if (errorMessage.includes("404")) userFriendlyMessage = "🔧 ระบบ AI กำลังปิดปรับปรุงชั่วคราว รบกวนกรอกข้อมูลด้วยตัวเองไปก่อนนะครับ";
 
-        setMessage({
-          type: "error",
-          text: userFriendlyMessage,
-        });
+        setMessage({ type: "error", text: userFriendlyMessage });
       }
 
       setIsAiLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch {
-      setMessage({
-        type: "error",
-        text: "⚠️ เกิดข้อผิดพลาดในการโหลดไฟล์รูปภาพ รบกวนตรวจสอบไฟล์แล้วลองใหม่อีกครั้งครับ",
-      });
+      setMessage({ type: "error", text: "⚠️ เกิดข้อผิดพลาดในการโหลดไฟล์รูปภาพ รบกวนตรวจสอบแล้วลองใหม่อีกครั้ง" });
       setIsAiLoading(false);
     }
   };
@@ -235,451 +326,261 @@ export default function ProfileForm({
       if (result.success) {
         setMessage({ type: "success", text: "อัปเดตข้อมูลสำเร็จ!" });
       } else {
-        setMessage({
-          type: "error",
-          text: result.error || "ไม่สามารถอัปเดตข้อมูลได้",
-        });
+        setMessage({ type: "error", text: result.error || "ไม่สามารถอัปเดตข้อมูลได้" });
       }
     });
   };
 
   return (
-    <div className="relative">
+    // 🌟 ขยายความกว้างสูงสุดเป็น 1450px และเพิ่ม Padding
+    <div className="relative w-full max-w-[1450px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      
+      {/* Loading Overlay */}
       {(isAiLoading || isPending) && (
-        <div className="fixed inset-0 z-50 pointer-events-auto flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/95 p-6 text-center shadow-2xl backdrop-blur-md dark:bg-slate-900/95 dark:text-white">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-600 text-white">
-              <svg
-                className="h-8 w-8 animate-spin"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8z"
-                />
+        <div className="fixed inset-0 z-50 pointer-events-auto flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/20 bg-white/95 p-8 text-center shadow-2xl dark:bg-slate-900/95 dark:text-white">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-500/30">
+              <svg className="h-8 w-8 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
               </svg>
             </div>
-            <p className="text-lg font-semibold">{loadingText}</p>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              {isAiLoading
-                ? "ระบบกำลังประมวลผลจากภาพที่อัปโหลด โปรดรอสักครู่..."
-                : "ระบบกำลังบันทึกข้อมูล โปรดอย่าปิดหน้าจอจนกว่าจะเสร็จสิ้น"}
+            <p className="text-xl font-bold text-slate-900 dark:text-white">{loadingText}</p>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              {isAiLoading ? "กำลังประมวลผลสเตตัสจากภาพ โปรดรอสักครู่..." : "กำลังบันทึกข้อมูล โปรดอย่าปิดหน้าจอ..."}
             </p>
           </div>
         </div>
       )}
 
+      {/* Global Message Alert */}
+      {message && (
+        <div className={`mb-6 p-4 rounded-xl font-medium text-sm flex items-center gap-3 shadow-sm border ${
+          message.type === "success"
+            ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+            : "bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
+        }`}>
+          {message.type === 'success' ? '✅' : '⚠️'} {message.text}
+        </div>
+      )}
+
+      {/* 🌟 ปรับ Grid Gap ให้กว้างขึ้น (xl:gap-8) */}
       <form
         onSubmit={handleSubmit}
-        className={`${isAiLoading || isPending ? "pointer-events-none opacity-80" : ""} bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 space-y-6`}
+        className={`${isAiLoading || isPending ? "pointer-events-none opacity-70 blur-sm" : ""} transition-all duration-300 grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-8`}
       >
-        {message && (
-          <div
-            className={`p-4 rounded-md font-medium text-sm ${
-              message.type === "success"
-                ? "bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800"
-                : "bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800"
-            }`}
-          >
-            {message.text}
+        
+        {/* 📱 Column ซ้าย: ปรับให้เล็กลงในจอใหญ่ (xl:col-span-3) */}
+        <div className="lg:col-span-4 xl:col-span-3 space-y-6">
+          
+          {/* 🏖️ Leave Status Card */}
+          <div className={`p-5 rounded-2xl border transition-colors ${
+            isOnLeave 
+              ? "bg-rose-50 border-rose-200 dark:bg-rose-900/20 dark:border-rose-800/50" 
+              : "bg-white border-slate-200 dark:bg-slate-800 dark:border-slate-700"
+          } shadow-sm`}>
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  {isOnLeave ? "🏖️ ลากิจกรรมอยู่" : "⚔️ พร้อมรบ"}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                  {isOnLeave 
+                    ? "คุณกำลังอยู่ในสถานะลากิจกรรม จะไม่ถูกนำไปจัดปาร์ตี้" 
+                    : "สถานะปกติ หากไม่ว่างเข้าร่วมกิลด์วอร์ สามารถเปิดโหมดลาได้"}
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-4 mt-1">
+                <input type="checkbox" className="sr-only peer" checked={isOnLeave} onChange={handleToggleLeave} disabled={isPending || isAiLoading} />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-rose-500 disabled:opacity-50"></div>
+              </label>
+            </div>
           </div>
-        )}
 
-        {/* ส่วนอัปโหลดรูปให้ AI */}
-        <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg border border-indigo-100 dark:border-indigo-800 flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-indigo-900 dark:text-indigo-200 flex items-center gap-2">
-              ✨ Auto Fill ด้วย AI (Beta)
+          {/* 👤 Basic Info Card */}
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 border-b border-slate-100 dark:border-slate-700 pb-3">
+              ข้อมูลตัวละคร
             </h3>
-            <p className="text-xs text-indigo-700 dark:text-indigo-400 mt-1">
-              อัปโหลดรูปสเตตัส 1-2 รูปในเกม เพื่อให้ระบบ AI
-              อ่านแล้วกรอกตัวเลขให้อัตโนมัติ
-            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">UID (อ้างอิงระบบ)</label>
+                <input type="text" value={initialProfile.uid_game} disabled className="block w-full rounded-lg border-0 py-2.5 px-3 bg-slate-100 text-slate-500 cursor-not-allowed dark:bg-slate-900 dark:text-slate-500 text-sm" />
+              </div>
+              <div>
+                <label htmlFor="display_name" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">ชื่อตัวละคร</label>
+                <input id="display_name" name="display_name" type="text" defaultValue={initialProfile.display_name} required className="block w-full rounded-lg border-0 py-2.5 px-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 dark:bg-slate-900 dark:text-white dark:ring-slate-700 sm:text-sm" />
+              </div>
+              <div>
+                <label htmlFor="job_name" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">สายอาชีพ</label>
+                <select id="job_name" name="job_name" defaultValue={initialProfile.job_name || ""} className="block w-full rounded-lg border-0 py-2.5 px-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 dark:bg-slate-900 dark:text-white dark:ring-slate-700 sm:text-sm cursor-pointer">
+                  <option value="" disabled>-- เลือกอาชีพ --</option>
+                  <option value="Lord Knight">Lord Knight</option>
+                  <option value="Paladin">Paladin</option>
+                  <option value="Biochemist">Biochemist</option>
+                  <option value="Mastersmith">Mastersmith</option>
+                  <option value="Bard">Bard</option>
+                  <option value="Gypsy">Gypsy</option>
+                  <option value="Sniper">Sniper</option>
+                  <option value="Champion">Champion</option>
+                  <option value="Priest">Priest</option>
+                  <option value="Assassin">Assassin</option>
+                  <option value="Rogue">Rogue</option>
+                  <option value="Wizard">Wizard</option>
+                  <option value="Sage">Sage</option>
+                  <option value="Summoner">Summoner</option>
+                </select>
+              </div>
+            </div>
           </div>
-          <div>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              ref={fileInputRef}
-              onChange={handleImageUpload}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isAiLoading || isPending}
-              className="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm"
-            >
-              {isAiLoading ? (
-                <>
-                  <svg
-                    className="animate-spin h-4 w-4 text-white"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8z"
-                    ></path>
-                  </svg>{" "}
-                  กำลังอ่าน...
-                </>
-              ) : (
-                "อัปโหลดรูปสเตตัส"
-              )}
+
+          {/* 📦 Auction Action Card */}
+          <div className="bg-indigo-50 dark:bg-indigo-900/10 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-800/30">
+            <h3 className="font-bold text-indigo-900 dark:text-indigo-300 mb-2">จัดการคิวประมูล</h3>
+            <p className="text-xs text-indigo-700 dark:text-indigo-400 mb-5">ดูประวัติหรือแก้ไขจำนวนกล่องที่คุณต้องการรับจากการประมูล</p>
+            <button type="button" onClick={openReservationModal} disabled={isPending || isAiLoading} className="w-full inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:opacity-50 shadow-sm shadow-indigo-200 dark:shadow-none">
+              📦 เปิดดูรายการจองคิว
             </button>
           </div>
+
         </div>
 
-        {/* 💡 [เพิ่มใหม่] โซน Toggle สถานะลากิจกรรม (วางไว้บนสุดให้เห็นชัดเจน) */}
-        <div className="flex items-center justify-between bg-rose-50 dark:bg-rose-900/20 p-4 rounded-xl border border-rose-100 dark:border-rose-800">
-          <div>
-            <h3 className="font-semibold text-rose-900 dark:text-rose-200 flex items-center gap-2">
-              🏖️ สถานะลากิจกรรม
-            </h3>
-            <p className="text-xs text-rose-700 dark:text-rose-400 mt-1">
-              เปิดสถานะนี้เมื่อไม่สามารถเข้าร่วมกิจกรรมกิลด์ได้
-              (ระบบจะอัปเดตทันทีเมื่อกด)
-            </p>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              className="sr-only peer"
-              checked={isOnLeave}
-              onChange={handleToggleLeave}
-              disabled={isPending || isAiLoading}
-            />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-rose-500 disabled:opacity-50"></div>
-          </label>
-        </div>
+        {/* 💻 Column ขวา: ให้พื้นที่กว้างขึ้นในจอใหญ่ (xl:col-span-9) */}
+        <div className="lg:col-span-8 xl:col-span-9">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col h-full">
+            
+            <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">ข้อมูลสเตตัสตัวละคร</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">กรอกข้อมูลด้วยตัวเอง หรือใช้ AI ช่วยดึงตัวเลขจากรูปภาพในเกมเพื่อความรวดเร็ว</p>
+              </div>
+              
+              <div className="shrink-0">
+                <input type="file" accept="image/*" multiple className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
+                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading || isPending} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 dark:bg-indigo-500 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 dark:hover:bg-indigo-600 disabled:opacity-50 shadow-md">
+                  {isAiLoading ? (
+                    <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                    </svg>
+                  ) : "✨ ให้ AI ช่วยอ่านรูป"}
+                </button>
+              </div>
+            </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Username - อ่านได้อย่างเดียว
-            </label>
-            <input
-              type="text"
-              value={initialProfile.uid_game}
-              disabled
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-gray-900 dark:border-gray-600 dark:text-gray-400"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="display_name"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              ชื่อตัวละคร
-            </label>
-            <input
-              id="display_name"
-              name="display_name"
-              type="text"
-              defaultValue={initialProfile.display_name}
-              required
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            />
-          </div>
-        </div>
+            {/* 🌟 เพิ่มช่องไฟให้กว้างขึ้น (p-8, gap-5, xl:gap-6) */}
+            <div className="p-6 xl:p-8 flex-1 bg-slate-50/50 dark:bg-slate-900/20">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 xl:gap-6">
+                <StatInput label="Max HP" name="hp" value={stats.hp} colorClass="text-emerald-600 dark:text-emerald-400" onChange={handleStatChange} />
+                <StatInput label="Max SP" name="sp" value={stats.sp} colorClass="text-sky-500 dark:text-sky-400" onChange={handleStatChange} />
+                <StatInput label="P.ATK" name="p_atk" value={stats.p_atk} colorClass="text-rose-600 dark:text-rose-400" onChange={handleStatChange} />
+                <StatInput label="M.ATK" name="m_atk" value={stats.m_atk} colorClass="text-orange-500 dark:text-orange-400" onChange={handleStatChange} />
+                
+                <StatInput label="P.DEF" name="p_def" value={stats.p_def} colorClass="text-blue-600 dark:text-blue-400" onChange={handleStatChange} />
+                <StatInput label="M.DEF" name="m_def" value={stats.m_def} colorClass="text-purple-600 dark:text-purple-400" onChange={handleStatChange} />
+                <StatInput label="Ignore P.DEF" name="ignore_pdef" value={stats.ignore_pdef} colorClass="text-slate-600 dark:text-slate-400" onChange={handleStatChange} />
+                <StatInput label="Ignore M.DEF" name="ignore_mdef" value={stats.ignore_mdef} colorClass="text-slate-600 dark:text-slate-400" onChange={handleStatChange} />
+                
+                <StatInput label="P.DMG (%)" name="p_dmg" value={stats.p_dmg} colorClass="text-rose-700 dark:text-rose-500" onChange={handleStatChange} />
+                <StatInput label="M.DMG (%)" name="m_dmg" value={stats.m_dmg} colorClass="text-orange-700 dark:text-orange-500" onChange={handleStatChange} />
+                <StatInput label="P.Reduc (%)" name="p_reduc" value={stats.p_reduc} colorClass="text-blue-700 dark:text-blue-500" onChange={handleStatChange} />
+                <StatInput label="M.Reduc (%)" name="m_reduc" value={stats.m_reduc} colorClass="text-purple-700 dark:text-purple-500" onChange={handleStatChange} />
+                
+                <StatInput label="PvP DMG" name="pvp_dmg" value={stats.pvp_dmg} colorClass="text-amber-600 dark:text-amber-500" onChange={handleStatChange} />
+                <StatInput label="PvP Reduc" name="pvp_reduc" value={stats.pvp_reduc} colorClass="text-teal-600 dark:text-teal-400" onChange={handleStatChange} />
+              </div>
+            </div>
 
-        <div>
-          <label
-            htmlFor="job_name"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            อาชีพ
-          </label>
-          <select
-            id="job_name"
-            name="job_name"
-            defaultValue={initialProfile.job_name || ""}
-            className="cursor-pointer mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          >
-            <option value="" disabled>
-              -- กรุณาเลือกอาชีพ --
-            </option>
-            <option value="Lord Knight">Lord Knight</option>
-            <option value="Paladin">Paladin</option>
-            <option value="Biochemist">Biochemist</option>
-            <option value="Mastersmith">Mastersmith</option>
-            <option value="Bard">Bard</option>
-            <option value="Gypsy">Gypsy</option>
-            <option value="Sniper">Sniper</option>
-            <option value="Champion">Champion</option>
-            <option value="Priest">Priest</option>
-            <option value="Assassin">Assassin</option>
-            <option value="Rogue">Rogue</option>
-            <option value="Wizard">Wizard</option>
-            <option value="Sage">Sage</option>
-            <option value="Summoner">Summoner</option>
-          </select>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
-          <div>
-            <label className="block text-sm font-medium text-green-600 dark:text-green-400">
-              HP
-            </label>
-            <input
-              name="hp"
-              type="number"
-              min="0"
-              value={stats.hp}
-              onChange={handleStatChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 dark:bg-gray-700 dark:border-gray-600 font-semibold"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-blue-500 dark:text-blue-300">
-              SP
-            </label>
-            <input
-              name="sp"
-              type="number"
-              min="0"
-              value={stats.sp}
-              onChange={handleStatChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 dark:bg-gray-700 dark:border-gray-600 font-semibold"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="p_atk"
-              className="block text-sm font-medium text-red-600 dark:text-red-400"
-            >
-              P.ATK
-            </label>
-            <input
-              id="p_atk"
-              name="p_atk"
-              type="number"
-              min="0"
-              value={stats.p_atk}
-              onChange={handleStatChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-semibold"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="m_atk"
-              className="block text-sm font-medium text-orange-600 dark:text-orange-400"
-            >
-              M.ATK
-            </label>
-            <input
-              id="m_atk"
-              name="m_atk"
-              type="number"
-              min="0"
-              value={stats.m_atk}
-              onChange={handleStatChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-semibold"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="p_def"
-              className="block text-sm font-medium text-blue-600 dark:text-blue-400"
-            >
-              P.DEF
-            </label>
-            <input
-              id="p_def"
-              name="p_def"
-              type="number"
-              min="0"
-              value={stats.p_def}
-              onChange={handleStatChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-semibold"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="m_def"
-              className="block text-sm font-medium text-purple-600 dark:text-purple-400"
-            >
-              M.DEF
-            </label>
-            <input
-              id="m_def"
-              name="m_def"
-              type="number"
-              min="0"
-              value={stats.m_def}
-              onChange={handleStatChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-semibold"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="p_dmg"
-              className="block text-sm font-medium text-red-700 dark:text-red-500"
-            >
-              P.DMG(%)
-            </label>
-            <input
-              id="p_dmg"
-              name="p_dmg"
-              type="number"
-              step="0.01"
-              min="0"
-              value={stats.p_dmg}
-              onChange={handleStatChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-semibold"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="m_dmg"
-              className="block text-sm font-medium text-orange-700 dark:text-orange-500"
-            >
-              M.DMG(%)
-            </label>
-            <input
-              id="m_dmg"
-              name="m_dmg"
-              type="number"
-              step="0.01"
-              min="0"
-              value={stats.m_dmg}
-              onChange={handleStatChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-semibold"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-600 dark:text-slate-400">
-              Ignore P.DEF
-            </label>
-            <input
-              name="ignore_pdef"
-              type="number"
-              min="0"
-              value={stats.ignore_pdef}
-              onChange={handleStatChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 dark:bg-gray-700 dark:border-gray-600 font-semibold"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-600 dark:text-slate-400">
-              Ignore M.DEF
-            </label>
-            <input
-              name="ignore_mdef"
-              type="number"
-              min="0"
-              value={stats.ignore_mdef}
-              onChange={handleStatChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 dark:bg-gray-700 dark:border-gray-600 font-semibold"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="p_reduc"
-              className="block text-sm font-medium text-blue-700 dark:text-blue-500"
-            >
-              P.Reduc(%)
-            </label>
-            <input
-              id="p_reduc"
-              name="p_reduc"
-              type="number"
-              step="0.01"
-              min="0"
-              value={stats.p_reduc}
-              onChange={handleStatChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-semibold"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="m_reduc"
-              className="block text-sm font-medium text-purple-700 dark:text-purple-500"
-            >
-              M.Reduc(%)
-            </label>
-            <input
-              id="m_reduc"
-              name="m_reduc"
-              type="number"
-              step="0.01"
-              min="0"
-              value={stats.m_reduc}
-              onChange={handleStatChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-semibold"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="pvp_dmg"
-              className="block text-sm font-medium text-rose-600 dark:text-rose-400"
-            >
-              PvP DMG
-            </label>
-            <input
-              id="pvp_dmg"
-              name="pvp_dmg"
-              type="number"
-              min="0"
-              value={stats.pvp_dmg}
-              onChange={handleStatChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-semibold"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="pvp_reduc"
-              className="block text-sm font-medium text-emerald-600 dark:text-emerald-400"
-            >
-              PvP Reduc
-            </label>
-            <input
-              id="pvp_reduc"
-              name="pvp_reduc"
-              type="number"
-              min="0"
-              value={stats.pvp_reduc}
-              onChange={handleStatChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white font-semibold"
-            />
+            <div className="p-6 xl:px-8 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+              <button type="submit" disabled={isPending || isAiLoading} className="w-full flex justify-center py-4 px-4 rounded-xl shadow-md shadow-emerald-500/20 text-base font-bold text-white bg-emerald-600 hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 transition-all duration-200 transform hover:-translate-y-0.5">
+                {isPending ? "กำลังอัปเดตข้อมูลเข้าสู่ระบบ..." : "💾 บันทึกสเตตัสและการเปลี่ยนแปลง"}
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button
-            type="submit"
-            disabled={isPending || isAiLoading}
-            className="cursor-pointer w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isPending ? "กำลังบันทึก..." : "บันทึกข้อมูลโปรไฟล์"}
-          </button>
-        </div>
       </form>
+
+      {/* Modal จองคิว */}
+      {reservationModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-3xl overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-indigo-50 to-indigo-50/50 dark:from-indigo-950/20 dark:to-slate-950 px-6 py-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <span className="text-xl">📦</span> รายการจองคิวประมูล
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+                  <span>✏️</span> ตรวจสอบและแก้ไขจำนวนที่ต้องการรับ
+                </p>
+              </div>
+              <button type="button" onClick={closeReservationModal} className="self-start rounded-full border border-slate-300 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 transition-colors">
+                ปิดหน้าต่าง
+              </button>
+            </div>
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              {isReservationLoading ? (
+                <div className="text-center py-16 text-slate-500 dark:text-slate-400 flex flex-col items-center gap-3">
+                  <svg className="animate-spin h-6 w-6 text-indigo-500" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                  กำลังโหลดข้อมูล...
+                </div>
+              ) : reservations.length === 0 ? (
+                <div className="text-center py-16 text-slate-500 dark:text-slate-400">ยังไม่มีรายการจองคิวในขณะนี้</div>
+              ) : (
+                <div className="space-y-4">
+                  {reservations.map((reservation) => (
+                    <div key={reservation.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700/50 dark:bg-slate-800/30">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <div className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                            <div className="w-6 h-6 relative shrink-0">
+                              <Image src={ITEM_CONFIG[reservation.item_name as keyof typeof ITEM_CONFIG].icon} alt={ITEM_CONFIG[reservation.item_name as keyof typeof ITEM_CONFIG].label} fill className="object-contain" />
+                            </div>
+                            {ITEM_CONFIG[reservation.item_name as keyof typeof ITEM_CONFIG].label}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                              reservation.status === 'partial' 
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' 
+                                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                            }`}>
+                              <span>{reservation.status === 'partial' ? '📦' : '⏳'}</span>
+                              {reservation.status === 'partial' ? 'รับแล้วบางส่วน' : 'รอรับการจัดสรร'}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300 text-[11px]">
+                              <span>📅</span> {reservation.queue_timestamp ? new Date(reservation.queue_timestamp).toLocaleString('th-TH') : '-'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/10 border border-indigo-200 dark:border-indigo-800/30 px-4 py-3 text-sm font-semibold text-indigo-700 dark:text-indigo-300 shadow-sm flex items-center gap-2">
+                          <span>✅</span>
+                          <span>ได้รับแล้ว <span className="text-indigo-600 dark:text-indigo-400 text-lg mx-1 font-bold">{reservation.received_qty}</span> ชิ้น</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 grid gap-3 sm:grid-cols-[1.5fr_1fr_1fr]">
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+                            <span>📝</span> ระบุจำนวนที่ต้องการ
+                          </label>
+                          <input type="number" min={Math.max(1, reservation.received_qty)} value={reservationDraftQty[String(reservation.id)] ?? String(reservation.requested_qty)} onChange={(e) => handleDraftQtyChange(String(reservation.id), e.target.value)} className="block w-full rounded-xl border-0 py-2 px-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 dark:bg-slate-900 dark:text-white dark:ring-slate-700 sm:text-sm font-semibold" />
+                          <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-500">จำนวนขั้นต่ำต้องไม่น้อยกว่าที่รับไปแล้ว ({reservation.received_qty})</p>
+                        </div>
+                        <button type="button" onClick={() => handleUpdateReservation(String(reservation.id))} disabled={reservationActionLoading} className="mt-6 sm:mt-0 h-9 self-center rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50 shadow-sm transition-colors flex items-center justify-center gap-1.5">
+                          ✏️ อัปเดตยอด
+                        </button>
+                        <button type="button" onClick={() => handleDeleteReservation(String(reservation.id))} disabled={reservationActionLoading} className="mt-3 sm:mt-0 h-9 self-center rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-600 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
+                          🗑️ ยกเลิกคิวนี้
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

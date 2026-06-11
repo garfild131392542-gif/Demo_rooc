@@ -138,3 +138,83 @@ export async function getTodayAuctionDashboard() {
     return { success: false, error: err.message }
   }
 }
+
+export async function getMyAuctionReservations() {
+  try {
+    const session = await getSession()
+    if (!session?.profile) return { success: false, error: 'กรุณาเข้าสู่ระบบ' }
+
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('auction_queues')
+      .select('id, item_name, requested_qty, received_qty, status, queue_timestamp')
+      .eq('user_id', session.profile.id)
+      .in('status', ['waiting', 'partial'])
+      .order('queue_timestamp', { ascending: true })
+
+    if (error) throw error
+
+    return {
+      success: true,
+      reservations: data || []
+    }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+
+export async function updateAuctionQueueReservation(id: string | number, requestedQty: number) {
+  try {
+    const session = await getSession()
+    if (!session?.profile) return { success: false, error: 'กรุณาเข้าสู่ระบบ' }
+
+    const supabase = await createClient()
+    const { data: queue, error: fetchError } = await supabase
+      .from('auction_queues')
+      .select('received_qty')
+      .eq('id', id)
+      .single()
+
+    if (fetchError) throw fetchError
+    if (!queue) return { success: false, error: 'ไม่พบรายการจองคิว' }
+
+    if (requestedQty < queue.received_qty) {
+      return {
+        success: false,
+        error: 'จำนวนที่แก้ไขต้องไม่น้อยกว่าจำนวนที่ได้รับแล้ว'
+      }
+    }
+
+    const { error } = await supabase
+      .from('auction_queues')
+      .update({ requested_qty: requestedQty, updated_at: new Date().toISOString() })
+      .eq('id', id)
+
+    if (error) throw error
+
+    revalidatePath('/profile')
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+
+export async function deleteAuctionQueueReservation(id: string | number) {
+  try {
+    const session = await getSession()
+    if (!session?.profile) return { success: false, error: 'กรุณาเข้าสู่ระบบ' }
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('auction_queues')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+
+    revalidatePath('/profile')
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}

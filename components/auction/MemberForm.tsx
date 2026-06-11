@@ -15,7 +15,7 @@ export default function MemberForm({
         <select 
           value={activeSubTab} 
           onChange={e => setActiveSubTab(e.target.value)} 
-          className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 transition-colors"
+          className="cursor-pointer w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 transition-colors"
         >
           <option value="all" disabled>-- เลือกไอเทมก่อน --</option>
           <option value="Album">Auction Album (สมุดการ์ด)</option>

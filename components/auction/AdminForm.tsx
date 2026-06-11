@@ -1,12 +1,47 @@
 'use client'
 
+import Image from 'next/image'
+
+import { useState } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import { ITEM_CONFIG } from './constants'
 
-export default function AdminForm({ positions, setPositions, onSave, isSaving }: any) {
-  
-  // 🌟 ฟังก์ชันคำนวณสดทันทีที่พิมพ์ (Real-time Calculation)
-  const handlePosChange = (type: string, field: string, val: string) => {
-    setPositions((prev: any) => {
+type AuctionItemType = 'Album' | 'Puppet' | 'White' | 'RedBlack'
+
+type PositionEntry = {
+  startPage: string
+  startSlot: string
+  endPage: string
+  endSlot: string
+  total: number | ''
+}
+
+type PositionsState = Record<AuctionItemType, PositionEntry>
+
+type AdminFormProps = {
+  positions: PositionsState
+  setPositions: Dispatch<SetStateAction<PositionsState>>
+  onSave: (draftTotals: Record<AuctionItemType, number | ''>) => Promise<void>
+  isSaving: boolean
+}
+
+export default function AdminForm({ positions, setPositions, onSave, isSaving }: AdminFormProps) {
+  const [draftTotals, setDraftTotals] = useState<Record<AuctionItemType, number | ''>>({
+    Album: positions.Album.total,
+    Puppet: positions.Puppet.total,
+    White: positions.White.total,
+    RedBlack: positions.RedBlack.total,
+  })
+
+  const [manualTotalDrafts, setManualTotalDrafts] = useState<Record<AuctionItemType, boolean>>({
+    Album: false,
+    Puppet: false,
+    White: false,
+    RedBlack: false,
+  })
+
+  const handlePosChange = (type: AuctionItemType, field: keyof PositionEntry, val: string) => {
+    setPositions(prev => {
       const updated = { ...prev[type], [field]: val }
       const sp = parseInt(updated.startPage), ss = parseInt(updated.startSlot)
       const ep = parseInt(updated.endPage), es = parseInt(updated.endSlot)
@@ -24,24 +59,52 @@ export default function AdminForm({ positions, setPositions, onSave, isSaving }:
     })
   }
 
+  const handleTotalChange = (type: AuctionItemType, value: string) => {
+    setDraftTotals(prev => ({
+      ...prev,
+      [type]: value === '' ? '' : Math.max(0, parseInt(value) || 0),
+    }))
+    setManualTotalDrafts(prev => ({
+      ...prev,
+      [type]: true,
+    }))
+  }
+
+  const displayTotal = (type: AuctionItemType) => {
+    return manualTotalDrafts[type] ? draftTotals[type] : positions[type].total
+  }
+
+  const handleSubmitSave = async () => {
+    await onSave(draftTotals)
+  }
+
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-md transition-colors h-full flex flex-col">
       <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
-        <span className="text-blue-600 dark:text-blue-400">🧮 เครื่องมือคำนวณพิกัดเกม</span>
+        <span className="text-blue-600 dark:text-blue-400">คำนวณจำนวนของไอเทม</span>
       </h3>
 
       {/* สรุปยอดรวม Live */}
       <div className="mb-4 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
         <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2">1. ยอดรวมที่ได้จากการคำนวณ (Live)</div>
         <div className="grid grid-cols-2 gap-2">
-          {(['Album', 'Puppet', 'White', 'RedBlack'] as const).map(type => (
-            <div key={`total-${type}`} className="flex flex-col items-center justify-center p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm">
-              <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold mb-1 truncate w-full text-center">{ITEM_CONFIG[type].label}</span>
-              <span className={`text-xl font-black font-mono ${positions[type].total > 0 ? 'text-green-500 dark:text-green-400' : 'text-slate-300 dark:text-slate-600'}`}>
-                {positions[type].total} <span className="text-xs font-normal">ชิ้น</span>
-              </span>
-            </div>
-          ))}
+          {(['Album', 'Puppet', 'White', 'RedBlack'] as const).map(type => {
+            const totalValue = displayTotal(type)
+            return (
+              <div key={`total-${type}`} className="flex flex-col items-center justify-center p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm">
+                <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold mb-1 truncate w-full text-center">{ITEM_CONFIG[type].label}</span>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="จำนวน"
+                  value={totalValue === '' ? '' : totalValue}
+                  onChange={e => handleTotalChange(type, e.target.value)}
+                  className={`w-full text-center text-xl font-black font-mono ${typeof totalValue === 'number' && totalValue > 0 ? 'text-green-500 dark:text-green-400' : 'text-slate-300 dark:text-slate-600'} bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg p-2 outline-none focus:border-blue-500`}
+                />
+                <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">ชิ้น</span>
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -51,7 +114,9 @@ export default function AdminForm({ positions, setPositions, onSave, isSaving }:
           {(['Album', 'Puppet', 'White', 'RedBlack'] as const).map(type => (
             <div key={`calc-${type}`} className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-1.5 mb-2 px-1">
-                <span className="text-sm">{ITEM_CONFIG[type].icon}</span>
+                <div className="w-6 h-6 relative shrink-0">
+                  <Image src={ITEM_CONFIG[type].icon} alt={ITEM_CONFIG[type].label} fill className="object-contain" />
+                </div>
                 <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">{ITEM_CONFIG[type].label}</span>
               </div>
               <div className="flex items-center gap-1">
@@ -66,8 +131,8 @@ export default function AdminForm({ positions, setPositions, onSave, isSaving }:
         </div>
 
         <div className="mt-4">
-          <button onClick={onSave} disabled={isSaving} className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-md">
-            {isSaving ? 'กำลังบันทึก...' : '💾 บันทึกตารางประมูลเข้าเซิร์ฟเวอร์'}
+          <button onClick={handleSubmitSave} disabled={isSaving} className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-md">
+            {isSaving ? 'กำลังบันทึก...' : 'คำนวณและบันทึก'}
           </button>
         </div>
       </div>

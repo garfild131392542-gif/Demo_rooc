@@ -21,7 +21,7 @@ export default async function ProfilePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="w-full mx-auto px-4 py-8">
       <h1 className="flex justify-center items-center text-3xl font-bold mb-6">My Profile</h1>
      <ProfileForm 
   initialProfile={{

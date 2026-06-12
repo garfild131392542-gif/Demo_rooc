@@ -18,6 +18,9 @@ type AuctionSlot = {
   receivedQty?: number
   remainingQty?: number
   status?: string
+  allocatedQty?: number
+  roundIndex?: number
+  totalRounds?: number
   isMe?: boolean
   isEmpty?: boolean
 }
@@ -70,18 +73,17 @@ export default function AuctionWindow({
 }: AuctionWindowProps) {
   const [viewMode, setViewMode] = useState<'slots' | 'history' | 'queue'>('slots')
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({})
-  const [confirmedSlots, setConfirmedSlots] = useState<Record<string, { awardedQty: number; status: string }>>({})
 
   // 🌟 ไม่ต้องแยก Assigned กับ Free แล้ว จับรวมกันไปเลย!
   
   const renderSlotRow = (slot: AuctionSlot, index: number) => {
-    const confirmed = confirmedSlots[slot.id]
-    const localReceived = (slot.receivedQty ?? 0) + (confirmed?.awardedQty ?? 0)
+    const localReceived = slot.receivedQty ?? 0
+    const allocatedQty = slot.allocatedQty ?? 0
     const hasReserve = !slot.isEmpty && typeof slot.requestedQty === 'number'
-    const localRemaining = hasReserve ? Math.max((slot.remainingQty ?? 0) - (confirmed?.awardedQty ?? 0), 0) : 0
+    const localRemaining = hasReserve ? Math.max(slot.remainingQty ?? 0, 0) : 0
     const localStatus = slot.isEmpty
       ? 'waiting'
-      : confirmed?.status || slot.status || (localRemaining === 0 ? 'completed' : 'partial')
+      : slot.status || (localRemaining === 0 ? 'completed' : 'partial')
       
     return (
       <div key={slot.id} className={`flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4 p-4 rounded-2xl border transition-all ${slot.isMe ? 'bg-blue-50 dark:bg-blue-900/40 border-blue-300 dark:border-blue-500 shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md'} ${slot.isEmpty ? 'opacity-80 hover:opacity-100 bg-slate-50/50 dark:bg-slate-800/50' : ''}`}>
@@ -101,6 +103,11 @@ export default function AuctionWindow({
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               {!slot.isEmpty && <span className="text-xs text-slate-500 dark:text-slate-400">UID: {slot.uid || '-'}</span>}
               {!slot.isEmpty && <span className="hidden sm:inline text-slate-300 dark:text-slate-600">•</span>}
+              {slot.roundIndex && slot.totalRounds ? (
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/80 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-600">
+                  รอบ {slot.roundIndex} / {slot.totalRounds}
+                </span>
+              ) : null}
               <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/80 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-600">
                 หน้า {currentPage} คิว {index + 1}
               </span>
@@ -122,9 +129,7 @@ export default function AuctionWindow({
             // 🌟 กรณี "มีคนจอง" โชว์ Badge + โควต้า + ปุ่ม เหมือนเดิม
             <>
               <div className="flex flex-col justify-center order-1">
-                {localStatus === 'confirmed' ? (
-                  <span className="text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200 font-bold whitespace-nowrap">ประมูลเสร็จแล้ว</span>
-                ) : localStatus === 'completed' ? (
+                {localStatus === 'completed' ? (
                   <span className="text-xs px-3 py-1.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-200 font-bold whitespace-nowrap">ประมูลเสร็จแล้ว</span>
                 ) : localStatus === 'partial' ? (
                   <span className="text-xs px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-200 font-bold whitespace-nowrap">กำลังทยอยรับ</span>
@@ -146,11 +151,20 @@ export default function AuctionWindow({
                     <div className="text-sm font-bold text-rose-600 dark:text-rose-400">{localRemaining}</div>
                     <div className="text-[10px] text-slate-500 uppercase tracking-wide">เหลือ</div>
                   </div>
+                  {allocatedQty > 0 ? (
+                    <>
+                      <div className="w-px h-6 bg-slate-200 dark:bg-slate-700"></div>
+                      <div className="text-center">
+                        <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{allocatedQty}</div>
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">จัดรอบนี้</div>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               ) : null}
 
               {isAdmin && slot.queueId ? (
-                <div className="w-full sm:w-auto order-3 mt-2 sm:mt-0 xl:ml-2">
+                <div className="flex flex-col sm:flex-row w-full sm:w-auto order-3 gap-2 mt-2 sm:mt-0 xl:ml-2">
                   <button
                     type="button"
                     disabled={actionLoading[slot.queueId] || localRemaining <= 0}
@@ -158,7 +172,6 @@ export default function AuctionWindow({
                       setActionLoading(prev => ({ ...prev, [slot.queueId!]: true }))
                       await awardAuctionQueue(slot.queueId!, 1)
                       setActionLoading(prev => ({ ...prev, [slot.queueId!]: false }))
-                      setConfirmedSlots(prev => ({ ...prev, [slot.id]: { awardedQty: (prev[slot.id]?.awardedQty ?? 0) + 1, status: 'confirmed' } }))
                       await onRefresh()
                     }}
                     className="w-full sm:w-auto rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-sm font-bold px-6 py-3 disabled:opacity-50 disabled:bg-slate-400 transition-all shadow-md shadow-emerald-500/20 whitespace-nowrap flex items-center justify-center gap-2"
@@ -172,8 +185,21 @@ export default function AuctionWindow({
                         กำลังบันทึก...
                       </>
                     ) : (
-                      <><span></span>ประมูล</>
+                      <><span></span>ยืนยัน</>
                     )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actionLoading[slot.queueId]}
+                    onClick={async () => {
+                      setActionLoading(prev => ({ ...prev, [slot.queueId!]: true }))
+                      await skipAuctionQueue(slot.queueId!)
+                      setActionLoading(prev => ({ ...prev, [slot.queueId!]: false }))
+                      await onRefresh()
+                    }}
+                    className="w-full sm:w-auto rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-semibold px-6 py-3 hover:bg-slate-300 dark:hover:bg-slate-700 disabled:opacity-50 transition-all shadow-sm whitespace-nowrap flex items-center justify-center gap-2"
+                  >
+                    ข้ามคิว
                   </button>
                 </div>
               ) : null}
@@ -252,31 +278,37 @@ export default function AuctionWindow({
               <div className="text-sm font-bold text-slate-700 dark:text-slate-200">Queue List</div>
               {memberQueues.length > 0 ? (
                 <div className="space-y-3">
-                  {memberQueues.map((queue) => (
-                    <div key={queue.id} className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(240px,220px)] gap-3 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl">
+                  {memberQueues.map((queue, index) => (
+                    <div key={queue.id} className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(280px,240px)] gap-3 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl">
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                           <div>
                             <div className="text-sm font-bold text-slate-800 dark:text-slate-100">{queue.display_name}</div>
                             <div className="text-[11px] text-slate-500 dark:text-slate-400">UID: {queue.uid_game}</div>
                           </div>
-                          <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200 px-3 py-1 text-[11px] font-semibold">{queue.item_type}</span>
+                          <div className="inline-flex items-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200 px-3 py-1 text-[11px] font-semibold">
+                            {queue.item_type}
+                          </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs text-slate-600 dark:text-slate-400">
+                        <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400">
                           <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
                             <div className="font-semibold text-slate-900 dark:text-slate-100">{queue.requested_qty}</div>
-                            <div>Requested</div>
+                            <div>จำนวนที่จอง</div>
                           </div>
                           <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
                             <div className="font-semibold text-slate-900 dark:text-slate-100">{queue.received_qty}</div>
-                            <div>Received</div>
+                            <div>จำนวนที่ได้แล้ว</div>
+                          </div>
+                          <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <div className="font-semibold text-slate-900 dark:text-slate-100">{Math.max(queue.requested_qty - queue.received_qty, 0)}</div>
+                            <div>จำนวนที่เหลือ</div>
                           </div>
                           <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
                             <div className="font-semibold text-slate-900 dark:text-slate-100">{queue.queue_timestamp ? new Date(queue.queue_timestamp).toLocaleString('th-TH') : '-'}</div>
-                            <div>Queue Time</div>
+                            <div>วันที่จอง</div>
                           </div>
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">{queue.requested_qty - queue.received_qty > 0 ? `Remaining ${queue.requested_qty - queue.received_qty} items` : 'Fulfilled'}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">ตำแหน่งคิว: #{index + 1} / {memberQueues.length} · สถานะ: {queue.requested_qty - queue.received_qty > 0 ? 'รอรับ' : 'ได้รับครบแล้ว'}</div>
                       </div>
                       <div className="space-y-2 flex flex-col justify-end">
                         {isAdmin ? (
@@ -290,11 +322,11 @@ export default function AuctionWindow({
                                 setActionLoading(prev => ({ ...prev, [queue.id]: true }))
                                 await awardAuctionQueue(queue.id, 1)
                                 setActionLoading(prev => ({ ...prev, [queue.id]: false }))
-                                onRefresh()
+                                await onRefresh()
                               }}
                               className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold py-2.5 disabled:opacity-50 transition-colors shadow-sm shadow-emerald-500/20 flex items-center justify-center gap-1.5"
                             >
-                              {actionLoading[queue.id] ? 'กำลังบันทึก...' : <><span>📦</span> บันทึก 1 ชิ้น</>}
+                              {actionLoading[queue.id] ? 'กำลังบันทึก...' : <><span>✅</span> ยืนยัน 1 ชิ้น</>}
                             </button>
                             <button
                               type="button"
@@ -303,7 +335,7 @@ export default function AuctionWindow({
                                 setActionLoading(prev => ({ ...prev, [queue.id]: true }))
                                 await skipAuctionQueue(queue.id)
                                 setActionLoading(prev => ({ ...prev, [queue.id]: false }))
-                                onRefresh()
+                                await onRefresh()
                               }}
                               className="w-full rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-semibold py-2.5 hover:bg-slate-300 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
                             >
@@ -312,7 +344,7 @@ export default function AuctionWindow({
                           </>
                         ) : (
                           <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-3 text-sm font-semibold text-slate-600 dark:text-slate-300 h-full flex items-center justify-center text-center">
-                            ผู้ดูแลระบบจัดคิวและแจกของตามลำดับ
+                            ระบบจะแจกของตามลำดับคิวอัตโนมัติ
                           </div>
                         )}
                       </div>

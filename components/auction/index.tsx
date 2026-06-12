@@ -39,66 +39,95 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
     return init
   })
 
+  const normalizedQueues = useMemo(() => {
+    const grouped = new Map<string, any>()
+    ;(memberQueues || []).forEach((queue: any) => {
+      const key = `${queue.user_id ?? queue.uid_game}-${queue.item_type}`
+      if (!grouped.has(key)) {
+        grouped.set(key, { ...queue, queue_timestamp: queue.queue_timestamp })
+      } else {
+        const existing = grouped.get(key)
+        existing.requested_qty += queue.requested_qty
+        existing.received_qty += queue.received_qty
+        if (queue.queue_timestamp && (!existing.queue_timestamp || new Date(queue.queue_timestamp) < new Date(existing.queue_timestamp))) {
+          existing.queue_timestamp = queue.queue_timestamp
+        }
+        existing.status = existing.received_qty >= existing.requested_qty ? 'completed' : 'partial'
+      }
+    })
+    return Array.from(grouped.values())
+  }, [memberQueues])
+
   // 🌟 ลอจิกจัดสล็อตแบบ Live Preview (Real-time)
- const mappedSlots = useMemo(() => {
+  const mappedSlots = useMemo(() => {
     let slots: any[] = []
     const priorityOrder: ('Album' | 'Puppet' | 'White' | 'RedBlack')[] = ['Album', 'Puppet', 'White', 'RedBlack']
 
     priorityOrder.forEach(type => {
-      let availableStock = 0;
-      let limit = 1;
+      let availableStock = 0
 
       if (isAdmin) {
-        availableStock = Number(positions[type].total) || 0;
-        limit = Number(limits[type]) || 1;
+        availableStock = Number(positions[type].total) || 0
       } else {
-        // 🌟 ดักเผื่อ todayItems เป็น undefined
         const session = (todayItems || []).find((s: any) => s.item_name === type)
-        if (session) {
-          availableStock = session.total_quantity;
-          limit = session.personal_limit;
-        }
+        if (session) availableStock = session.total_quantity
       }
 
       if (availableStock <= 0) return
 
-      const queues = (memberQueues || []).filter((q: any) => q.item_type === type)
+      const queues = (normalizedQueues || []).
+        filter((q: any) => q.item_type === type)
+        .map((q: any) => ({
+          ...q,
+          remaining: Math.max(q.requested_qty - q.received_qty, 0),
+          totalRounds: Math.max(q.requested_qty - q.received_qty, 0)
+        }))
 
-      queues.forEach((userQueue: any) => {
-        if (availableStock <= 0) return
-        const stillNeeds = userQueue.requested_qty - userQueue.received_qty
-        const allocatedThisRound = Math.min(stillNeeds, limit, availableStock)
+      let page = 0
+      while (availableStock > 0 && queues.some((q: any) => q.remaining > 0)) {
+        for (const queue of queues) {
+          if (availableStock <= 0) break
+          if (queue.remaining <= 0) continue
 
-        for (let i = 0; i < allocatedThisRound; i++) {
           slots.push({
-            id: `slot-${userQueue.id}-${type}-${i}`,
-            type, ...ITEM_CONFIG[type],
-            assignedTo: userQueue.display_name,
-            uid: userQueue.uid_game,
-            queueId: userQueue.id,
-            requestedQty: userQueue.requested_qty,
-            receivedQty: userQueue.received_qty,
-            remainingQty: stillNeeds,
-            status: userQueue.status,
-            isMe: userQueue.uid_game === myProfile?.uid_game
+            id: `slot-${queue.id}-${page}`,
+            type,
+            ...ITEM_CONFIG[type],
+            assignedTo: queue.display_name,
+            uid: queue.uid_game,
+            queueId: queue.id,
+            requestedQty: queue.requested_qty,
+            receivedQty: queue.received_qty,
+            remainingQty: queue.requested_qty - queue.received_qty,
+            status: queue.status,
+            allocatedQty: 1,
+            roundIndex: page + 1,
+            totalRounds: queue.totalRounds,
+            isMe: queue.uid_game === myProfile?.uid_game
           })
-          availableStock--
+
+          queue.remaining -= 1
+          availableStock -= 1
         }
-      })
+        page += 1
+      }
 
       for (let i = 0; i < availableStock; i++) {
         slots.push({
           id: `empty-${type}-${i}`,
-          type, ...ITEM_CONFIG[type],
+          type,
+          ...ITEM_CONFIG[type],
           assignedTo: '--- เปิดว่างให้กดอิสระ ---',
-          uid: '', isMe: false, isEmpty: true
+          uid: '',
+          isMe: false,
+          isEmpty: true
         })
       }
     })
 
     if (activeSubTab !== 'all') return slots.filter(s => s.type === activeSubTab)
     return slots
-  }, [todayItems, memberQueues, activeSubTab, myProfile, isAdmin, limits, positions])
+  }, [todayItems, normalizedQueues, activeSubTab, myProfile, isAdmin, positions])
 
   const slotsPerPage = 4
   const totalPages = Math.ceil(mappedSlots.length / slotsPerPage) || 1

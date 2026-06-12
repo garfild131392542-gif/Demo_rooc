@@ -16,7 +16,6 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
   const [activeSubTab, setActiveSubTab] = useState<'all' | 'Album' | 'Puppet' | 'White' | 'RedBlack'>('all')
   const [isSaving, setIsSaving] = useState(false)
   
-  // 🌟 ดึงค่าตั้งต้นจาก Database มาแสดงเป็นค่าเริ่มต้นให้แอดมิน
   const [limits, setLimits] = useState<Record<'Album' | 'Puppet' | 'White' | 'RedBlack', number | ''>>(() => {
     const init: Record<'Album' | 'Puppet' | 'White' | 'RedBlack', number | ''> = { Album: '', Puppet: '', White: '', RedBlack: '' }
     todayItems?.forEach((item: any) => {
@@ -32,7 +31,6 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
       White: { startPage: '', startSlot: '', endPage: '', endSlot: '', total: 0 },
       RedBlack: { startPage: '', startSlot: '', endPage: '', endSlot: '', total: 0 },
     }
-    // เติม ?. ตรงนี้
     todayItems?.forEach((item: any) => {
       if (item.item_name in init) (init as any)[item.item_name].total = item.total_quantity
     })
@@ -52,13 +50,13 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
         if (queue.queue_timestamp && (!existing.queue_timestamp || new Date(queue.queue_timestamp) < new Date(existing.queue_timestamp))) {
           existing.queue_timestamp = queue.queue_timestamp
         }
-        existing.status = existing.received_qty >= existing.requested_qty ? 'completed' : 'partial'
+        existing.status = existing.received_qty >= existing.requested_qty ? 'ครบแล้ว' : 'รอรับ'
       }
     })
     return Array.from(grouped.values())
   }, [memberQueues])
 
-  // 🌟 ลอจิกจัดสล็อตแบบ Live Preview (Real-time)
+  // 🌟 [ปรับปรุงใหม่] สร้างกล่องประมูลตามยอด "จอง" กล่องจะไม่หายไปไหน
   const mappedSlots = useMemo(() => {
     let slots: any[] = []
     const priorityOrder: ('Album' | 'Puppet' | 'White' | 'RedBlack')[] = ['Album', 'Puppet', 'White', 'RedBlack']
@@ -75,22 +73,29 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
 
       if (availableStock <= 0) return
 
-      const queues = (normalizedQueues || []).
-        filter((q: any) => q.item_type === type)
+      // แนบตัวแปร allocated เพื่อจำว่าแจกไปกี่กล่องแล้ว
+      const queues = (normalizedQueues || [])
+        .filter((q: any) => q.item_type === type)
         .map((q: any) => ({
           ...q,
-          remaining: Math.max(q.requested_qty - q.received_qty, 0),
-          totalRounds: Math.max(q.requested_qty - q.received_qty, 0)
+          allocated: 0
         }))
 
       let page = 0
-      while (availableStock > 0 && queues.some((q: any) => q.remaining > 0)) {
+      // ลูปจนกว่าของจะหมด หรือคนได้ของครบตามยอดจอง
+      while (availableStock > 0 && queues.some((q: any) => q.allocated < q.requested_qty)) {
         for (const queue of queues) {
           if (availableStock <= 0) break
-          if (queue.remaining <= 0) continue
+          if (queue.allocated >= queue.requested_qty) continue
+
+          queue.allocated += 1
+          availableStock -= 1
+
+          // 💡 เช็คว่ากล่องคิวนี้ ถูกกดยืนยันให้ของไปแล้วหรือยัง
+          const isCompleted = queue.allocated <= queue.received_qty
 
           slots.push({
-            id: `slot-${queue.id}-${page}`,
+            id: `slot-${queue.id}-${queue.allocated}`, // ไอดีไม่ซ้ำกันแล้ว กดกล่องไหนโหลดกล่องนั้น
             type,
             ...ITEM_CONFIG[type],
             assignedTo: queue.display_name,
@@ -98,16 +103,10 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
             queueId: queue.id,
             requestedQty: queue.requested_qty,
             receivedQty: queue.received_qty,
-            remainingQty: queue.requested_qty - queue.received_qty,
-            status: queue.status,
-            allocatedQty: 1,
-            roundIndex: page + 1,
-            totalRounds: queue.totalRounds,
+            isCompleted: isCompleted, // 💡 ส่งไปให้ UI ว่ากล่องนี้กดประมูลเสร็จหรือยัง
+            isEmpty: false,
             isMe: queue.uid_game === myProfile?.uid_game
           })
-
-          queue.remaining -= 1
-          availableStock -= 1
         }
         page += 1
       }
@@ -120,7 +119,8 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
           assignedTo: '--- เปิดว่างให้กดอิสระ ---',
           uid: '',
           isMe: false,
-          isEmpty: true
+          isEmpty: true,
+          isCompleted: false
         })
       }
     })
@@ -139,7 +139,6 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
   }
 
   const handleAdminSave = async (draftTotals?: Record<'Album' | 'Puppet' | 'White' | 'RedBlack', number | ''>) => {
-    // ตรวจสอบลิมิตต่อคน ว่างหรือไม่
     const missingLimits = (['Album', 'Puppet', 'White', 'RedBlack'] as const).filter(
       type => limits[type] === '' || limits[type] === null || limits[type] === undefined
     )

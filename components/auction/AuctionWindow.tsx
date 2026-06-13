@@ -21,6 +21,10 @@ type AuctionSlot = {
   isMe?: boolean;
   isEmpty?: boolean;
   isCompleted?: boolean;
+  // ✨ Booking session info
+  bookingSessionSize?: number;
+  queueTimestamp?: string;
+  isFirstInSession?: boolean;
 };
 
 type AuctionHistoryEntry = {
@@ -143,11 +147,11 @@ export default function AuctionWindow({
 
   const renderSlotRow = (slot: AuctionSlot, index: number) => {
     const confirmed = confirmedSlots[slot.id];
-    const localReceived =
-      (slot.receivedQty ?? 0) + (confirmed?.awardedQty ?? 0);
+    // ✨ ไม่ต้องนับซ้ำ - server แล้ว update received_qty
+    const localReceived = (slot.receivedQty ?? 0);
     const hasReserve = !slot.isEmpty && typeof slot.requestedQty === "number";
     const localRemaining = hasReserve
-      ? Math.max((slot.remainingQty ?? 0) - (confirmed?.awardedQty ?? 0), 0)
+      ? Math.max((slot.requestedQty ?? 1) - (slot.receivedQty ?? 0), 0)
       : 0;
     const localStatus = slot.isEmpty
       ? "waiting"
@@ -155,7 +159,8 @@ export default function AuctionWindow({
         slot.status ||
         (localRemaining === 0 ? "สำเร็จ" : "รอประมูล");
 
-    const isCompleted = index < (slot.receivedQty ?? 0);
+    // ✨ ใหม่: แต่ละ row = 1 slot, completed = receivedQty >= requestedQty
+    const isCompleted = (slot.receivedQty ?? 0) >= (slot.requestedQty ?? 0);
 
     return (
       <div
@@ -200,7 +205,7 @@ export default function AuctionWindow({
             // 🌟 กรณี "ไอเทมเปิดว่าง" โชว์กล่องสถานะยาวๆ กลางจอไปเลย
             <div className="flex items-center justify-center w-full xl:w-auto bg-slate-100 dark:bg-slate-900/50 px-6 py-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-600">
               <span className="text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                <span>🆓</span> เปิดว่างให้กดอิสระได้เลย
+                <span></span> ไม่มีใครจอง
               </span>
             </div>
           ) : (
@@ -209,7 +214,8 @@ export default function AuctionWindow({
               {/* ป้ายสถานะ เปลี่ยนสีตาม isCompleted (fallback ถ้า prop หายไป) */}
               <div className="flex flex-col justify-center order-1">
                 {(() => {
-                  const computedCompleted = index < (slot.receivedQty ?? 0);
+                  // ✨ ใหม่: แต่ละ row = 1 slot, completed = receivedQty >= requestedQty
+                  const computedCompleted = (slot.receivedQty ?? 0) >= (slot.requestedQty ?? 0);
                   return computedCompleted ? (
                     <span className="text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200 font-bold whitespace-nowrap">
                       ประมูลเสร็จแล้ว
@@ -451,7 +457,34 @@ export default function AuctionWindow({
 
               {/* 🌟 แสดงผลแบบ List Row ยาวต่อเนื่องทั้งหมด */}
               <div className="flex-1 flex flex-col gap-4 content-start overflow-y-auto pr-2">
-                {currentSlots.map((slot, index) => renderSlotRow(slot, index))}
+                {currentSlots.map((slot, index) => {
+                  // ✨ NEW: Show booking session header for first slot in session
+                  const bookingSessionSize = (slot as any)?.bookingSessionSize ?? 1;
+                  const queueTimestamp = (slot as any)?.queueTimestamp;
+                  const isFirstInSession = (slot as any)?.isFirstInSession ?? false;
+                  
+                  // Format timestamp for display
+                  let formattedTime = '';
+                  if (queueTimestamp && queueTimestamp !== 'no-timestamp') {
+                    try {
+                      formattedTime = new Date(queueTimestamp).toLocaleTimeString('th-TH', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                      });
+                    } catch (e) {
+                      formattedTime = '';
+                    }
+                  }
+                  
+                  return (
+                    <div key={slot.id}>
+                      {/* Show booking session header only for first slot in a session */}
+                      
+                      {renderSlotRow(slot, index)}
+                    </div>
+                  );
+                })}
 
                 {currentSlots.length === 0 && (
                   <div className="text-center text-slate-500 py-10 italic flex-1 flex items-center justify-center">
@@ -506,114 +539,150 @@ export default function AuctionWindow({
             <div className="flex-1 flex flex-col justify-start space-y-4">
               {memberQueues.length > 0 ? (
                 <div className="space-y-3">
-                  {memberQueues.map((queue) => (
-                    <div
-                      key={queue.id}
-                      className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(240px,220px)] gap-3 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl"
-                    >
-                      <div >
-                        <div className="flex  items-center gap-0 flex-1">
-                          <div className="grid grid-cols-5 gap-4 w-full items-center">
-                            <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                              {queue.display_name}
-                            </div>
-                            <div>
+                  {(() => {
+                    // ✨ Group queues by display_name + item_type + queue_timestamp (without milliseconds)
+                    const groupMap = new Map<string, typeof memberQueues>();
+                    const groupOrder: string[] = [];
 
-                            <div className="inline-flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 p-3 w-16 h-16 overflow-hidden border-2 border-blue-200 dark:border-blue-800 flex-shrink-0 shadow-md">
-                              <Image
-                                src={
-                                  ITEM_CONFIG[
-                                    queue.item_type as keyof typeof ITEM_CONFIG
-                                  ]?.icon || "/auction/Puppet.png"
-                                }
-                                alt={queue.item_type}
-                                width={48}
-                                height={48}
-                                className="object-contain"
-                                />
-                            </div>
+                    memberQueues.forEach((queue) => {
+                      // Remove milliseconds from timestamp to group by seconds
+                      const tsWithoutMs = queue.queue_timestamp
+                        ? queue.queue_timestamp.replace(/\.\d{3}/, '')
+                        : 'no-ts';
+                      const groupKey = `${queue.display_name}|${queue.item_type}|${tsWithoutMs}`;
+                      console.log('DEBUG Queue:', { display_name: queue.display_name, item_type: queue.item_type, raw_ts: queue.queue_timestamp, normalized_ts: tsWithoutMs, groupKey });
+                      if (!groupMap.has(groupKey)) {
+                        groupMap.set(groupKey, []);
+                        groupOrder.push(groupKey);
+                      }
+                      groupMap.get(groupKey)!.push(queue);
+                    });
+
+                    // Render each group
+                    return groupOrder.map((groupKey) => {
+                      const groupQueues = groupMap.get(groupKey) || [];
+                      const firstQueue = groupQueues[0];
+                      const totalRequested = groupQueues.reduce(
+                        (sum, q) => sum + q.requested_qty,
+                        0,
+                      );
+                      const totalReceived = groupQueues.reduce(
+                        (sum, q) => sum + q.received_qty,
+                        0,
+                      );
+                      const formattedTime = firstQueue.queue_timestamp
+                        ? new Date(firstQueue.queue_timestamp).toLocaleString(
+                            "th-TH",
+                          )
+                        : "-";
+
+                      return (
+                        <div
+                          key={groupKey}
+                          className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(240px,220px)] gap-3 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl"
+                        >
+                          <div>
+                            <div className="flex items-center gap-0 flex-1">
+                              <div className="grid grid-cols-5 gap-4 w-full items-center">
+                                <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                                  {firstQueue.display_name}
                                 </div>
                                 <div>
-
-                            <div className="flex items-center justify-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                            <div className=" text-slate-900 dark:text-slate-100">
-                              จอง {queue.requested_qty} 
-                            </div>
-                            
-                          </div>
+                                  <div className="inline-flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 p-3 w-16 h-16 overflow-hidden border-2 border-blue-200 dark:border-blue-800 flex-shrink-0 shadow-md">
+                                    <Image
+                                      src={
+                                        ITEM_CONFIG[
+                                          firstQueue
+                                            .item_type as keyof typeof ITEM_CONFIG
+                                        ]?.icon || "/auction/Puppet.png"
+                                      }
+                                      alt={firstQueue.item_type}
+                                      width={48}
+                                      height={48}
+                                      className="object-contain"
+                                    />
+                                  </div>
                                 </div>
                                 <div>
-
-                          <div className="gap-3 flex items-center justify-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                            <div className=" text-slate-900 dark:text-slate-100">
-                              ได้รับ {queue.received_qty}
-                            </div>
-                            
-                          </div>
+                                  <div className="flex items-center justify-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                                    <div className="text-slate-900 dark:text-slate-100">
+                                      จอง {totalRequested}
+                                    </div>
+                                  </div>
                                 </div>
-                                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                          {queue.requested_qty - queue.received_qty > 0
-                            ? `กำลังรอประมูล ${queue.requested_qty - queue.received_qty} อัน`
-                            : "Fulfilled"}
-                        </div>
+                                <div>
+                                  <div className="gap-3 flex items-center justify-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                                    <div className="text-slate-900 dark:text-slate-100">
+                                      ได้รับ {totalReceived}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex justify-center text-xs text-slate-500 dark:text-slate-400">
+                                  {totalRequested - totalReceived > 0
+                                    ? `กำลังรอ ${totalRequested - totalReceived} อัน`
+                                    : "สำเร็จ"}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                              {formattedTime}
+                            </div>
                           </div>
-                          
-                        </div>
-                        
-                       
-                      </div>
-                      <div className="space-y-2 flex justify-end gap-2">
-                        {isAdmin ? (
-                          <>
-                            <button
-                              type="button"
-                              disabled={actionLoading[queue.id]}
-                              onClick={async () => {
-                                setEditQueueId(queue.id);
-                                setEditQty(String(queue.requested_qty));
-                              }}
-                              className="cursor-pointer inline-flex items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/20 p-3 w-22 h-13 overflow-hidden border-2 border-blue-100 dark:border-blue-800/50 flex-shrink-0 shadow-md">
-                              {actionLoading[queue.id] ? (
-                                "กำลังบันทึก..."
-                              ) : (
-                                <>
-                                  <span></span> แก้ไข
-                                </>
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={actionLoading[queue.id]}
-                              onClick={async () => {
-                                if (!confirm("ยืนยันการลบคิวนี้?")) return;
-                                setActionLoading((prev) => ({
-                                  ...prev,
-                                  [queue.id]: true,
-                                }));
-                                const result =
-                                  await deleteAuctionQueueReservation(queue.id);
-                                setActionLoading((prev) => ({
-                                  ...prev,
-                                  [queue.id]: false,
-                                }));
-                                if (!result.success) {
-                                  alert("ไม่สามารถลบได้: " + result.error);
-                                } else {
-                                  await onRefresh();
-                                }
-                              }}
-                              className="cursor-pointer inline-flex items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-900/20 p-3 w-22 h-13 overflow-hidden border-2 border-rose-100 dark:border-rose-800/50 flex-shrink-0 shadow-md text-rose-600 dark:text-rose-400 text-sm font-semibold" >
-                              <span></span> ลบ
-                            </button>
-                          </>
-                        ) : (
-                          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-3 text-sm font-semibold text-slate-600 dark:text-slate-300 h-full flex items-center justify-center text-center">
-                            ผู้ดูแลระบบจัดคิวและแจกของตามลำดับ
+                          <div className="space-y-2 flex justify-end gap-2">
+                            {isAdmin ? (
+                              <>
+                                
+                                <button
+                                  type="button"
+                                  disabled={groupQueues.some(
+                                    (q) => actionLoading[q.id],
+                                  )}
+                                  onClick={async () => {
+                                    if (
+                                      !confirm(
+                                        "ยืนยันการลบคิวนี้ทั้งหมด?",
+                                      )
+                                    )
+                                      return;
+                                    for (const queue of groupQueues) {
+                                      setActionLoading((prev) => ({
+                                        ...prev,
+                                        [queue.id]: true,
+                                      }));
+                                      const result =
+                                        await deleteAuctionQueueReservation(
+                                          queue.id,
+                                        );
+                                      setActionLoading((prev) => ({
+                                        ...prev,
+                                        [queue.id]: false,
+                                      }));
+                                      if (!result.success) {
+                                        alert(
+                                          "ไม่สามารถลบได้: " + result.error,
+                                        );
+                                        break;
+                                      }
+                                    }
+                                    await onRefresh();
+                                  }}
+                                  className="cursor-pointer inline-flex items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-900/20 p-3 w-22 h-13 overflow-hidden border-2 border-rose-100 dark:border-rose-800/50 flex-shrink-0 shadow-md text-rose-600 dark:text-rose-400 text-sm font-semibold"
+                                >
+                                  {groupQueues.some((q) => actionLoading[q.id])
+                                    ? "กำลัง..."
+                                    : "ลบ"}
+                                </button>
+                              </>
+                            ) : (
+                              <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-3 text-sm font-semibold text-slate-600 dark:text-slate-300 h-full flex items-center justify-center text-center">
+                                ผู้ดูแลจัดคิวและแจกของ
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               ) : (
                 <div className="text-center text-slate-500 dark:text-slate-400 py-8 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">

@@ -60,7 +60,7 @@ async function getAuctionSessionPersonalLimit(supabase: any, guildId: string, it
   return data?.personal_limit ?? null
 }
 
-// 2. สมาชิกจองคิว
+// 2. สมาชิกจองคิว - ✨ ใหม่: สร้าง multiple rows (1 per slot) แทนที่ 1 row กับ requested_qty=N
 export async function joinAuctionQueue(itemType: ItemType, requestedQty: number) {
   try {
     const session = await getSession()
@@ -68,38 +68,35 @@ export async function joinAuctionQueue(itemType: ItemType, requestedQty: number)
 
     const supabase = await createClient()
 
-    // เช็คว่าเคยจองค้างไว้ไหม
-    const { data: existingQueue } = await supabase
+    // ✨ หา slot_number สูงสุดที่มีอยู่สำหรับ user นี้ + item type นี้
+    const { data: existingSlots } = await supabase
       .from('auction_queues')
-      .select('id, requested_qty')
+      .select('slot_number' as any)
       .eq('user_id', session.profile.id)
       .eq('item_name', itemType)
-      .in('status', ['waiting', 'partial'])
-      .maybeSingle()
+      .in('status', ['waiting', 'partial', 'completed'])
+      .order('slot_number' as any, { ascending: false })
+      .limit(1)
 
-    if (existingQueue) {
-      // 🌟 ใส่ as any ตรงอัปเดต
-      await supabase
-        .from('auction_queues')
-        .update({ 
-          requested_qty: existingQueue.requested_qty + requestedQty,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existingQueue.id)
-    } else {
-      // 🌟 ใส่ as any ตรงอินเสิร์ตใหม่
-      await supabase
-        .from('auction_queues')
-        .insert([{
-          guild_id: session.profile.guild_id,
-          user_id: session.profile.id,
-          item_name: itemType,
-          requested_qty: requestedQty,
-          received_qty: 0,
-          status: 'waiting',
-          queue_timestamp: new Date().toISOString()
-        }] as any)
-    }
+    const maxSlotNumber = ((existingSlots as any)?.[0]?.slot_number ?? 0) as number
+
+    // ✨ สร้าง N rows โดยแต่ละ row เป็น 1 slot (requested_qty = 1)
+    const newSlots = Array.from({ length: requestedQty }, (_, i) => ({
+      guild_id: session.profile.guild_id,
+      user_id: session.profile.id,
+      item_name: itemType,
+      requested_qty: 1,  // ✨ ต่อ slot = 1 สล็อต
+      received_qty: 0,
+      status: 'waiting',
+      slot_number: maxSlotNumber + i + 1,  // ✨ slot_number: maxSlot+1, maxSlot+2, ...
+      queue_timestamp: new Date().toISOString()
+    }))
+
+    const { error: insertError } = await supabase
+      .from('auction_queues')
+      .insert(newSlots as any)
+
+    if (insertError) throw insertError
 
     revalidatePath('/')
     revalidatePath('/profile')
@@ -109,45 +106,39 @@ export async function joinAuctionQueue(itemType: ItemType, requestedQty: number)
   }
 }
 
-// New: batch join multiple items in a single server action to reduce roundtrips
+// Batch join multiple items ✨ ใหม่: สร้าง N rows per item
 export async function joinAuctionQueues(items: { itemType: ItemType; qty: number }[]) {
   try {
     const session = await getSession()
     if (!session?.profile) return { success: false, error: 'กรุณาเข้าสู่ระบบ' }
 
     const supabase = await createClient()
-
-    const itemNames = items.map(i => i.itemType)
-
-    // Fetch existing queues for these item types
-    const { data: existingQueues } = await supabase
-      .from('auction_queues')
-      .select('id, item_name, requested_qty')
-      .eq('user_id', session.profile.id)
-      .in('item_name', itemNames)
-      .in('status', ['waiting', 'partial'])
-
     const inserts: any[] = []
 
-    // Perform updates sequentially (TypeScript types from Postgrest client aren't Promise),
-    // and collect inserts to run in a single batch insert.
+    // ✨ สำหรับแต่ละ item type ให้ หา max slot_number แล้ว สร้าง N rows ใหม่
     for (const { itemType, qty } of items) {
-      const existing = (existingQueues || []).find((q: any) => q.item_name === itemType)
-      if (existing) {
-        const { error } = await supabase
-          .from('auction_queues')
-          .update({ requested_qty: existing.requested_qty + qty, updated_at: new Date().toISOString() })
-          .eq('id', existing.id)
+      // หา slot_number สูงสุด
+      const { data: existingSlots } = await supabase
+        .from('auction_queues')
+        .select('slot_number' as any)
+        .eq('user_id', session.profile.id)
+        .eq('item_name', itemType)
+        .in('status', ['waiting', 'partial', 'completed'])
+        .order('slot_number' as any, { ascending: false })
+        .limit(1)
 
-        if (error) throw error
-      } else {
+      const maxSlotNumber = ((existingSlots as any)?.[0]?.slot_number ?? 0) as number
+
+      // ✨ สร้าง qty rows ใหม่ (แต่ละ row = 1 slot)
+      for (let i = 0; i < qty; i++) {
         inserts.push({
           guild_id: session.profile.guild_id,
           user_id: session.profile.id,
           item_name: itemType,
-          requested_qty: qty,
+          requested_qty: 1,  // ✨ ต่อ slot = 1
           received_qty: 0,
           status: 'waiting',
+          slot_number: maxSlotNumber + i + 1,  // ✨ sequential slot numbers
           queue_timestamp: new Date().toISOString()
         })
       }
@@ -158,7 +149,6 @@ export async function joinAuctionQueues(items: { itemType: ItemType; qty: number
       if (error) throw error
     }
 
-    // Revalidate once
     revalidatePath('/')
     revalidatePath('/profile')
     return { success: true }

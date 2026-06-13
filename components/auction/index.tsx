@@ -42,82 +42,120 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
     return init
   })
 
-  const [storedMappedSlots, setStoredMappedSlots] = useState<any[]>(() => {
-  // Restore from sessionStorage if available
-  if (typeof window !== 'undefined') {
-    const cached = sessionStorage.getItem('auctionMappedSlots')
-    if (cached) {
-      try {
-        return JSON.parse(cached)
-      } catch (e) {
-        console.error('Failed to parse cached slots', e)
-      }
-    }
-  }
-  return []
-})
-
-
-
-  // 🌟 ลอจิกจัดสล็อตแบบ Live Preview (Real-time)
- // ✅ เพิ่มใหม่: Effect - Generate slots เมื่อ todayItems หรือ memberQueues เปลี่ยนเท่านั้น
-useEffect(() => {
-  const generateSlots = () => {
+  // ✨ ใหม่: Direct mapping จาก memberQueues - แต่ละ row = 1 slot (no allocation logic)
+  const mappedSlots = useMemo(() => {
     let slots: any[] = []
     const priorityOrder: ('Album' | 'Puppet' | 'White' | 'RedBlack')[] = ['Album', 'Puppet', 'White', 'RedBlack']
 
+    // ✨ Group by booking session: (user_id, item_type, queue_timestamp)
+    const bookingGroups = new Map<string, any[]>()
+    const queuesByType = (memberQueues || []).reduce((acc: any, q: any) => {
+      if (!acc[q.item_type]) acc[q.item_type] = []
+      acc[q.item_type].push(q)
+      
+      // Create booking session key
+      const sessionKey = `${q.uid_game}|${q.item_type}|${q.queue_timestamp || 'no-timestamp'}`
+      if (!bookingGroups.has(sessionKey)) {
+        bookingGroups.set(sessionKey, [])
+      }
+      bookingGroups.get(sessionKey)!.push(q)
+      
+      return acc
+    }, {})
+
+    // ✨ สำหรับแต่ละ type ให้ทำการ populate empty slots ก่อน
     priorityOrder.forEach(type => {
       const session = (todayItems || []).find((s: any) => s.item_name === type)
-      let availableStock = session ? Number(session.total_quantity) || 0 : 0
-      const personalLimit = session ? Number(session.personal_limit) || 0 : 0
-
-      if (availableStock <= 0) return
-
-      const queues = (memberQueues || [])
-        .filter((q: any) => q.item_type === type)
-        .map((q: any) => {
-          const remainingRequest = Math.max(q.requested_qty - q.received_qty, 0)
-          const remainingLimit = Math.max(personalLimit - q.received_qty, 0)
-          return {
-            ...q,
-            allocated: 0,
-            maxAllocatable: Math.min(remainingRequest, remainingLimit)
-          }
-        })
-
-      // Allocate grouped
-      for (const queue of queues) {
-        if (availableStock <= 0) break
-        const remainingForQueue = Math.max(queue.maxAllocatable - (queue.allocated || 0), 0)
-        const alloc = Math.min(availableStock, remainingForQueue)
-        for (let i = 1; i <= alloc; i++) {
-          const idx = (queue.allocated || 0) + i
-          slots.push({
-            id: `slot-${queue.id}-${idx}`,
-            type,
-            ...ITEM_CONFIG[type],
-            assignedTo: queue.display_name,
-            uid: queue.uid_game,
-            queueId: queue.id,
-            requestedQty: queue.requested_qty,
-            receivedQty: queue.received_qty,
-            remainingQty: Math.max(queue.requested_qty - queue.received_qty, 0),
-            status: queue.status,
-            isEmpty: false,
-            isMe: queue.uid_game === myProfile?.uid_game
-          })
-          availableStock--
+      const itemConfig = ITEM_CONFIG[type]
+      const personalLimit = session?.personal_limit ?? 0
+      
+      // Safe guard: skip if no session or config
+      if (!itemConfig) return
+      
+      // ✨ Count total slots per user for this item type
+      const userTotalSlotsMap = new Map<string, number>()
+      ;(queuesByType[type] || []).forEach((q: any) => {
+        const key = q.uid_game
+        userTotalSlotsMap.set(key, (userTotalSlotsMap.get(key) ?? 0) + 1)
+      })
+      
+      // ✨ Filter by personal_limit: only show slots if user's total doesn't exceed limit
+      let shownCountPerUser = new Map<string, number>() // Track how many we've shown per user
+      const qualifiedQueues = (queuesByType[type] || []).filter((q: any) => {
+        const totalSlots = userTotalSlotsMap.get(q.uid_game) ?? 0
+        const alreadyShown = shownCountPerUser.get(q.uid_game) ?? 0
+        const shouldShow = alreadyShown < personalLimit
+        
+        if (shouldShow) {
+          shownCountPerUser.set(q.uid_game, alreadyShown + 1)
         }
-        queue.allocated = (queue.allocated || 0) + alloc
-      }
+        
+        return shouldShow
+      })
+      
+      // ✨ Sort by stable identifiers to maintain consistent order
+      // Sort by: queue_timestamp → slot_number → id
+      qualifiedQueues.sort((a: any, b: any) => {
+        const timeA = a.queue_timestamp || ''
+        const timeB = b.queue_timestamp || ''
+        if (timeA !== timeB) return timeA.localeCompare(timeB)
+        
+        const slotA = a.slot_number ?? 0
+        const slotB = b.slot_number ?? 0
+        if (slotA !== slotB) return slotA - slotB
+        
+        return (a.id || '').localeCompare(b.id || '')
+      })
+      
+      // ✨ Group by booking session
+      const sessionMap = new Map<string, any[]>()
+      qualifiedQueues.forEach((q: any) => {
+        const sessionKey = `${q.queue_timestamp || 'no-timestamp'}`
+        if (!sessionMap.has(sessionKey)) {
+          sessionMap.set(sessionKey, [])
+        }
+        sessionMap.get(sessionKey)!.push(q)
+      })
+      
+      let allocatedCount = qualifiedQueues.length ?? 0
+      const totalQuantity = Math.max(0, Number(session?.total_quantity ?? 0));
+
+      // Add booked slots (all individual, but grouped by session)
+      sessionMap.forEach((sessionQueues, sessionKey) => {
+        const totalInSession = sessionQueues.length
+        
+        // Add ALL slots in the session with session metadata
+        sessionQueues.forEach((q, slotIndexInSession) => {
+          slots.push({
+            id: `slot-${q.id}`,  // ✨ Use actual queue id
+            type,
+            ...itemConfig,
+            assignedTo: q.display_name,
+            uid: q.uid_game,
+            queueId: q.id,
+            requestedQty: q.requested_qty,
+            receivedQty: q.received_qty,
+            remainingQty: Math.max(q.requested_qty - q.received_qty, 0),
+            status: q.status,
+            isEmpty: false,
+            isMe: q.uid_game === myProfile?.uid_game,
+            slotIndex: q.slot_number || 1,
+            // ✨ NEW: Booking session info
+            bookingSessionSize: totalInSession,
+            queueTimestamp: sessionKey,
+            isFirstInSession: slotIndexInSession === 0  // Mark first slot for header display
+          })
+        })
+      })
 
       // Add empty slots
-      for (let i = 0; i < availableStock; i++) {
+      const emptyCount = Math.max(totalQuantity - allocatedCount, 0)
+      for (let i = 0; i < emptyCount; i++) {
         slots.push({
           id: `empty-${type}-${i}`,
           type,
-          ...ITEM_CONFIG[type],
-          assignedTo: '--- เปิดว่างให้กดอิสระ ---',
+          ...itemConfig,
+          assignedTo: '--- ไม่มีใครจอง ---',
           uid: '',
           isMe: false,
           isEmpty: true
@@ -125,27 +163,25 @@ useEffect(() => {
       }
     })
 
-    // Save to sessionStorage and state
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('auctionMappedSlots', JSON.stringify(slots))
+    // ✨ Filter by activeSubTab
+    if (activeSubTab !== 'all') {
+      slots = slots.filter(s => s.type === activeSubTab)
     }
-    setStoredMappedSlots(slots)
-    
+
     if (DEBUG_AUCTION && typeof window !== 'undefined') {
-      console.debug('[AuctionBoard] Generated slots from source data', slots)
+      console.debug('[AuctionBoard] Slots mapped with booking sessions', {
+        totalQueues: (memberQueues || []).length,
+        totalSlots: slots.length,
+        bookingGroups: Array.from(bookingGroups.entries()).map(([key, queues]) => ({
+          key,
+          count: queues.length
+        })),
+        slots
+      })
     }
-  }
 
-  generateSlots()
-}, [todayItems, memberQueues, myProfile])
-
-// ✅ เปลี่ยน: Filter slots ตาม activeSubTab - ไม่ regenerate
-const mappedSlots = useMemo(() => {
-  if (activeSubTab !== 'all') {
-    return storedMappedSlots.filter(s => s.type === activeSubTab)
-  }
-  return storedMappedSlots
-}, [storedMappedSlots, activeSubTab])
+    return slots
+  }, [memberQueues, todayItems, activeSubTab, myProfile])
 
   const slotsPerPage = 4
   const totalPages = Math.ceil(mappedSlots.length / slotsPerPage) || 1

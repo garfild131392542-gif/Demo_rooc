@@ -570,44 +570,97 @@ export default function ProfileForm({
                 <div className="text-center py-16 text-slate-500 dark:text-slate-400">ยังไม่มีรายการจองคิวในขณะนี้</div>
               ) : (
                 <div className="space-y-4">
-                  {reservations.map((reservation) => (
-                    <div key={reservation.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700/50 dark:bg-slate-800/30">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <div className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                            {ITEM_CONFIG[reservation.item_name as keyof typeof ITEM_CONFIG].label}
-                          </div>
-                          <div className="text-sm text-slate-500 dark:text-slate-400 mt-2 space-y-1">
-                            <div className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                              {reservation.status === 'partial' ? 'รับแล้วบางส่วน' : 'รอรับการจัดสรร'}
+                  {(() => {
+                    // ✨ Group reservations by item_name + queue_timestamp
+                    const sessionMap = new Map<string, QueueReservation[]>();
+                    const sessionOrder: string[] = [];
+                    
+                    reservations.forEach((res) => {
+                      const sessionKey = `${res.item_name}|${res.queue_timestamp || 'no-timestamp'}`;
+                      if (!sessionMap.has(sessionKey)) {
+                        sessionMap.set(sessionKey, []);
+                        sessionOrder.push(sessionKey);
+                      }
+                      sessionMap.get(sessionKey)!.push(res);
+                    });
+                    
+                    // Render each session as a group
+                    return sessionOrder.map((sessionKey) => {
+                      const sessionReservations = sessionMap.get(sessionKey) || [];
+                      const firstRes = sessionReservations[0];
+                      const itemLabel = ITEM_CONFIG[firstRes.item_name as keyof typeof ITEM_CONFIG].label;
+                      const totalRequested = sessionReservations.reduce((sum, r) => sum + (r.requested_qty || 0), 0);
+                      const totalReceived = sessionReservations.reduce((sum, r) => sum + (r.received_qty || 0), 0);
+                      const formattedTime = firstRes.queue_timestamp 
+                        ? new Date(firstRes.queue_timestamp).toLocaleString('th-TH')
+                        : '-';
+                      
+                      return (
+                        <div key={sessionKey} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700/50 dark:bg-slate-800/30">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <div className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                                {itemLabel}
+                              </div>
+                              <div className="text-sm text-slate-500 dark:text-slate-400 mt-2 space-y-1">
+                                <div className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                  {firstRes.status === 'partial' ? 'รับแล้วบางส่วน' : 'รอรับการจัดสรร'}
+                                </div>
+                                <div className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                  {formattedTime}
+                                </div>
+                              </div>
                             </div>
-                            <div className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                              {reservation.queue_timestamp ? new Date(reservation.queue_timestamp).toLocaleString('th-TH') : '-'}
+                            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-3 text-sm font-semibold text-slate-900 dark:text-slate-100 shadow-sm">
+                              ได้รับแล้ว {totalReceived} ชิ้น
                             </div>
                           </div>
-                        </div>
-                        <div className="rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-3 text-sm font-semibold text-slate-900 dark:text-slate-100 shadow-sm">
-                          ได้รับแล้ว {reservation.received_qty} ชิ้น
-                        </div>
-                      </div>
 
-                      <div className="mt-5 grid gap-3 sm:grid-cols-[1.5fr_1fr_1fr]">
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                            ระบุจำนวนที่ต้องการ
-                          </label>
-                          <input type="number" min={Math.max(1, reservation.received_qty)} value={reservationDraftQty[String(reservation.id)] ?? String(reservation.requested_qty)} onChange={(e) => handleDraftQtyChange(String(reservation.id), e.target.value)} className="block w-full rounded-xl border-0 py-2 px-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 dark:bg-slate-900 dark:text-white dark:ring-slate-700 sm:text-sm font-semibold" />
-                          <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-500">จำนวนขั้นต่ำต้องไม่น้อยกว่าที่รับไปแล้ว ({reservation.received_qty})</p>
+                          <div className="mt-5 grid gap-3 sm:grid-cols-[1.5fr_1fr_1fr]">
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                                ระบิจำนวนที่ต้องการ
+                              </label>
+                              <input 
+                                type="number" 
+                                min={Math.max(1, totalReceived)} 
+                                value={totalRequested}
+                                disabled
+                                className="block w-full rounded-xl border-0 py-2 px-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 dark:bg-slate-900 dark:text-white dark:ring-slate-700 sm:text-sm font-semibold bg-slate-100 dark:bg-slate-800 cursor-not-allowed"
+                              />
+                              <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-500">รวมจำนวนที่จอง ({sessionReservations.length} รายการ)</p>
+                            </div>
+                            <button 
+                              type="button" 
+                              onClick={() => {
+                                // Update all slots in this session
+                                sessionReservations.forEach(res => {
+                                  handleUpdateReservation(String(res.id));
+                                });
+                              }} 
+                              disabled={reservationActionLoading} 
+                              className="cursor-pointer mt-6 sm:mt-0 h-11 self-center rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition-colors"
+                            >
+                              อัปเดต
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={() => {
+                                // Delete all slots in this session
+                                sessionReservations.forEach(res => {
+                                  handleDeleteReservation(String(res.id));
+                                });
+                              }} 
+                              disabled={reservationActionLoading} 
+                              className="cursor-pointer mt-3 sm:mt-0 h-11 self-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                            >
+                              ยกเลิก
+                            </button>
+                          </div>
                         </div>
-                        <button type="button" onClick={() => handleUpdateReservation(String(reservation.id))} disabled={reservationActionLoading} className="cursor-pointer mt-6 sm:mt-0 h-11 self-center rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition-colors">
-                          อัปเดต
-                        </button>
-                        <button type="button" onClick={() => handleDeleteReservation(String(reservation.id))} disabled={reservationActionLoading} className="cursor-pointer mt-3 sm:mt-0 h-11 self-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors">
-                          ยกเลิก
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    });
+                  })()}
                 </div>
               )}
               {showGoToAuctionLink && (

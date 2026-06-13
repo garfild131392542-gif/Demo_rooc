@@ -20,6 +20,7 @@ type AuctionSlot = {
   status?: string
   isMe?: boolean
   isEmpty?: boolean
+  isCompleted?: boolean
 }
 
 type AuctionHistoryEntry = {

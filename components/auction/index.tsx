@@ -55,7 +55,7 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
       if (availableStock <= 0) return
 
       // แนบตัวแปร allocated เพื่อจำว่าแจกไปกี่กล่องแล้ว
-      const queues = (normalizedQueues || [])
+      const queues = (memberQueues  || []) 
         .filter((q: any) => q.item_type === type)
         .map((q: any) => {
           const remainingRequest = Math.max(q.requested_qty - q.received_qty, 0)

@@ -22,9 +22,10 @@ type AdminFormProps = {
   setPositions: Dispatch<SetStateAction<PositionsState>>
   onSave: (draftTotals: Record<AuctionItemType, number | ''>) => Promise<void>
   isSaving: boolean
+  onRefresh?: () => Promise<void>
 }
 
-export default function AdminForm({ positions, setPositions, onSave, isSaving }: AdminFormProps) {
+export default function AdminForm({ positions, setPositions, onSave, isSaving, onRefresh }: AdminFormProps) {
   const [draftTotals, setDraftTotals] = useState<Record<AuctionItemType, number | ''>>({
     Album: positions.Album.total,
     Puppet: positions.Puppet.total,
@@ -82,13 +83,21 @@ export default function AdminForm({ positions, setPositions, onSave, isSaving }:
 
   const handleSubmitSave = async () => {
     await onSave(draftTotals)
+    await onRefresh?.()
   }
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-md transition-colors h-full flex flex-col">
-      <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
-        <span className="text-blue-600 dark:text-blue-400">คำนวณจำนวนของไอเทม</span>
-      </h3>
+      <div className="flex items-center gap-2 mb-4">
+        <div>
+
+      
+        </div>
+    
+          <button onClick={handleSubmitSave} disabled={isSaving} className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-md">
+            {isSaving ? 'กำลังบันทึก...' : 'คำนวณและบันทึก'}
+          </button>
+        </div>
 
       {/* สรุปยอดรวม Live */}
       <div className="mb-4 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -138,11 +147,7 @@ export default function AdminForm({ positions, setPositions, onSave, isSaving }:
           ))}
         </div>
 
-        <div className="mt-4">
-          <button onClick={handleSubmitSave} disabled={isSaving} className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-md">
-            {isSaving ? 'กำลังบันทึก...' : 'คำนวณและบันทึก'}
-          </button>
-        </div>
+        
       </div>
     </div>
   )

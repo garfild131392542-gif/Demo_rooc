@@ -42,8 +42,27 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
     return init
   })
 
+  const [storedMappedSlots, setStoredMappedSlots] = useState<any[]>(() => {
+  // Restore from sessionStorage if available
+  if (typeof window !== 'undefined') {
+    const cached = sessionStorage.getItem('auctionMappedSlots')
+    if (cached) {
+      try {
+        return JSON.parse(cached)
+      } catch (e) {
+        console.error('Failed to parse cached slots', e)
+      }
+    }
+  }
+  return []
+})
+
+
+
   // 🌟 ลอจิกจัดสล็อตแบบ Live Preview (Real-time)
- const mappedSlots = useMemo(() => {
+ // ✅ เพิ่มใหม่: Effect - Generate slots เมื่อ todayItems หรือ memberQueues เปลี่ยนเท่านั้น
+useEffect(() => {
+  const generateSlots = () => {
     let slots: any[] = []
     const priorityOrder: ('Album' | 'Puppet' | 'White' | 'RedBlack')[] = ['Album', 'Puppet', 'White', 'RedBlack']
 
@@ -54,8 +73,7 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
 
       if (availableStock <= 0) return
 
-      // แนบตัวแปร allocated เพื่อจำว่าแจกไปกี่กล่องแล้ว
-      const queues = (memberQueues  || []) 
+      const queues = (memberQueues || [])
         .filter((q: any) => q.item_type === type)
         .map((q: any) => {
           const remainingRequest = Math.max(q.requested_qty - q.received_qty, 0)
@@ -66,17 +84,14 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
             maxAllocatable: Math.min(remainingRequest, remainingLimit)
           }
         })
-        .filter((q: any) => q.maxAllocatable > 0)
 
-      // Allocate grouped: give each queue up to its maxAllocatable in one block,
-      // so a user's slots appear consecutively instead of round-robin.
+      // Allocate grouped
       for (const queue of queues) {
         if (availableStock <= 0) break
         const remainingForQueue = Math.max(queue.maxAllocatable - (queue.allocated || 0), 0)
         const alloc = Math.min(availableStock, remainingForQueue)
         for (let i = 1; i <= alloc; i++) {
           const idx = (queue.allocated || 0) + i
-          const isCompleted = idx <= queue.received_qty
           slots.push({
             id: `slot-${queue.id}-${idx}`,
             type,
@@ -86,31 +101,51 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
             queueId: queue.id,
             requestedQty: queue.requested_qty,
             receivedQty: queue.received_qty,
+            remainingQty: Math.max(queue.requested_qty - queue.received_qty, 0),
             status: queue.status,
-            isCompleted: isCompleted,
             isEmpty: false,
             isMe: queue.uid_game === myProfile?.uid_game
           })
           availableStock--
         }
         queue.allocated = (queue.allocated || 0) + alloc
-        availableStock -= alloc
       }
 
+      // Add empty slots
       for (let i = 0; i < availableStock; i++) {
         slots.push({
           id: `empty-${type}-${i}`,
-          type, ...ITEM_CONFIG[type],
+          type,
+          ...ITEM_CONFIG[type],
           assignedTo: '--- เปิดว่างให้กดอิสระ ---',
-          uid: '', isMe: false, isEmpty: true
+          uid: '',
+          isMe: false,
+          isEmpty: true
         })
       }
     })
 
-    if (activeSubTab !== 'all') return slots.filter(s => s.type === activeSubTab)
-    if (DEBUG_AUCTION && typeof window !== 'undefined') console.debug('[AuctionBoard] mappedSlots', slots)
-    return slots
-  }, [todayItems, memberQueues, activeSubTab, myProfile, isAdmin, limits, positions])
+    // Save to sessionStorage and state
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('auctionMappedSlots', JSON.stringify(slots))
+    }
+    setStoredMappedSlots(slots)
+    
+    if (DEBUG_AUCTION && typeof window !== 'undefined') {
+      console.debug('[AuctionBoard] Generated slots from source data', slots)
+    }
+  }
+
+  generateSlots()
+}, [todayItems, memberQueues, myProfile])
+
+// ✅ เปลี่ยน: Filter slots ตาม activeSubTab - ไม่ regenerate
+const mappedSlots = useMemo(() => {
+  if (activeSubTab !== 'all') {
+    return storedMappedSlots.filter(s => s.type === activeSubTab)
+  }
+  return storedMappedSlots
+}, [storedMappedSlots, activeSubTab])
 
   const slotsPerPage = 4
   const totalPages = Math.ceil(mappedSlots.length / slotsPerPage) || 1
@@ -200,7 +235,12 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
 
       {isAdmin && (
         <div className="w-full flex flex-col gap-4 sticky top-24">
-          <AdminForm positions={positions} setPositions={setPositions} onSave={handleAdminSave} isSaving={isSaving} />
+          <AdminForm 
+          positions={positions} 
+          setPositions={setPositions} 
+          onSave={handleAdminSave} 
+          isSaving={isSaving} 
+          onRefresh={handleRefresh}/>
         </div>
       )}
     </div>

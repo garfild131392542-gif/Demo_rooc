@@ -48,7 +48,7 @@
 - `isEmpty?`
 - `isCompleted?`
 
-`isCompleted` เป็น optional property ที่ช่วยให้ component ตรวจสอบสถานะ completed ของ slot ได้โดยตรง
+`isCompleted` เป็น optional property ที่ช่วยให้ component ตรวจสอบสถานะ completed ของ slot ได้โดยตรง 
 
 #### `AuctionHistoryEntry`
 โครงสร้างข้อมูลประวัติ:

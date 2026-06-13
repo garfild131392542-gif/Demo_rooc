@@ -34,7 +34,7 @@ type AuctionHistoryEntry = {
   awarded_at?: string | null
 }
 
-import { awardAuctionQueue, skipAuctionQueue } from '@/app/actions/auction'
+import { awardAuctionQueue, deleteAuctionQueueReservation, updateAuctionQueueReservation } from '@/app/actions/auction'
 
 type AuctionWindowProps = {
   isAdmin: boolean
@@ -70,7 +70,36 @@ export default function AuctionWindow({
 }: AuctionWindowProps) {
   const [viewMode, setViewMode] = useState<'slots' | 'history' | 'queue'>('slots')
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({})
-  const [confirmedSlots, setConfirmedSlots] = useState<Record<string, { awardedQty: number; status: string }>>({})
+  const [confirmedSlots, setConfirmedSlots] = useState<Record<string, { awardedQty?: number; status?: string }>>({})
+  const [editQueueId, setEditQueueId] = useState<string | null>(null)
+  const [editQty, setEditQty] = useState<string>('')
+  const [editLoading, setEditLoading] = useState(false)
+
+  const editingQueue = editQueueId ? memberQueues.find(q => q.id === editQueueId) : undefined
+
+  const closeEditModal = () => {
+    setEditQueueId(null)
+    setEditQty('')
+    setEditLoading(false)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingQueue) return
+    const requestedQty = parseInt(editQty, 10)
+    if (isNaN(requestedQty) || requestedQty < Math.max(1, editingQueue.received_qty)) {
+      alert(`จำนวนที่แก้ไขต้องไม่น้อยกว่าจำนวนที่ได้รับแล้ว (${editingQueue.received_qty})`)
+      return
+    }
+    setEditLoading(true)
+    const result = await updateAuctionQueueReservation(editingQueue.id, requestedQty)
+    setEditLoading(false)
+    if (!result.success) {
+      alert('ไม่สามารถแก้ไขได้: ' + result.error)
+      return
+    }
+    closeEditModal()
+    await onRefresh()
+  }
 
   // 🌟 ไม่ต้องแยก Assigned กับ Free แล้ว จับรวมกันไปเลย!
   
@@ -121,16 +150,20 @@ export default function AuctionWindow({
           ) : (
             // 🌟 กรณี "มีคนจอง" โชว์ Badge + โควต้า + ปุ่ม เหมือนเดิม
             <>
+              {/* ป้ายสถานะ เปลี่ยนสีตาม isCompleted (fallback ถ้า prop หายไป) */}
               <div className="flex flex-col justify-center order-1">
-                {localStatus === 'confirmed' ? (
-                  <span className="text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200 font-bold whitespace-nowrap">ประมูลเสร็จแล้ว</span>
-                ) : localStatus === 'completed' ? (
-                  <span className="text-xs px-3 py-1.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-200 font-bold whitespace-nowrap">ประมูลเสร็จแล้ว</span>
-                ) : localStatus === 'partial' ? (
-                  <span className="text-xs px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-200 font-bold whitespace-nowrap">กำลังทยอยรับ</span>
-                ) : (
-                  <span className="text-xs px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300 font-bold whitespace-nowrap">รอประมูล</span>
-                )}
+                {(() => {
+                  const computedCompleted = typeof slot.isCompleted === 'boolean'
+                    ? slot.isCompleted
+                    : (typeof slot.receivedQty === 'number' && typeof slot.requestedQty === 'number')
+                      ? slot.receivedQty >= slot.requestedQty
+                      : false
+                  return computedCompleted ? (
+                    <span className="text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200 font-bold whitespace-nowrap">ประมูลเสร็จแล้ว</span>
+                  ) : (
+                    <span className="text-xs px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300 font-bold whitespace-nowrap">รอประมูล</span>
+                  )
+                })()}
               </div>
 
               {isAdmin && slot.queueId ? (
@@ -184,6 +217,54 @@ export default function AuctionWindow({
     )
   }
 
+  const renderEditModal = () => {
+    if (!editingQueue) return null
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+        <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+            <div>
+              <div className="text-lg font-semibold text-slate-900 dark:text-slate-100">แก้ไขจำนวนคิว</div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">{editingQueue.display_name} • {editingQueue.item_type}</div>
+            </div>
+            <button type="button" onClick={closeEditModal} className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">ปิด</button>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">จำนวนที่จอง</label>
+              <input
+                type="number"
+                min={Math.max(1, editingQueue.received_qty)}
+                value={editQty}
+                onChange={(e) => setEditQty(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-3 text-slate-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              />
+              <p className="text-xs text-slate-500 dark:text-slate-400">จำนวนต้องไม่น้อยกว่าที่ได้รับแล้ว ({editingQueue.received_qty})</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={handleSaveEdit}
+                disabled={editLoading}
+                className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+              >
+                {editLoading ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
+              </button>
+              <button
+                type="button"
+                onClick={closeEditModal}
+                className="flex-1 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              >
+                ยกเลิก
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ---------------- HTML โครงสร้างเดิมด้านล่าง ----------------
   return (
     <div className="w-full bg-slate-50 dark:bg-[#0f172a] rounded-3xl p-2.5 shadow-xl relative overflow-hidden font-sans border-2 border-slate-200 dark:border-slate-700 transition-colors h-full flex flex-col">
       
@@ -283,31 +364,32 @@ export default function AuctionWindow({
                           <>
                             <button
                               type="button"
-                              disabled={actionLoading[queue.id] || queue.requested_qty <= queue.received_qty}
+                              disabled={actionLoading[queue.id]}
                               onClick={async () => {
-                                const remaining = queue.requested_qty - queue.received_qty
-                                if (remaining <= 0) return
-                                setActionLoading(prev => ({ ...prev, [queue.id]: true }))
-                                await awardAuctionQueue(queue.id, 1)
-                                setActionLoading(prev => ({ ...prev, [queue.id]: false }))
-                                onRefresh()
+                                setEditQueueId(queue.id)
+                                setEditQty(String(queue.requested_qty))
                               }}
-                              className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold py-2.5 disabled:opacity-50 transition-colors shadow-sm shadow-emerald-500/20 flex items-center justify-center gap-1.5"
+                              className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 disabled:opacity-50 transition-colors shadow-sm shadow-blue-500/20 flex items-center justify-center gap-1.5"
                             >
-                              {actionLoading[queue.id] ? 'กำลังบันทึก...' : <><span>📦</span> บันทึก 1 ชิ้น</>}
+                              {actionLoading[queue.id] ? 'กำลังบันทึก...' : <><span>✏️</span> แก้ไข</>}
                             </button>
                             <button
                               type="button"
                               disabled={actionLoading[queue.id]}
                               onClick={async () => {
+                                if (!confirm('ยืนยันการลบคิวนี้?')) return
                                 setActionLoading(prev => ({ ...prev, [queue.id]: true }))
-                                await skipAuctionQueue(queue.id)
+                                const result = await deleteAuctionQueueReservation(queue.id)
                                 setActionLoading(prev => ({ ...prev, [queue.id]: false }))
-                                onRefresh()
+                                if (!result.success) {
+                                  alert('ไม่สามารถลบได้: ' + result.error)
+                                } else {
+                                  await onRefresh()
+                                }
                               }}
-                              className="w-full rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-semibold py-2.5 hover:bg-slate-300 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                              className="w-full rounded-xl bg-rose-500 hover:bg-rose-400 text-white text-sm font-semibold py-2.5 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
                             >
-                              <span>⏭️</span> ข้ามคิวนี้
+                              <span>🗑️</span> ลบ
                             </button>
                           </>
                         ) : (
@@ -367,6 +449,7 @@ export default function AuctionWindow({
           )}
         </div>
       </div>
+      {renderEditModal()}
     </div>
   )
 }

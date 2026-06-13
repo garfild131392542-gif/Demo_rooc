@@ -45,6 +45,21 @@ export async function saveAuctionSession(items: { item_type: ItemType; total_qua
   }
 }
 
+async function getAuctionSessionPersonalLimit(supabase: any, guildId: string, itemType: ItemType) {
+  const today = new Date().toISOString().split('T')[0]
+  const { data, error } = await supabase
+    .from('auction_sessions')
+    .select('personal_limit')
+    .eq('guild_id', guildId)
+    .eq('item_name', itemType)
+    .eq('session_date', today)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (error) throw error
+  return data?.personal_limit ?? null
+}
+
 // 2. สมาชิกจองคิว
 export async function joinAuctionQueue(itemType: ItemType, requestedQty: number) {
   try {
@@ -94,6 +109,64 @@ export async function joinAuctionQueue(itemType: ItemType, requestedQty: number)
   }
 }
 
+// New: batch join multiple items in a single server action to reduce roundtrips
+export async function joinAuctionQueues(items: { itemType: ItemType; qty: number }[]) {
+  try {
+    const session = await getSession()
+    if (!session?.profile) return { success: false, error: 'กรุณาเข้าสู่ระบบ' }
+
+    const supabase = await createClient()
+
+    const itemNames = items.map(i => i.itemType)
+
+    // Fetch existing queues for these item types
+    const { data: existingQueues } = await supabase
+      .from('auction_queues')
+      .select('id, item_name, requested_qty')
+      .eq('user_id', session.profile.id)
+      .in('item_name', itemNames)
+      .in('status', ['waiting', 'partial'])
+
+    const inserts: any[] = []
+
+    // Perform updates sequentially (TypeScript types from Postgrest client aren't Promise),
+    // and collect inserts to run in a single batch insert.
+    for (const { itemType, qty } of items) {
+      const existing = (existingQueues || []).find((q: any) => q.item_name === itemType)
+      if (existing) {
+        const { error } = await supabase
+          .from('auction_queues')
+          .update({ requested_qty: existing.requested_qty + qty, updated_at: new Date().toISOString() })
+          .eq('id', existing.id)
+
+        if (error) throw error
+      } else {
+        inserts.push({
+          guild_id: session.profile.guild_id,
+          user_id: session.profile.id,
+          item_name: itemType,
+          requested_qty: qty,
+          received_qty: 0,
+          status: 'waiting',
+          queue_timestamp: new Date().toISOString()
+        })
+      }
+    }
+
+    if (inserts.length > 0) {
+      const { error } = await supabase.from('auction_queues').insert(inserts as any)
+      if (error) throw error
+    }
+
+    // Revalidate once
+    revalidatePath('/')
+    revalidatePath('/profile')
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+
 // 3. ดึงข้อมูลทั้งหมดมาแสดงผล
 export async function getTodayAuctionDashboard() {
   try {
@@ -114,7 +187,7 @@ export async function getTodayAuctionDashboard() {
       .from('auction_queues')
       .select('*, profiles:user_id(display_name, uid_game)')
       .eq('guild_id', session.profile.guild_id)
-      .in('status', ['waiting', 'partial'])
+      .in('status', ['waiting', 'partial', 'completed'])
       .order('queue_timestamp', { ascending: true })
 
     const processedQueues = (rawQueues || []).map((q: any) => ({
@@ -187,10 +260,18 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
       return { success: false, error: 'ไม่สามารถจัดการคิวข้ามกิลด์ได้' }
     }
 
-    const remaining = queue.requested_qty - queue.received_qty
+    const personalLimit = await getAuctionSessionPersonalLimit(supabase, session.profile.guild_id, queue.item_name as ItemType)
+    if (personalLimit === null) {
+      return { success: false, error: 'ไม่พบรายการประมูลสำหรับไอเท็มนี้ในวันนี้' }
+    }
+
+    const remainingRequest = Math.max(queue.requested_qty - queue.received_qty, 0)
+    const remainingLimit = Math.max(personalLimit - queue.received_qty, 0)
+    const remaining = Math.min(remainingRequest, remainingLimit)
     const awarded = Math.min(Math.max(awardQty, 1), remaining)
-    if (awarded <= 0) {
-      return { success: false, error: 'ไม่มีจำนวนให้แจกในคิวนี้' }
+
+    if (remaining <= 0 || awarded <= 0) {
+      return { success: false, error: 'คุณได้รับแล้วครบตามลิมิตต่อคนในรอบนี้' }
     }
 
     const newReceived = queue.received_qty + awarded

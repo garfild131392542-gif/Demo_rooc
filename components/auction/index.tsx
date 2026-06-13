@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveAuctionSession } from '@/app/actions/auction'
 import { ITEM_CONFIG } from './constants'
@@ -8,13 +8,16 @@ import AuctionWindow from './AuctionWindow'
 import AdminForm from './AdminForm'
 import AdminLimits from './AdminLimits'
 
-export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh?: () => void }) {
+export default function AuctionBoard({ data: initialData, onRefresh }: { data: any; onRefresh?: () => void }) {
   const router = useRouter()
+  const [data, setData] = useState(initialData)
   const { isAdmin, todayItems, memberQueues, myProfile, history = [] } = data
   
   const [currentPage, setCurrentPage] = useState(1)
   const [activeSubTab, setActiveSubTab] = useState<'all' | 'Album' | 'Puppet' | 'White' | 'RedBlack'>('all')
   const [isSaving, setIsSaving] = useState(false)
+  // Debug flag to help trace slot generation in browser console when investigating UI issues
+  const DEBUG_AUCTION = true
   
   // 🌟 ดึงค่าตั้งต้นจาก Database มาแสดงเป็นค่าเริ่มต้นให้แอดมิน
   const [limits, setLimits] = useState<Record<'Album' | 'Puppet' | 'White' | 'RedBlack', number | ''>>(() => {
@@ -45,46 +48,54 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
     const priorityOrder: ('Album' | 'Puppet' | 'White' | 'RedBlack')[] = ['Album', 'Puppet', 'White', 'RedBlack']
 
     priorityOrder.forEach(type => {
-      let availableStock = 0;
-      let limit = 1;
-
-      if (isAdmin) {
-        availableStock = Number(positions[type].total) || 0;
-        limit = Number(limits[type]) || 1;
-      } else {
-        // 🌟 ดักเผื่อ todayItems เป็น undefined
-        const session = (todayItems || []).find((s: any) => s.item_name === type)
-        if (session) {
-          availableStock = session.total_quantity;
-          limit = session.personal_limit;
-        }
-      }
+      const session = (todayItems || []).find((s: any) => s.item_name === type)
+      let availableStock = session ? Number(session.total_quantity) || 0 : 0
+      const personalLimit = session ? Number(session.personal_limit) || 0 : 0
 
       if (availableStock <= 0) return
 
-      const queues = (memberQueues || []).filter((q: any) => q.item_type === type)
+      // แนบตัวแปร allocated เพื่อจำว่าแจกไปกี่กล่องแล้ว
+      const queues = (normalizedQueues || [])
+        .filter((q: any) => q.item_type === type)
+        .map((q: any) => {
+          const remainingRequest = Math.max(q.requested_qty - q.received_qty, 0)
+          const remainingLimit = Math.max(personalLimit - q.received_qty, 0)
+          return {
+            ...q,
+            allocated: 0,
+            maxAllocatable: Math.min(remainingRequest, remainingLimit)
+          }
+        })
+        .filter((q: any) => q.maxAllocatable > 0)
 
-      queues.forEach((userQueue: any) => {
-        if (availableStock <= 0) return
-        const stillNeeds = userQueue.requested_qty - userQueue.received_qty
-        const allocatedThisRound = Math.min(stillNeeds, limit, availableStock)
-
-        for (let i = 0; i < allocatedThisRound; i++) {
+      // Allocate grouped: give each queue up to its maxAllocatable in one block,
+      // so a user's slots appear consecutively instead of round-robin.
+      for (const queue of queues) {
+        if (availableStock <= 0) break
+        const remainingForQueue = Math.max(queue.maxAllocatable - (queue.allocated || 0), 0)
+        const alloc = Math.min(availableStock, remainingForQueue)
+        for (let i = 1; i <= alloc; i++) {
+          const idx = (queue.allocated || 0) + i
+          const isCompleted = idx <= queue.received_qty
           slots.push({
-            id: `slot-${userQueue.id}-${type}-${i}`,
-            type, ...ITEM_CONFIG[type],
-            assignedTo: userQueue.display_name,
-            uid: userQueue.uid_game,
-            queueId: userQueue.id,
-            requestedQty: userQueue.requested_qty,
-            receivedQty: userQueue.received_qty,
-            remainingQty: stillNeeds,
-            status: userQueue.status,
-            isMe: userQueue.uid_game === myProfile?.uid_game
+            id: `slot-${queue.id}-${idx}`,
+            type,
+            ...ITEM_CONFIG[type],
+            assignedTo: queue.display_name,
+            uid: queue.uid_game,
+            queueId: queue.id,
+            requestedQty: queue.requested_qty,
+            receivedQty: queue.received_qty,
+            status: queue.status,
+            isCompleted: isCompleted,
+            isEmpty: false,
+            isMe: queue.uid_game === myProfile?.uid_game
           })
           availableStock--
         }
-      })
+        queue.allocated = (queue.allocated || 0) + alloc
+        availableStock -= alloc
+      }
 
       for (let i = 0; i < availableStock; i++) {
         slots.push({
@@ -97,6 +108,7 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
     })
 
     if (activeSubTab !== 'all') return slots.filter(s => s.type === activeSubTab)
+    if (DEBUG_AUCTION && typeof window !== 'undefined') console.debug('[AuctionBoard] mappedSlots', slots)
     return slots
   }, [todayItems, memberQueues, activeSubTab, myProfile, isAdmin, limits, positions])
 
@@ -105,6 +117,16 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
   const currentSlots = mappedSlots.slice((currentPage - 1) * slotsPerPage, currentPage * slotsPerPage)
 
   const handleRefresh = async () => {
+    try {
+      const response = await fetch('/api/auction/dashboard')
+      if (!response.ok) throw new Error('Failed to fetch dashboard data')
+      const newData = await response.json()
+      if (newData.success) {
+        setData(newData)
+      }
+    } catch (error) {
+      console.error('Error refreshing auction data:', error)
+    }
     await onRefresh?.()
     router.refresh()
   }

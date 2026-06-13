@@ -69,6 +69,13 @@ export default function AdminForm({ positions, setPositions, onSave, isSaving }:
     }))
   }
 
+  const handleTotalFocus = (type: AuctionItemType) => {
+    const totalValue = displayTotal(type)
+    if (totalValue === 0) {
+      handleTotalChange(type, '')
+    }
+  }
+
   const displayTotal = (type: AuctionItemType) => {
     return manualTotalDrafts[type] ? draftTotals[type] : positions[type].total
   }
@@ -99,6 +106,7 @@ export default function AdminForm({ positions, setPositions, onSave, isSaving }:
                   min={0}
                   placeholder="จำนวน"
                   value={totalValue === '' ? '' : totalValue}
+                  onFocus={() => handleTotalFocus(type)}
                   onChange={e => handleTotalChange(type, e.target.value)}
                   className={`w-full text-center text-xl font-black font-mono ${typeof totalValue === 'number' && totalValue > 0 ? 'text-green-500 dark:text-green-400' : 'text-slate-300 dark:text-slate-600'} bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg p-2 outline-none focus:border-blue-500`}
                 />

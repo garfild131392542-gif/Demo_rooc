@@ -1,4 +1,5 @@
 import { getAuctionHistory, getTodayAuctionDashboard } from '@/app/actions/auction'
+import { revalidatePath } from 'next/cache'
 
 import AuctionBoard from '@/components/auction' // ดึงจากโฟลเดอร์มาเลย
 
@@ -10,11 +11,10 @@ export default async function AuctionPage() {
     history: historyResult.success ? historyResult.history : []
   }
   
-  // สร้าง Server Action แบบ inline เล็กๆ เพื่อส่งเป็น prop ให้ onRefresh()
+  // Server Action ที่จริงๆ revalidate cache เพื่อให้ข้อมูลใหม่
   async function reloadData() {
     'use server'
-    // Next.js ควรรีเฟรชให้เองจาก revalidatePath ภายใน actions แล้ว
-    // ฟังก์ชันนี้แค่ให้ Component มี callback เฉยๆ
+    revalidatePath('/auction')
   }
 
   return (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveAuctionSession } from '@/app/actions/auction'
 import { ITEM_CONFIG } from './constants'
@@ -8,13 +8,16 @@ import AuctionWindow from './AuctionWindow'
 import AdminForm from './AdminForm'
 import AdminLimits from './AdminLimits'
 
-export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh?: () => void }) {
+export default function AuctionBoard({ data: initialData, onRefresh }: { data: any; onRefresh?: () => void }) {
   const router = useRouter()
+  const [data, setData] = useState(initialData)
   const { isAdmin, todayItems, memberQueues, myProfile, history = [] } = data
   
   const [currentPage, setCurrentPage] = useState(1)
   const [activeSubTab, setActiveSubTab] = useState<'all' | 'Album' | 'Puppet' | 'White' | 'RedBlack'>('all')
   const [isSaving, setIsSaving] = useState(false)
+  // Debug flag to help trace slot generation in browser console when investigating UI issues
+  const DEBUG_AUCTION = true
   
   const [limits, setLimits] = useState<Record<'Album' | 'Puppet' | 'White' | 'RedBlack', number | ''>>(() => {
     const init: Record<'Album' | 'Puppet' | 'White' | 'RedBlack', number | ''> = { Album: '', Puppet: '', White: '', RedBlack: '' }
@@ -37,103 +40,162 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
     return init
   })
 
-  const normalizedQueues = useMemo(() => {
-    const grouped = new Map<string, any>()
-    ;(memberQueues || []).forEach((queue: any) => {
-      const key = `${queue.user_id ?? queue.uid_game}-${queue.item_type}`
-      if (!grouped.has(key)) {
-        grouped.set(key, { ...queue, queue_timestamp: queue.queue_timestamp })
-      } else {
-        const existing = grouped.get(key)
-        existing.requested_qty += queue.requested_qty
-        existing.received_qty += queue.received_qty
-        if (queue.queue_timestamp && (!existing.queue_timestamp || new Date(queue.queue_timestamp) < new Date(existing.queue_timestamp))) {
-          existing.queue_timestamp = queue.queue_timestamp
-        }
-        existing.status = existing.received_qty >= existing.requested_qty ? 'ครบแล้ว' : 'รอรับ'
-      }
-    })
-    return Array.from(grouped.values())
-  }, [memberQueues])
-
-  // 🌟 [ปรับปรุงใหม่] สร้างกล่องประมูลตามยอด "จอง" กล่องจะไม่หายไปไหน
+  // ✨ ใหม่: Direct mapping จาก memberQueues - แต่ละ row = 1 slot (no allocation logic)
   const mappedSlots = useMemo(() => {
     let slots: any[] = []
     const priorityOrder: ('Album' | 'Puppet' | 'White' | 'RedBlack')[] = ['Album', 'Puppet', 'White', 'RedBlack']
 
+    // ✨ Group by booking session: (user_id, item_type, queue_timestamp)
+    const bookingGroups = new Map<string, any[]>()
+    const queuesByType = (memberQueues || []).reduce((acc: any, q: any) => {
+      if (!acc[q.item_type]) acc[q.item_type] = []
+      acc[q.item_type].push(q)
+      
+      // Create booking session key
+      const sessionKey = `${q.uid_game}|${q.item_type}|${q.queue_timestamp || 'no-timestamp'}`
+      if (!bookingGroups.has(sessionKey)) {
+        bookingGroups.set(sessionKey, [])
+      }
+      bookingGroups.get(sessionKey)!.push(q)
+      
+      return acc
+    }, {})
+
+    // ✨ สำหรับแต่ละ type ให้ทำการ populate empty slots ก่อน
     priorityOrder.forEach(type => {
-      let availableStock = 0
-
-      if (isAdmin) {
-        availableStock = Number(positions[type].total) || 0
-      } else {
-        const session = (todayItems || []).find((s: any) => s.item_name === type)
-        if (session) availableStock = session.total_quantity
-      }
-
-      if (availableStock <= 0) return
-
-      // แนบตัวแปร allocated เพื่อจำว่าแจกไปกี่กล่องแล้ว
-      const queues = (normalizedQueues || [])
-        .filter((q: any) => q.item_type === type)
-        .map((q: any) => ({
-          ...q,
-          allocated: 0
-        }))
-
-      let page = 0
-      // ลูปจนกว่าของจะหมด หรือคนได้ของครบตามยอดจอง
-      while (availableStock > 0 && queues.some((q: any) => q.allocated < q.requested_qty)) {
-        for (const queue of queues) {
-          if (availableStock <= 0) break
-          if (queue.allocated >= queue.requested_qty) continue
-
-          queue.allocated += 1
-          availableStock -= 1
-
-          // 💡 เช็คว่ากล่องคิวนี้ ถูกกดยืนยันให้ของไปแล้วหรือยัง
-          const isCompleted = queue.allocated <= queue.received_qty
-
-          slots.push({
-            id: `slot-${queue.id}-${queue.allocated}`, // ไอดีไม่ซ้ำกันแล้ว กดกล่องไหนโหลดกล่องนั้น
-            type,
-            ...ITEM_CONFIG[type],
-            assignedTo: queue.display_name,
-            uid: queue.uid_game,
-            queueId: queue.id,
-            requestedQty: queue.requested_qty,
-            receivedQty: queue.received_qty,
-            isCompleted: isCompleted, // 💡 ส่งไปให้ UI ว่ากล่องนี้กดประมูลเสร็จหรือยัง
-            isEmpty: false,
-            isMe: queue.uid_game === myProfile?.uid_game
-          })
+      const session = (todayItems || []).find((s: any) => s.item_name === type)
+      const itemConfig = ITEM_CONFIG[type]
+      const personalLimit = session?.personal_limit ?? 0
+      
+      // Safe guard: skip if no session or config
+      if (!itemConfig) return
+      
+      // ✨ Count total slots per user for this item type
+      const userTotalSlotsMap = new Map<string, number>()
+      ;(queuesByType[type] || []).forEach((q: any) => {
+        const key = q.uid_game
+        userTotalSlotsMap.set(key, (userTotalSlotsMap.get(key) ?? 0) + 1)
+      })
+      
+      // ✨ Filter by personal_limit: only show slots if user's total doesn't exceed limit
+      let shownCountPerUser = new Map<string, number>() // Track how many we've shown per user
+      const qualifiedQueues = (queuesByType[type] || []).filter((q: any) => {
+        const totalSlots = userTotalSlotsMap.get(q.uid_game) ?? 0
+        const alreadyShown = shownCountPerUser.get(q.uid_game) ?? 0
+        const shouldShow = alreadyShown < personalLimit
+        
+        if (shouldShow) {
+          shownCountPerUser.set(q.uid_game, alreadyShown + 1)
         }
-        page += 1
-      }
+        
+        return shouldShow
+      })
+      
+      // ✨ Sort by stable identifiers to maintain consistent order
+      // Sort by: queue_timestamp → slot_number → id
+      qualifiedQueues.sort((a: any, b: any) => {
+        const timeA = a.queue_timestamp || ''
+        const timeB = b.queue_timestamp || ''
+        if (timeA !== timeB) return timeA.localeCompare(timeB)
+        
+        const slotA = a.slot_number ?? 0
+        const slotB = b.slot_number ?? 0
+        if (slotA !== slotB) return slotA - slotB
+        
+        return (a.id || '').localeCompare(b.id || '')
+      })
+      
+      // ✨ Group by booking session
+      const sessionMap = new Map<string, any[]>()
+      qualifiedQueues.forEach((q: any) => {
+        const sessionKey = `${q.queue_timestamp || 'no-timestamp'}`
+        if (!sessionMap.has(sessionKey)) {
+          sessionMap.set(sessionKey, [])
+        }
+        sessionMap.get(sessionKey)!.push(q)
+      })
+      
+      let allocatedCount = qualifiedQueues.length ?? 0
+      const totalQuantity = Math.max(0, Number(session?.total_quantity ?? 0));
 
-      for (let i = 0; i < availableStock; i++) {
+      // Add booked slots (all individual, but grouped by session)
+      sessionMap.forEach((sessionQueues, sessionKey) => {
+        const totalInSession = sessionQueues.length
+        
+        // Add ALL slots in the session with session metadata
+        sessionQueues.forEach((q, slotIndexInSession) => {
+          slots.push({
+            id: `slot-${q.id}`,  // ✨ Use actual queue id
+            type,
+            ...itemConfig,
+            assignedTo: q.display_name,
+            uid: q.uid_game,
+            queueId: q.id,
+            requestedQty: q.requested_qty,
+            receivedQty: q.received_qty,
+            remainingQty: Math.max(q.requested_qty - q.received_qty, 0),
+            status: q.status,
+            isEmpty: false,
+            isMe: q.uid_game === myProfile?.uid_game,
+            slotIndex: q.slot_number || 1,
+            // ✨ NEW: Booking session info
+            bookingSessionSize: totalInSession,
+            queueTimestamp: sessionKey,
+            isFirstInSession: slotIndexInSession === 0  // Mark first slot for header display
+          })
+        })
+      })
+
+      // Add empty slots
+      const emptyCount = Math.max(totalQuantity - allocatedCount, 0)
+      for (let i = 0; i < emptyCount; i++) {
         slots.push({
           id: `empty-${type}-${i}`,
           type,
-          ...ITEM_CONFIG[type],
-          assignedTo: '--- เปิดว่างให้กดอิสระ ---',
+          ...itemConfig,
+          assignedTo: '--- ไม่มีใครจอง ---',
           uid: '',
           isMe: false,
-          isEmpty: true,
-          isCompleted: false
+          isEmpty: true
         })
       }
     })
 
-    if (activeSubTab !== 'all') return slots.filter(s => s.type === activeSubTab)
+    // ✨ Filter by activeSubTab
+    if (activeSubTab !== 'all') {
+      slots = slots.filter(s => s.type === activeSubTab)
+    }
+
+    if (DEBUG_AUCTION && typeof window !== 'undefined') {
+      console.debug('[AuctionBoard] Slots mapped with booking sessions', {
+        totalQueues: (memberQueues || []).length,
+        totalSlots: slots.length,
+        bookingGroups: Array.from(bookingGroups.entries()).map(([key, queues]) => ({
+          key,
+          count: queues.length
+        })),
+        slots
+      })
+    }
+
     return slots
-  }, [todayItems, normalizedQueues, activeSubTab, myProfile, isAdmin, positions])
+  }, [memberQueues, todayItems, activeSubTab, myProfile])
 
   const slotsPerPage = 4
   const totalPages = Math.ceil(mappedSlots.length / slotsPerPage) || 1
   const currentSlots = mappedSlots.slice((currentPage - 1) * slotsPerPage, currentPage * slotsPerPage)
 
   const handleRefresh = async () => {
+    try {
+      const response = await fetch('/api/auction/dashboard')
+      if (!response.ok) throw new Error('Failed to fetch dashboard data')
+      const newData = await response.json()
+      if (newData.success) {
+        setData(newData)
+      }
+    } catch (error) {
+      console.error('Error refreshing auction data:', error)
+    }
     await onRefresh?.()
     router.refresh()
   }
@@ -206,7 +268,12 @@ export default function AuctionBoard({ data, onRefresh }: { data: any; onRefresh
 
       {isAdmin && (
         <div className="w-full flex flex-col gap-4 sticky top-24">
-          <AdminForm positions={positions} setPositions={setPositions} onSave={handleAdminSave} isSaving={isSaving} />
+          <AdminForm 
+          positions={positions} 
+          setPositions={setPositions} 
+          onSave={handleAdminSave} 
+          isSaving={isSaving} 
+          onRefresh={handleRefresh}/>
         </div>
       )}
     </div>

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSession } from "./auth";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/server";
+import { buildProfileUpdatePayload } from "./profileHelpers";
 
 export interface ProfileSetupFormData {
   displayName?: string;
@@ -25,42 +26,11 @@ export async function updateMyProfile(formData: FormData) {
 
   const supabase = await createClient();
 
-  const display_name = formData.get("display_name") as string;
-  const job_name = formData.get("job_name") as string;
-
-  const pvp_reduc = parseInt(formData.get("pvp_reduc") as string) || 0;
-  const pvp_dmg = parseInt(formData.get("pvp_dmg") as string) || 0;
-  const p_def = parseInt(formData.get("p_def") as string) || 0;
-  const m_def = parseInt(formData.get("m_def") as string) || 0;
-  const p_atk = parseInt(formData.get("p_atk") as string) || 0;
-  const m_atk = parseInt(formData.get("m_atk") as string) || 0;
-  const p_dmg = parseFloat(formData.get("p_dmg") as string) || 0;
-  const m_dmg = parseFloat(formData.get("m_dmg") as string) || 0;
-  const p_reduc = parseFloat(formData.get("p_reduc") as string) || 0;
-  const m_reduc = parseFloat(formData.get("m_reduc") as string) || 0;
-  const hp = parseInt(formData.get("hp") as string) || 0;
-  const sp = parseInt(formData.get("sp") as string) || 0;
-  const ignore_pdef = parseInt(formData.get("ignore_pdef") as string) || 0;
-  const ignore_mdef = parseInt(formData.get("ignore_mdef") as string) || 0;
+  const payload = buildProfileUpdatePayload(formData);
 
   const { error } = await (supabase as any)
     .from("profiles")
-    .update({
-      display_name,
-      job_name,
-      pvp_reduc,
-      pvp_dmg,
-      p_def,
-      m_def,
-      p_atk,
-      m_atk,
-      p_dmg,
-      m_dmg,
-      p_reduc,
-      m_reduc,
-      hp, sp, ignore_pdef, ignore_mdef,
-      updated_at: new Date().toISOString(),
-    } as any)
+    .update(payload as any)
     .eq("id", (session as any).user?.id ?? (session as any).id);
 
   if (error) return { success: false, error: error.message };

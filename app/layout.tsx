@@ -5,6 +5,9 @@ import Navbar from "@/components/Navbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import NextTopLoader from 'nextjs-toploader';
 
+// 1. Import ตัวน้อง Poring เข้ามา (เปลี่ยนพาธให้ตรงกับที่คุณเซฟไฟล์ไว้นะครับ)
+import PoringAssistant from "@/components/PoringAssistant"; 
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -48,6 +51,10 @@ export default function RootLayout({
           <main className="flex-1">
             {children}
           </main>
+          
+          {/* 2. วางน้อง Poring ไว้ตรงนี้ครับ น้องจะลอยตามไปทุกๆ หน้า */}
+          <PoringAssistant />
+          
         </ThemeProvider>
       </body>
     </html>

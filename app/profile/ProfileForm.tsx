@@ -7,7 +7,8 @@ import Link from 'next/link';
 import { updateMyProfile } from "@/app/actions/profile";
 import { extractStatsFromImage } from "@/app/actions/ai";
 import { toggleMemberLeave } from "@/app/actions/admin";
-import { getMyAuctionReservations, updateAuctionQueueReservation, deleteAuctionQueueReservation, joinAuctionQueue, joinAuctionQueues } from "@/app/actions/auction";
+// ✨ เปลี่ยนมารับ syncUserAuctionQueues และเอา joinAuctionQueues ออก
+import { getMyAuctionReservations, updateAuctionQueueReservation, deleteAuctionQueueReservation, syncUserAuctionQueues } from "@/app/actions/auction";
 import { ITEM_CONFIG } from "@/components/auction/constants";
 import { Profile } from "@/components/Dashboard";
 
@@ -22,7 +23,6 @@ type QueueReservation = {
   queue_timestamp: string | null;
 };
 
-// 💡 ย้าย StatInput ออกมาไว้นอก ProfileForm
 const StatInput = ({ 
   label, 
   name, 
@@ -101,7 +101,6 @@ export default function ProfileForm({
     setShowGoToAuctionLink(false);
   };
 
-
   const fetchReservations = async () => {
     setIsReservationLoading(true);
     setMessage(null);
@@ -128,10 +127,6 @@ export default function ProfileForm({
     } finally {
       setIsReservationLoading(false);
     }
-  };
-
-  const handleDraftQtyChange = (id: string, value: string) => {
-    setReservationDraftQty((prev) => ({ ...prev, [id]: value }));
   };
 
   const handleUpdateReservation = async (id: string) => {
@@ -162,49 +157,23 @@ export default function ProfileForm({
     }
   };
 
-  const handleDeleteReservation = async (id: string) => {
-    if (!confirm("ยืนยันการยกเลิกการจองคิวนี้?")) return;
-
-    setReservationActionLoading(true);
-    setMessage(null);
-
-    try {
-      const result = await deleteAuctionQueueReservation(id);
-      if (result.success) {
-        setMessage({ type: "success", text: "ลบรายการจองคิวเรียบร้อยแล้ว" });
-        setShowGoToAuctionLink(true);
-        await fetchReservations();
-      } else {
-        setMessage({ type: "error", text: result.error || "ไม่สามารถลบรายการได้" });
-      }
-    } catch {
-      setMessage({ type: "error", text: "ระบบผิดพลาด กรุณาลองใหม่อีกครั้ง" });
-    } finally {
-      setReservationActionLoading(false);
-    }
-  };
-
+  // ✨ ฟังก์ชันสำหรับกดปุ่มฟอร์มด้านบน (ใช้ Sync)
   const handleMemberRegister = async () => {
+    // 1. นำข้อมูลทุกไอเทมแปลงเป็นตัวเลข ถ้าช่องว่างให้มีค่าเป็น 0
     const selectedItems = Object.entries(reservationQtys)
       .map(([key, value]) => ({
         itemType: key as 'Album' | 'Puppet' | 'White' | 'RedBlack',
-        qty: parseInt(value, 10),
-      }))
-      .filter((entry) => !isNaN(entry.qty) && entry.qty > 0);
-
-    if (selectedItems.length === 0) {
-      setMessage({ type: 'error', text: 'กรุณาเลือกไอเทมและจำนวนก่อนครับ' });
-      return;
-    }
+        qty: parseInt(value || "0", 10), 
+      }));
 
     setIsReservationSubmitting(true);
     setMessage(null);
 
     try {
-      // Use batch server action to reduce round trips & revalidation cost
-      const res = await joinAuctionQueues(selectedItems as any);
+      // 2. เรียกใช้งาน Server Action ระบบ Sync ข้อมูล (ลบของที่ใส่ 0 อัตโนมัติ)
+      const res = await syncUserAuctionQueues(selectedItems as any);
       if (res.success) {
-        setMessage({ type: 'success', text: 'ลงทะเบียนจองคิวสำเร็จ!' });
+        setMessage({ type: 'success', text: 'ซิงค์ข้อมูลการจองคิวสำเร็จ!' });
         setShowGoToAuctionLink(true);
         setReservationQtys({ Album: '', Puppet: '', White: '', RedBlack: '' });
         await fetchReservations();
@@ -413,7 +382,6 @@ export default function ProfileForm({
         </div>
       )}
 
-      {/* 🌟 ปรับ Grid Gap ให้กว้างขึ้น (xl:gap-8) */}
       <form
         onSubmit={handleSubmit}
         className={`${isAiLoading || isPending ? "pointer-events-none opacity-70 blur-sm" : ""} transition-all duration-300 grid grid-cols-1 lg:grid-cols-12 gap-6`}
@@ -472,7 +440,6 @@ export default function ProfileForm({
             </div>
           </div>
 
-          
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">คิวประมูล</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">จัดการจำนวนกล่องที่ต้องการรับจากการประมูล</p>
@@ -571,7 +538,6 @@ export default function ProfileForm({
               ) : (
                 <div className="space-y-4">
                   {(() => {
-                    // ✨ Group reservations by item_name + queue_timestamp
                     const sessionMap = new Map<string, QueueReservation[]>();
                     const sessionOrder: string[] = [];
                     
@@ -584,7 +550,6 @@ export default function ProfileForm({
                       sessionMap.get(sessionKey)!.push(res);
                     });
                     
-                    // Render each session as a group
                     return sessionOrder.map((sessionKey) => {
                       const sessionReservations = sessionMap.get(sessionKey) || [];
                       const firstRes = sessionReservations[0];
@@ -617,44 +582,43 @@ export default function ProfileForm({
                           </div>
 
                           <div className="mt-5 grid gap-3 sm:grid-cols-[1.5fr_1fr_1fr]">
-                            <div>
+                            <div className="sm:col-span-2">
                               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                                ระบิจำนวนที่ต้องการ
+                                ระบุจำนวนที่ต้องการ
                               </label>
                               <input 
                                 type="number" 
-                                min={Math.max(1, totalReceived)} 
                                 value={totalRequested}
                                 disabled
                                 className="block w-full rounded-xl border-0 py-2 px-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 dark:bg-slate-900 dark:text-white dark:ring-slate-700 sm:text-sm font-semibold bg-slate-100 dark:bg-slate-800 cursor-not-allowed"
                               />
                               <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-500">รวมจำนวนที่จอง ({sessionReservations.length} รายการ)</p>
                             </div>
+
+                            {/* ✨ ปุ่มลบเปลี่ยน Logic เป็น Loop อัปเดตคิวลบให้เกลี้ยง */}
                             <button 
                               type="button" 
-                              onClick={() => {
-                                // Update all slots in this session
-                                sessionReservations.forEach(res => {
-                                  handleUpdateReservation(String(res.id));
-                                });
+                              onClick={async () => {
+                                if (!confirm("ยืนยันการยกเลิกการจองคิวไอเทมนี้ทั้งหมด?")) return;
+                                
+                                setReservationActionLoading(true);
+                                try {
+                                  // วนลูปใช้ deleteAuctionQueueReservation ยิงลบออกจากตาราง DB รัวๆ
+                                  for (const res of sessionReservations) {
+                                    await deleteAuctionQueueReservation(String(res.id));
+                                  }
+                                  setMessage({ type: "success", text: "ยกเลิกคิวไอเทมนี้ออกจากฐานข้อมูลสำเร็จ" });
+                                  await fetchReservations();
+                                } catch (err) {
+                                  setMessage({ type: "error", text: "ไม่สามารถยกเลิกคิวได้ทั้งหมด" });
+                                } finally {
+                                  setReservationActionLoading(false);
+                                }
                               }} 
                               disabled={reservationActionLoading} 
-                              className="cursor-pointer mt-6 sm:mt-0 h-11 self-center rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition-colors"
+                              className="cursor-pointer mt-3 sm:mt-0 h-11 self-center w-full rounded-xl border border-rose-300 bg-white px-4 text-sm font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-400 disabled:opacity-50 transition-colors"
                             >
-                              อัปเดต
-                            </button>
-                            <button 
-                              type="button" 
-                              onClick={() => {
-                                // Delete all slots in this session
-                                sessionReservations.forEach(res => {
-                                  handleDeleteReservation(String(res.id));
-                                });
-                              }} 
-                              disabled={reservationActionLoading} 
-                              className="cursor-pointer mt-3 sm:mt-0 h-11 self-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
-                            >
-                              ยกเลิก
+                              ยกเลิกคิวทั้งหมด
                             </button>
                           </div>
                         </div>

@@ -39,6 +39,7 @@ export async function saveAuctionSession(items: { item_type: ItemType; total_qua
     if (error) throw error
 
     revalidatePath('/')
+    revalidatePath('/auction')
     return { success: true }
   } catch (err: any) {
     return { success: false, error: err.message }
@@ -60,7 +61,7 @@ async function getAuctionSessionPersonalLimit(supabase: any, guildId: string, it
   return data?.personal_limit ?? null
 }
 
-// 2. สมาชิกจองคิว - ✨ ใหม่: สร้าง multiple rows (1 per slot) แทนที่ 1 row กับ requested_qty=N
+// 2. สมาชิกจองคิว - สร้าง multiple rows (1 per slot)
 export async function joinAuctionQueue(itemType: ItemType, requestedQty: number) {
   try {
     const session = await getSession()
@@ -68,7 +69,7 @@ export async function joinAuctionQueue(itemType: ItemType, requestedQty: number)
 
     const supabase = await createClient()
 
-    // ✨ หา slot_number สูงสุดที่มีอยู่สำหรับ user นี้ + item type นี้
+    // หา slot_number สูงสุดที่มีอยู่สำหรับ user นี้ + item type นี้
     const { data: existingSlots } = await supabase
       .from('auction_queues')
       .select('slot_number' as any)
@@ -80,15 +81,15 @@ export async function joinAuctionQueue(itemType: ItemType, requestedQty: number)
 
     const maxSlotNumber = ((existingSlots as any)?.[0]?.slot_number ?? 0) as number
 
-    // ✨ สร้าง N rows โดยแต่ละ row เป็น 1 slot (requested_qty = 1)
+    // สร้าง N rows โดยแต่ละ row เป็น 1 slot (requested_qty = 1)
     const newSlots = Array.from({ length: requestedQty }, (_, i) => ({
       guild_id: session.profile.guild_id,
       user_id: session.profile.id,
       item_name: itemType,
-      requested_qty: 1,  // ✨ ต่อ slot = 1 สล็อต
+      requested_qty: 1,
       received_qty: 0,
       status: 'waiting',
-      slot_number: maxSlotNumber + i + 1,  // ✨ slot_number: maxSlot+1, maxSlot+2, ...
+      slot_number: maxSlotNumber + i + 1,
       queue_timestamp: new Date().toISOString()
     }))
 
@@ -99,6 +100,7 @@ export async function joinAuctionQueue(itemType: ItemType, requestedQty: number)
     if (insertError) throw insertError
 
     revalidatePath('/')
+    revalidatePath('/auction')
     revalidatePath('/profile')
     return { success: true }
   } catch (err: any) {
@@ -106,7 +108,7 @@ export async function joinAuctionQueue(itemType: ItemType, requestedQty: number)
   }
 }
 
-// Batch join multiple items ✨ ใหม่: สร้าง N rows per item
+// Batch join multiple items - สร้าง N rows per item
 export async function joinAuctionQueues(items: { itemType: ItemType; qty: number }[]) {
   try {
     const session = await getSession()
@@ -115,7 +117,6 @@ export async function joinAuctionQueues(items: { itemType: ItemType; qty: number
     const supabase = await createClient()
     const inserts: any[] = []
 
-    // ✨ สำหรับแต่ละ item type ให้ หา max slot_number แล้ว สร้าง N rows ใหม่
     for (const { itemType, qty } of items) {
       // หา slot_number สูงสุด
       const { data: existingSlots } = await supabase
@@ -129,16 +130,16 @@ export async function joinAuctionQueues(items: { itemType: ItemType; qty: number
 
       const maxSlotNumber = ((existingSlots as any)?.[0]?.slot_number ?? 0) as number
 
-      // ✨ สร้าง qty rows ใหม่ (แต่ละ row = 1 slot)
+      // สร้าง qty rows ใหม่ (แต่ละ row = 1 slot)
       for (let i = 0; i < qty; i++) {
         inserts.push({
           guild_id: session.profile.guild_id,
           user_id: session.profile.id,
           item_name: itemType,
-          requested_qty: 1,  // ✨ ต่อ slot = 1
+          requested_qty: 1,
           received_qty: 0,
           status: 'waiting',
-          slot_number: maxSlotNumber + i + 1,  // ✨ sequential slot numbers
+          slot_number: maxSlotNumber + i + 1,
           queue_timestamp: new Date().toISOString()
         })
       }
@@ -150,6 +151,7 @@ export async function joinAuctionQueues(items: { itemType: ItemType; qty: number
     }
 
     revalidatePath('/')
+    revalidatePath('/auction')
     revalidatePath('/profile')
     return { success: true }
   } catch (err: any) {
@@ -157,7 +159,7 @@ export async function joinAuctionQueues(items: { itemType: ItemType; qty: number
   }
 }
 
-// 3. ดึงข้อมูลทั้งหมดมาแสดงผล
+// 3. ดึงข้อมูลกระดานประมูลปัจจุบันมาแสดงผล
 export async function getTodayAuctionDashboard() {
   try {
     const session = await getSession()
@@ -204,32 +206,56 @@ export async function getTodayAuctionDashboard() {
   }
 }
 
+// 4. ดึงข้อมูลประวัติเฉพาะแถวที่สถานะเป็น 'completed' กั้นสิทธิ์ตาม guild_id
 export async function getAuctionHistory() {
   try {
-    const session = await getSession()
-    if (!session?.profile) return { success: false, error: 'Not authenticated' }
+    const session = await getSession();
+    if (!session?.profile?.guild_id) {
+      return { success: false, error: 'กรุณาเข้าสู่ระบบและเข้าร่วมกิลด์ก่อนเปิดดูประวัติ' };
+    }
 
-    const supabase = await createClient()
-    const { data: rawHistory, error } = await supabase
-      .from('auction_history')
-      .select('*, profiles:user_id(display_name, uid_game)')
-      .eq('guild_id', session.profile.guild_id)
-      .order('awarded_at', { ascending: false })
+    const myGuildId = session.profile.guild_id;
+    const supabase = await createClient();
 
-    if (error) throw error
+    const { data: history, error } = await supabase
+      .from('auction_queues')
+      .select(`
+        id,
+        item_name,
+        requested_qty,
+        received_qty,
+        status,
+        updated_at,
+        profiles!inner (
+          uid_game,
+          display_name,
+          guild_id
+        )
+      `)
+      .eq('status', 'completed') // ✨ ดึงเฉพาะที่ประมูลแจกเสร็จสิ้นแล้วเท่านั้น
+      .eq('profiles.guild_id', myGuildId) // 🔒 กั้นสิทธิ์ดูเฉพาะภายในกิลด์ตัวเอง
+      .order('updated_at', { ascending: false });
 
-    const history = (rawHistory || []).map((record: any) => ({
-      ...record,
-      display_name: record.profiles?.display_name || 'ไม่ทราบชื่อ',
-      uid_game: record.profiles?.uid_game || '-',
-    }))
+    if (error) throw error;
 
-    return { success: true, history }
+    const formattedHistory = (history || []).map((row: any) => ({
+      id: row.id,
+      item_name: row.item_name,
+      requested_qty: row.requested_qty,
+      awarded_qty: row.received_qty,
+      status: row.status,
+      awarded_at: row.updated_at,
+      display_name: row.profiles?.display_name || 'ไม่ระบุชื่อ',
+      uid_game: row.profiles?.uid_game || '-',
+    }));
+
+    return { success: true, history: formattedHistory };
   } catch (err: any) {
-    return { success: false, error: err.message }
+    return { success: false, error: err.message };
   }
 }
 
+// 5. แอดมินกดแจกของรางวัล (อัปเดตตารางเดียว ไม่ยิงเข้า history แล้ว)
 export async function awardAuctionQueue(queueId: string | number, awardQty: number, note?: string) {
   try {
     const session = await getSession()
@@ -246,49 +272,66 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
 
     if (fetchError) throw fetchError
     if (!queue) return { success: false, error: 'ไม่พบรายการคิว' }
-    if (queue.guild_id !== session.profile.guild_id) {
-      return { success: false, error: 'ไม่สามารถจัดการคิวข้ามกิลด์ได้' }
-    }
 
+    // ดึงค่าลิมิต
     const personalLimit = await getAuctionSessionPersonalLimit(supabase, session.profile.guild_id, queue.item_name as ItemType)
     if (personalLimit === null) {
       return { success: false, error: 'ไม่พบรายการประมูลสำหรับไอเท็มนี้ในวันนี้' }
     }
 
-    const remainingRequest = Math.max(queue.requested_qty - queue.received_qty, 0)
-    const remainingLimit = Math.max(personalLimit - queue.received_qty, 0)
-    const remaining = Math.min(remainingRequest, remainingLimit)
-    const awarded = Math.min(Math.max(awardQty, 1), remaining)
+    // 🌟 1. ดึงคิว "ทั้งหมด" ของคนนี้ ที่ยัง active อยู่ (ไม่ใช้วันที่กรอง เพื่อแก้ปัญหา Timezone)
+    const { data: userQueues } = await supabase
+      .from('auction_queues')
+      .select('id, received_qty, status')
+      .eq('user_id', String(queue.user_id))     // ✨ แก้ตรงนี้: ใส่ String() ครอบไว้
+      .eq('item_name', String(queue.item_name)) // ✨ แนะนำให้ครอบอันนี้ด้วยเพื่อความชัวร์
+      .in('status', ['waiting', 'partial', 'completed'])
 
-    if (remaining <= 0 || awarded <= 0) {
-      return { success: false, error: 'คุณได้รับแล้วครบตามลิมิตต่อคนในรอบนี้' }
+    // 🌟 2. นับยอดที่เคยได้รับไปแล้วสำเร็จ (ไม่นับช่องที่กำลังจะกดแจก)
+    const receivedBefore = userQueues
+      ?.filter(q => q.id !== queue.id)
+      .reduce((sum, q) => sum + (q.received_qty || 0), 0) || 0
+
+    // 🛑 เซฟตี้ด่าน 1: ถ้ารับครบโควตาไปก่อนแล้ว (เช่น แอดมินเผลอกดรัวๆ)
+    if (receivedBefore >= personalLimit) {
+        // กวาดล้างคิว waiting ที่เหลือให้กลายเป็น canceled
+        const waitingIds = userQueues?.filter(q => q.status === 'waiting').map(q => q.id) || []
+        if (waitingIds.length > 0) {
+           await supabase.from('auction_queues').update({ status: 'canceled' }).in('id', waitingIds)
+        }
+        return { success: false, error: `ได้รับครบโควตา ${personalLimit} ชิ้นแล้ว ระบบเคลียร์คิวที่เหลือทิ้งให้แล้วครับ!` }
     }
 
-    const newReceived = queue.received_qty + awarded
-    const newStatus = newReceived >= queue.requested_qty ? 'completed' : 'partial'
-
+    // 🌟 3. อัปเดตช่องปัจจุบันที่กด ให้แจกสำเร็จ (1 สล็อต = 1 ชิ้น)
     const { error: updateError } = await supabase
       .from('auction_queues')
-      .update({ received_qty: newReceived, status: newStatus, updated_at: new Date().toISOString() })
+      .update({ 
+        received_qty: 1, 
+        status: 'completed', 
+        updated_at: new Date().toISOString() 
+      })
       .eq('id', String(queueId))
 
     if (updateError) throw updateError
 
-    const historyNote = note || `แจกโดยแอดมิน ${session.profile.display_name}`
-    const { error: historyError } = await supabase.from('auction_history').insert([{
-      guild_id: session.profile.guild_id,
-      user_id: queue.user_id,
-      item_name: queue.item_name,
-      requested_qty: queue.requested_qty,
-      awarded_qty: awarded,
-      session_date: new Date().toISOString().split('T')[0],
-      status: newStatus,
-      note: historyNote,
-      awarded_at: new Date().toISOString(),
-    }] as any)
+    // 🌟 4. ไคลแมกซ์: เช็คยอดหลังแจก ถ้า "ครบโควตาพอดี" ให้กวาดล้างคิวติ่งที่เหลือทิ้ง!
+    const totalNow = receivedBefore + 1
+    if (totalNow >= personalLimit) {
+        // หา ID ของคิวที่ยังเป็น waiting อยู่ทั้งหมด
+        const remainingWaitingIds = userQueues
+          ?.filter(q => q.id !== queue.id && q.status === 'waiting')
+          .map(q => q.id) || []
 
-    if (historyError) throw historyError
+        if (remainingWaitingIds.length > 0) {
+           // ✨ ใช้ Soft Delete อัปเดตสถานะเป็น 'canceled' (ข้ามปัญหา RLS ลบไม่ได้)
+           await supabase
+             .from('auction_queues')
+             .update({ status: 'canceled', updated_at: new Date().toISOString() })
+             .in('id', remainingWaitingIds)
+        }
+    }
 
+    revalidatePath('/')
     revalidatePath('/auction')
     revalidatePath('/profile')
     return { success: true }
@@ -297,6 +340,94 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
   }
 }
 
+
+// สมมติว่า ItemType มีการประกาศไว้อยู่แล้ว เช่น type ItemType = 'sword' | 'shield' | string;
+
+export async function syncUserAuctionQueues(items: { itemType: ItemType; qty: number }[]) {
+  try {
+    const session = await getSession()
+    if (!session?.profile) return { success: false, error: 'กรุณาเข้าสู่ระบบ' }
+
+    const supabase = await createClient()
+    const today = new Date().toISOString().split('T')[0]
+
+    for (const { itemType, qty } of items) {
+      // 1. ดึงคิวทั้งหมดของไอเทมชิ้นนี้ในวันนี้ มาเช็คสถานะ
+      // 1. ดึงคิวทั้งหมดของไอเทมชิ้นนี้ในวันนี้ มาเช็คสถานะ
+      const { data } = await supabase
+        .from('auction_queues')
+        .select('id, status, slot_number, queue_timestamp')
+        .eq('user_id', session.profile.id)
+        .eq('item_name', itemType)
+        .gte('queue_timestamp', `${today}T00:00:00.000Z`)
+
+      // บังคับให้ TypeScript มองข้าม SelectQueryError ไปก่อนชั่วคราว
+      const existingQueues = data as any[] 
+
+      // แยกคิวที่ยัง "รออยู่" ออกมาเรียงจากใหม่ไปเก่า
+      const waitingQueues = (existingQueues || [])
+        .filter(q => q.status === 'waiting')
+        .sort((a, b) => new Date(b.queue_timestamp).getTime() - new Date(a.queue_timestamp).getTime())      
+      // นับจำนวนคิวที่ได้รับของไปแล้ว
+      const nonWaitingCount = (existingQueues || []).filter(q => q.status !== 'waiting').length
+
+      // 2. คำนวณหา "จำนวนคิวรอ (waiting) ที่ควรจะเป็น" 
+      const targetWaitingCount = Math.max(0, qty - nonWaitingCount)
+      const currentWaitingCount = waitingQueues.length
+      const diff = targetWaitingCount - currentWaitingCount
+
+      if (diff > 0) {
+        // ✨ กรณีตัวเลขในช่อง "มากกว่า" คิวที่มีอยู่ -> สร้างเพิ่ม
+        const maxSlotNumber = Math.max(...(existingQueues || []).map(q => q.slot_number || 0), 0)
+        
+        // 💡 แก้ไข Type โดยใส่ `as const` ให้ status และจัดการ `undefined` ของ guild_id
+        const inserts = Array.from({ length: diff }, (_, i) => ({
+          guild_id: session.profile.guild_id || null, // เปลี่ยน undefined เป็น null ป้องกัน error จาก Supabase
+          user_id: session.profile.id,
+          item_name: itemType,
+          requested_qty: 1,
+          received_qty: 0,
+          status: 'waiting' as const, // บังคับให้เป็น Literal type แทนที่จะเป็นแค่ string
+          slot_number: maxSlotNumber + i + 1,
+          queue_timestamp: new Date().toISOString()
+        }))
+
+        // 💡 เอา `as any` ออกได้แล้ว
+        // 💡 บังคับให้ TypeScript ข้ามการเช็ค Type ก่อนตอน Insert
+        const { error } = await supabase.from('auction_queues').insert(inserts as any)
+        if (error) throw error
+
+      } else if (diff < 0) {
+        // ✨ กรณีตัวเลขในช่อง "น้อยกว่า" คิวที่มีอยู่ หรือเป็น 0 -> ลบคิวที่รออยู่ออก
+        const countToDelete = Math.abs(diff)
+        const idsToDelete = waitingQueues.slice(0, countToDelete).map(q => q.id)
+
+        if (idsToDelete.length > 0) {
+          const { error } = await supabase
+            .from('auction_queues')
+            .delete()
+            .in('id', idsToDelete)
+            
+          if (error) throw error
+        }
+      }
+    }
+
+    revalidatePath('/')
+    revalidatePath('/auction')
+    revalidatePath('/profile')
+    return { success: true }
+    
+  } catch (err: unknown) {
+    // 💡 ใส่ console.error ตรงนี้เพื่อดูว่า Postgres ฟ้องว่าอะไรใน Terminal ของคุณ
+    console.error("❌ เกิด Error ใน syncUserAuctionQueues:", err)
+
+    const errorMessage = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 6. แอดมินกดข้ามคิว
 export async function skipAuctionQueue(queueId: string | number) {
   try {
     const session = await getSession()
@@ -324,6 +455,7 @@ export async function skipAuctionQueue(queueId: string | number) {
 
     if (error) throw error
 
+    revalidatePath('/')
     revalidatePath('/auction')
     revalidatePath('/profile')
     return { success: true }
@@ -332,45 +464,7 @@ export async function skipAuctionQueue(queueId: string | number) {
   }
 }
 
-export async function saveAuctionHistory(records: {
-  user_id?: string | null
-  item_name: ItemType
-  requested_qty: number
-  awarded_qty: number
-  session_date: string
-  status?: string
-  note?: string | null
-  awarded_at?: string
-}[]) {
-  try {
-    const session = await getSession()
-    if (!session?.profile || session.profile.role !== 'admin') {
-      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
-    }
-
-    const supabase = await createClient()
-    const insertData = records.map(record => ({
-      guild_id: session.profile.guild_id,
-      user_id: record.user_id ?? null,
-      item_name: record.item_name,
-      requested_qty: record.requested_qty,
-      awarded_qty: record.awarded_qty,
-      session_date: record.session_date,
-      status: record.status ?? 'completed',
-      note: record.note ?? null,
-      awarded_at: record.awarded_at ?? new Date().toISOString(),
-    }))
-
-    const { error } = await supabase.from('auction_history').insert(insertData as any)
-    if (error) throw error
-
-    revalidatePath('/auction')
-    return { success: true }
-  } catch (err: any) {
-    return { success: false, error: err.message }
-  }
-}
-
+// 7. ดึงข้อมูลรายการที่กำลังรอคิวของฉัน (หน้าโปรไฟล์)
 export async function getMyAuctionReservations() {
   try {
     const session = await getSession()
@@ -395,6 +489,7 @@ export async function getMyAuctionReservations() {
   }
 }
 
+// 8. สมาชิกแก้ไขจำนวนการจองคิว
 export async function updateAuctionQueueReservation(id: string | number, requestedQty: number) {
   try {
     const session = await getSession()
@@ -424,6 +519,8 @@ export async function updateAuctionQueueReservation(id: string | number, request
 
     if (error) throw error
 
+    revalidatePath('/')
+    revalidatePath('/auction')
     revalidatePath('/profile')
     return { success: true }
   } catch (err: any) {
@@ -431,20 +528,131 @@ export async function updateAuctionQueueReservation(id: string | number, request
   }
 }
 
+// 9. ลบประวัติประมูล / ย้อนสถานะไอเทมที่แจกแล้วกลับคืนสู่สถานะรอคิว (Revert Action)
+export async function revertAuctionQueue(id: string | number) {
+  try { 
+    const session = await getSession();
+    if (!session?.profile || session.profile.role !== 'admin') {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const supabase = await createClient();
+   
+    // 🔄 อันนี้ใช้อัปเดตสถานะกลับเป็นรอรับของ
+    const { error } = await supabase
+      .from('auction_queues')
+      .update({
+        received_qty: 0,
+        status: 'waiting',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', String(id));
+
+    if (error) throw error;
+
+    revalidatePath('/')
+    revalidatePath('/auction')
+    revalidatePath('/profile')
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+// 10. สำหรับ Member ใช้กดยกเลิกจองคิวในหน้า Profile (ลบทิ้งออกจาก DB 100%)
 export async function deleteAuctionQueueReservation(id: string | number) {
-  try {
-    const session = await getSession()
+  try { 
+    const session = await getSession();
     if (!session?.profile) return { success: false, error: 'กรุณาเข้าสู่ระบบ' }
 
-    const supabase = await createClient()
+    const supabase = await createClient();
+   
+    // 🔥 เปลี่ยนมาใช้คำสั่ง .delete() เพื่อทำลายข้อมูลทิ้ง!
     const { error } = await supabase
       .from('auction_queues')
       .delete()
-      .eq('id', String(id))
+      .eq('id', String(id));
 
-    if (error) throw error
+    if (error) throw error;
 
+    revalidatePath('/')
+    revalidatePath('/auction')
     revalidatePath('/profile')
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+
+export async function syncMemberAuctionQueue(userId: string, itemType: string, qty: number) {
+  try {
+    const session = await getSession()
+    if (!session?.profile) return { success: false, error: 'กรุณาเข้าสู่ระบบ' }
+    // (ทางที่ดีควรเช็คเพิ่มตรงนี้ว่า session.profile เป็น Admin หรือไม่)
+
+    const supabase = await createClient()
+    const today = new Date().toISOString().split('T')[0]
+
+    // 1. ดึงคิวทั้งหมดของ สมาชิกคนนี้ สำหรับไอเทมชิ้นนี้ในวันนี้
+    const { data: existingQueues } = await (supabase as any)
+      .from('auction_queues')
+      .select('id, status, slot_number, queue_timestamp, guild_id' )
+      .eq('user_id', userId) 
+      .eq('item_name', itemType)
+      .gte('queue_timestamp', `${today}T00:00:00.000Z`)
+
+    const queues = (existingQueues as any[]) || []
+    
+    // แยกคิวรอแจก เรียงจากใหม่ไปเก่า (เพื่อเวลาลบ จะได้ลบคิวท้ายแถวก่อน)
+    const waitingQueues = queues
+      .filter(q => q.status === 'waiting') 
+      .sort((a, b) => new Date(b.queue_timestamp).getTime() - new Date(a.queue_timestamp).getTime())
+    
+    // นับคิวที่ได้ของไปแล้ว
+    const nonWaitingCount = queues.filter(q => q.status !== 'waiting').length
+
+    // 2. คำนวณหาเป้าหมายคิวรอ
+    const targetWaitingCount = Math.max(0, qty - nonWaitingCount)
+    const currentWaitingCount = waitingQueues.length
+    const diff = targetWaitingCount - currentWaitingCount
+
+    if (diff > 0) {
+      // ➕ กรณีคีย์ตัวเลขเพิ่มขึ้น -> สร้างคิวรอเพิ่มต่อท้าย
+      const maxSlotNumber = Math.max(...queues.map(q => q.slot_number || 0), 0)
+      const guildId = queues[0]?.guild_id || session.profile.guild_id || null;
+
+      const inserts = Array.from({ length: diff }, (_, i) => ({
+        guild_id: guildId,
+        user_id: userId,
+        item_name: itemType,
+        requested_qty: 1,
+        received_qty: 0,
+        status: 'waiting' as const,
+        slot_number: maxSlotNumber + i + 1,
+        queue_timestamp: new Date().toISOString()
+      }))
+
+      const { error } = await supabase.from('auction_queues').insert(inserts as any)
+      if (error) throw error
+
+    } else if (diff < 0) {
+      // ➖ กรณีคีย์ตัวเลขน้อยลง -> ลบคิวรอส่วนเกินทิ้งจากท้ายแถว
+      const countToDelete = Math.abs(diff)
+      const idsToDelete = waitingQueues.slice(0, countToDelete).map(q => q.id)
+
+      if (idsToDelete.length > 0) {
+        const { error } = await supabase
+          .from('auction_queues')
+          .delete()
+          .in('id', idsToDelete)
+          
+        if (error) throw error
+      }
+    }
+
     return { success: true }
   } catch (err: any) {
     return { success: false, error: err.message }

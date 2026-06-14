@@ -18,6 +18,10 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
   const [isSaving, setIsSaving] = useState(false)
   // Debug flag to help trace slot generation in browser console when investigating UI issues
   const DEBUG_AUCTION = true
+
+  useEffect(() => {
+    setData(initialData)
+  }, [initialData])
   
   const [limits, setLimits] = useState<Record<'Album' | 'Puppet' | 'White' | 'RedBlack', number | ''>>(() => {
     const init: Record<'Album' | 'Puppet' | 'White' | 'RedBlack', number | ''> = { Album: '', Puppet: '', White: '', RedBlack: '' }

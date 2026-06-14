@@ -2,6 +2,7 @@
 
 import { Dispatch, SetStateAction } from 'react'
 
+
 type AuctionItemType = 'Album' | 'Puppet' | 'White' | 'RedBlack'
 
 type MemberFormProps = {

@@ -21,7 +21,6 @@ type AuctionSlot = {
   isMe?: boolean;
   isEmpty?: boolean;
   isCompleted?: boolean;
-  // ✨ Booking session info
   bookingSessionSize?: number;
   queueTimestamp?: string;
   isFirstInSession?: boolean;
@@ -39,10 +38,12 @@ type AuctionHistoryEntry = {
   awarded_at?: string | null;
 };
 
+// 💡 เปลี่ยนมาเรียกใช้ syncMemberAuctionQueue ตัวใหม่ที่เราเพิ่งสร้าง
 import {
   awardAuctionQueue,
   deleteAuctionQueueReservation,
-  updateAuctionQueueReservation,
+  revertAuctionQueue,
+  syncMemberAuctionQueue,
 } from "@/app/actions/auction";
 
 type AuctionWindowProps = {
@@ -118,23 +119,37 @@ export default function AuctionWindow({
   };
 
   const handleSaveEdit = async () => {
-    if (!editingQueue) return;
+    if (!editingQueue || !editingQueue.user_id) return;
+    
+    // 💡 คำนวณหายอดที่ได้ของแล้วของคนนี้ในกรุ๊ปนี้จริงๆ ป้องกันค่าต่ำสุดผิดพลาด
+    const tsWithoutMs = editingQueue.queue_timestamp ? editingQueue.queue_timestamp.replace(/\.\d{3}/, '') : 'no-ts';
+    const currentGroupKey = `${editingQueue.display_name}|${editingQueue.item_type}|${tsWithoutMs}`;
+    const groupQueues = memberQueues.filter(q => {
+      const ts = q.queue_timestamp ? q.queue_timestamp.replace(/\.\d{3}/, '') : 'no-ts';
+      return `${q.display_name}|${q.item_type}|${ts}` === currentGroupKey;
+    });
+    const totalReceived = groupQueues.reduce((sum, q) => sum + q.received_qty, 0);
+
     const requestedQty = parseInt(editQty, 10);
     if (
       isNaN(requestedQty) ||
-      requestedQty < Math.max(1, editingQueue.received_qty)
+      requestedQty < Math.max(1, totalReceived)
     ) {
       alert(
-        `จำนวนที่แก้ไขต้องไม่น้อยกว่าจำนวนที่ได้รับแล้ว (${editingQueue.received_qty})`,
+        `จำนวนที่แก้ไขต้องไม่น้อยกว่าจำนวนที่ได้รับแล้ว (${totalReceived})`,
       );
       return;
     }
+
     setEditLoading(true);
-    const result = await updateAuctionQueueReservation(
-      editingQueue.id,
-      requestedQty,
+    // 💡 เรียกใช้ Sync ด้วยการระบุเป้าหมายตัวเลขสัมบูรณ์ ลบส่วนเกิน เพิ่มส่วนขาดออโต้
+    const result = await syncMemberAuctionQueue(
+      editingQueue.user_id,
+      editingQueue.item_type,
+      requestedQty
     );
     setEditLoading(false);
+
     if (!result.success) {
       alert("ไม่สามารถแก้ไขได้: " + result.error);
       return;
@@ -143,31 +158,24 @@ export default function AuctionWindow({
     await onRefresh();
   };
 
-  // 🌟 ไม่ต้องแยก Assigned กับ Free แล้ว จับรวมกันไปเลย!
-
   const renderSlotRow = (slot: AuctionSlot, index: number) => {
-    const confirmed = confirmedSlots[slot.id];
-    // ✨ ไม่ต้องนับซ้ำ - server แล้ว update received_qty
-    const localReceived = (slot.receivedQty ?? 0);
+    const confirmed = slot.queueId ? confirmedSlots[slot.queueId] : undefined;
+    const localReceived = confirmed?.awardedQty !== undefined
+      ? Math.max(confirmed.awardedQty, slot.receivedQty ?? 0)
+      : (slot.receivedQty ?? 0);
+    
     const hasReserve = !slot.isEmpty && typeof slot.requestedQty === "number";
     const localRemaining = hasReserve
-      ? Math.max((slot.requestedQty ?? 1) - (slot.receivedQty ?? 0), 0)
+      ? Math.max((slot.requestedQty ?? 1) - localReceived, 0)
       : 0;
-    const localStatus = slot.isEmpty
-      ? "waiting"
-      : confirmed?.status ||
-        slot.status ||
-        (localRemaining === 0 ? "สำเร็จ" : "รอประมูล");
 
-    // ✨ ใหม่: แต่ละ row = 1 slot, completed = receivedQty >= requestedQty
-    const isCompleted = (slot.receivedQty ?? 0) >= (slot.requestedQty ?? 0);
+    const computedCompleted = localReceived >= (slot.requestedQty ?? 0);
 
     return (
       <div
         key={slot.id}
         className={`flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4 p-4 rounded-2xl border transition-all ${slot.isMe ? "bg-blue-50 dark:bg-blue-900/40 border-blue-300 dark:border-blue-500 shadow-md" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md"} ${slot.isEmpty ? "opacity-80 hover:opacity-100 bg-slate-50/50 dark:bg-slate-800/50" : ""}`}
       >
-        {/* 1. ด้านซ้าย: ไอคอน + ข้อมูลหลัก */}
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <div className="shrink-0 flex items-center justify-center">
             <div
@@ -187,10 +195,10 @@ export default function AuctionWindow({
               Assigned To
             </div>
             <div
-  className={`text-base sm:text-lg font-black truncate ${slot.isEmpty && !isCompleted ? "text-slate-400 dark:text-slate-500" : "text-slate-900 dark:text-slate-100"}`}
->
-  {slot.isEmpty && !isCompleted ? "ไม่มีผู้ลงคิวล่วงหน้า" : slot.assignedTo}{" "}
-</div>
+              className={`text-base sm:text-lg font-black truncate ${slot.isEmpty && !computedCompleted ? "text-slate-400 dark:text-slate-500" : "text-slate-900 dark:text-slate-100"}`}
+            >
+              {slot.isEmpty && !computedCompleted ? "ไม่มีผู้ลงคิวล่วงหน้า" : slot.assignedTo}{" "}
+            </div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/80 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-600">
                 หน้า {currentPage} คิว {index + 1}
@@ -199,7 +207,6 @@ export default function AuctionWindow({
           </div>
         </div>
 
-        {/* 2. ตรงกลาง & ขวา */}
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-4 sm:gap-6 pt-3 xl:pt-0 border-t xl:border-t-0 border-slate-100 dark:border-slate-700/50 w-full xl:w-auto xl:justify-end shrink-0">
           {slot.isEmpty ? (
             <div className="flex items-center justify-center w-full xl:w-auto bg-slate-100 dark:bg-slate-900/50 px-6 py-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-600">
@@ -209,21 +216,16 @@ export default function AuctionWindow({
             </div>
           ) : (
             <>
-              {/* ป้ายสถานะ เปลี่ยนสีตาม isCompleted (fallback ถ้า prop หายไป) */}
               <div className="flex flex-col justify-center order-1">
-                {(() => {
-                  // ✨ ใหม่: แต่ละ row = 1 slot, completed = receivedQty >= requestedQty
-                  const computedCompleted = (slot.receivedQty ?? 0) >= (slot.requestedQty ?? 0);
-                  return computedCompleted ? (
-                    <span className="text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200 font-bold whitespace-nowrap">
-                      ประมูลเสร็จแล้ว
-                    </span>
-                  ) : (
-                    <span className="text-xs px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300 font-bold whitespace-nowrap">
-                      รอประมูล
-                    </span>
-                  );
-                })()}
+                {computedCompleted ? (
+                  <span className="text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200 font-bold whitespace-nowrap">
+                    ประมูลเสร็จแล้ว
+                  </span>
+                ) : (
+                  <span className="text-xs px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300 font-bold whitespace-nowrap">
+                    รอประมูล
+                  </span>
+                )}
               </div>
 
               {isAdmin && slot.queueId ? (
@@ -254,69 +256,70 @@ export default function AuctionWindow({
                 </div>
               ) : null}
 
-              {/* 💡 ปุ่มประมูล ใช้ slot.id แทน และปิดการใช้งานถ้ารับของแล้ว */}
               {isAdmin && slot.queueId ? (
                 <div className="w-full sm:w-auto order-3 mt-2 sm:mt-0 xl:ml-2">
                   <button
                     type="button"
                     disabled={
-                      actionLoading[slot.queueId] || localRemaining <= 0
+                      actionLoading[slot.queueId] || localRemaining <= 0 || computedCompleted
                     }
                     onClick={async () => {
+                      if (!slot.queueId) return;
+
                       setActionLoading((prev) => ({
                         ...prev,
                         [slot.queueId!]: true,
                       }));
-                      await awardAuctionQueue(slot.queueId!, 1);
+                      
+                      const targetQty = (slot.receivedQty ?? 0) + 1;
+                      setConfirmedSlots((prev) => ({
+                        ...prev,
+                        [slot.queueId!]: {
+                          awardedQty: targetQty,
+                          status: "confirmed",
+                        },
+                      }));
+                      
+                      const result = await awardAuctionQueue(slot.queueId, 1);
+                      
                       setActionLoading((prev) => ({
                         ...prev,
                         [slot.queueId!]: false,
                       }));
-                      setConfirmedSlots((prev) => ({
-                        ...prev,
-                        [slot.id]: {
-                          awardedQty: (prev[slot.id]?.awardedQty ?? 0) + 1,
-                          status: "confirmed",
-                        },
-                      }));
-                      await onRefresh();
+
+                      if (result?.success) {
+                        if (onRefresh) await onRefresh();
+                      } else {
+                         setConfirmedSlots((prev) => {
+                          const next = { ...prev };
+                          delete next[slot.queueId!];
+                          return next;
+                        });
+                         alert(result?.error || 'เกิดข้อผิดพลาดในการประมูล');
+                      }
                     }}
                     className={`w-full sm:w-auto rounded-xl text-sm font-bold px-6 py-3 disabled:opacity-50 transition-all shadow-md whitespace-nowrap flex items-center justify-center gap-2 ${
-                      slot.isCompleted 
+                      computedCompleted 
                         ? 'bg-slate-200 dark:bg-slate-700 text-slate-500 cursor-not-allowed shadow-none' 
                         : 'cursor-pointer bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-emerald-500/20'
                     }`}
                   >
-                    {actionLoading[slot.id] ? (
+                    {actionLoading[slot.queueId] ? (
                       <>
                         <svg
-                          className=" animate-spin h-4 w-4 text-white"
+                          className="animate-spin h-4 w-4 text-white"
                           viewBox="0 0 24 24"
                           fill="none"
                         >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8v8z"
-                          ></path>
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
                         </svg>
-                        กำลังบันทึก...
+                        กำลัง...
                       </>
-                    ) : slot.isCompleted ? (
+                    ) : computedCompleted ? (
                       <><span>✅</span> สำเร็จ</>
                     ) : (
-                      <>
-                        {" "}
-                        <span className="cursor-pointer">ประมูล</span>
-                      </>
+                      <>ประมูล</>
                     )}
                   </button>
                 </div>
@@ -330,13 +333,23 @@ export default function AuctionWindow({
 
   const renderEditModal = () => {
     if (!editingQueue) return null;
+
+    // 💡 ดึงยอดรวมที่ได้รับแล้วของกรุ๊ปนี้เพื่อนำมาเซ็ตค่า Validation ขั้นต่ำที่ถูกต้อง
+    const tsWithoutMs = editingQueue.queue_timestamp ? editingQueue.queue_timestamp.replace(/\.\d{3}/, '') : 'no-ts';
+    const currentGroupKey = `${editingQueue.display_name}|${editingQueue.item_type}|${tsWithoutMs}`;
+    const groupQueues = memberQueues.filter(q => {
+      const ts = q.queue_timestamp ? q.queue_timestamp.replace(/\.\d{3}/, '') : 'no-ts';
+      return `${q.display_name}|${q.item_type}|${ts}` === currentGroupKey;
+    });
+    const totalReceived = groupQueues.reduce((sum, q) => sum + q.received_qty, 0);
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
         <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
             <div>
               <div className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                แก้ไขจำนวนคิว
+                แก้ไขจำนวนคิวประมูล
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 {editingQueue.display_name} • {editingQueue.item_type}
@@ -353,17 +366,17 @@ export default function AuctionWindow({
           <div className="p-6 space-y-4">
             <div className="space-y-2">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                จำนวนที่จอง
+                ระบุจำนวนจองทั้งหมดที่ควรจะเป็น
               </label>
               <input
                 type="number"
-                min={Math.max(1, editingQueue.received_qty)}
+                min={Math.max(1, totalReceived)}
                 value={editQty}
                 onChange={(e) => setEditQty(e.target.value)}
                 className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-3 text-slate-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                จำนวนต้องไม่น้อยกว่าที่ได้รับแล้ว ({editingQueue.received_qty})
+                จำนวนต้องไม่น้อยกว่ายอดรวมที่ได้รับแล้ว ({totalReceived})
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -389,20 +402,13 @@ export default function AuctionWindow({
     );
   };
 
-  // ---------------- HTML โครงสร้างเดิมด้านล่าง ----------------
   return (
     <div className="w-full bg-slate-50 dark:bg-[#0f172a] rounded-3xl p-2.5 shadow-xl relative overflow-hidden font-sans border-2 border-slate-200 dark:border-slate-700 transition-colors h-full flex flex-col">
-      {/* 🔹 Header ปกติ */}
       <div className="flex justify-between items-center px-4 py-3 bg-blue-600 dark:bg-blue-900 rounded-t-[18px] border-b border-blue-700 dark:border-slate-700 shadow-sm text-white transition-colors gap-4 flex-wrap">
         <div className="flex items-center gap-2 font-bold">
           <span className="text-xl">⚖️</span>
           <span>
             Today&apos;s Queue & Slot Mapping{" "}
-            {isAdmin && (
-              <span className="ml-2 text-[10px] bg-yellow-400 text-black px-2 py-0.5 rounded-full">
-                
-              </span>
-            )}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -461,29 +467,8 @@ export default function AuctionWindow({
 
               <div className="flex-1 flex flex-col gap-4 content-start overflow-y-auto pr-2">
                 {currentSlots.map((slot, index) => {
-                  // ✨ NEW: Show booking session header for first slot in session
-                  const bookingSessionSize = (slot as any)?.bookingSessionSize ?? 1;
-                  const queueTimestamp = (slot as any)?.queueTimestamp;
-                  const isFirstInSession = (slot as any)?.isFirstInSession ?? false;
-                  
-                  // Format timestamp for display
-                  let formattedTime = '';
-                  if (queueTimestamp && queueTimestamp !== 'no-timestamp') {
-                    try {
-                      formattedTime = new Date(queueTimestamp).toLocaleTimeString('th-TH', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit'
-                      });
-                    } catch (e) {
-                      formattedTime = '';
-                    }
-                  }
-                  
                   return (
                     <div key={slot.id}>
-                      {/* Show booking session header only for first slot in a session */}
-                      
                       {renderSlotRow(slot, index)}
                     </div>
                   );
@@ -542,17 +527,14 @@ export default function AuctionWindow({
               {memberQueues.length > 0 ? (
                 <div className="space-y-3">
                   {(() => {
-                    // ✨ Group queues by display_name + item_type + queue_timestamp (without milliseconds)
                     const groupMap = new Map<string, typeof memberQueues>();
                     const groupOrder: string[] = [];
 
                     memberQueues.forEach((queue) => {
-                      // Remove milliseconds from timestamp to group by seconds
                       const tsWithoutMs = queue.queue_timestamp
                         ? queue.queue_timestamp.replace(/\.\d{3}/, '')
                         : 'no-ts';
                       const groupKey = `${queue.display_name}|${queue.item_type}|${tsWithoutMs}`;
-                      console.log('DEBUG Queue:', { display_name: queue.display_name, item_type: queue.item_type, raw_ts: queue.queue_timestamp, normalized_ts: tsWithoutMs, groupKey });
                       if (!groupMap.has(groupKey)) {
                         groupMap.set(groupKey, []);
                         groupOrder.push(groupKey);
@@ -560,7 +542,6 @@ export default function AuctionWindow({
                       groupMap.get(groupKey)!.push(queue);
                     });
 
-                    // Render each group
                     return groupOrder.map((groupKey) => {
                       const groupQueues = groupMap.get(groupKey) || [];
                       const firstQueue = groupQueues[0];
@@ -581,7 +562,7 @@ export default function AuctionWindow({
                       return (
                         <div
                           key={groupKey}
-                          className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(240px,220px)] gap-3 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl"
+                          className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(280px,260px)] gap-3 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl"
                         >
                           <div>
                             <div className="flex items-center gap-0 flex-1">
@@ -630,9 +611,20 @@ export default function AuctionWindow({
                               {formattedTime}
                             </div>
                           </div>
-                          <div className="space-y-2 flex justify-end gap-2">
+                          <div className="space-y-2 flex justify-end items-center gap-2">
                             {isAdmin ? (
                               <>
+                                {/* 💡 เพิ่มปุ่มแก้ไขตรงนี้ให้กับ Admin */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditQueueId(firstQueue.id);
+                                    setEditQty(totalRequested.toString());
+                                  }}
+                                  className="cursor-pointer inline-flex items-center justify-center rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 px-4 h-13 border-2 border-blue-100 dark:border-blue-800/50 flex-shrink-0 shadow-md text-blue-600 dark:text-blue-400 text-sm font-semibold transition-colors"
+                                >
+                                  แก้ไข
+                                </button>
                                 
                                 <button
                                   type="button"
@@ -668,7 +660,7 @@ export default function AuctionWindow({
                                     }
                                     await onRefresh();
                                   }}
-                                  className="cursor-pointer inline-flex items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-900/20 p-3 w-22 h-13 overflow-hidden border-2 border-rose-100 dark:border-rose-800/50 flex-shrink-0 shadow-md text-rose-600 dark:text-rose-400 text-sm font-semibold"
+                                  className="cursor-pointer inline-flex items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-900/20 px-4 h-13 border-2 border-rose-100 dark:border-rose-800/50 flex-shrink-0 shadow-md text-rose-600 dark:text-rose-400 text-sm font-semibold hover:bg-rose-100"
                                 >
                                   {groupQueues.some((q) => actionLoading[q.id])
                                     ? "กำลัง..."
@@ -692,7 +684,7 @@ export default function AuctionWindow({
                 </div>
               )}
             </div>
-          ) : (
+         ) : (
             <div className="flex-1 flex flex-col justify-start space-y-4">
               <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
                 Auction History
@@ -700,8 +692,9 @@ export default function AuctionWindow({
               {history.length > 0 ? (
                 <div className="space-y-3">
                   {history.map((entry) => (
-                    <div key={entry.id} className="flex justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl  items-center">
-  <div className="flex items-center gap-3">
+                    <div key={entry.id} className="flex flex-wrap xl:flex-nowrap justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl items-center">
+                      
+                      <div className="flex items-center gap-3">
                         <div
                           className={`relative w-14 h-14 bg-linear-to-b ${ITEM_CONFIG[entry.item_name as AuctionItemType]?.color || "from-slate-200/40 to-slate-400/10"} rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center`}
                         >
@@ -717,46 +710,78 @@ export default function AuctionWindow({
                           />
                         </div>
                         
+                        <div>
                           <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
                             {entry.display_name}
                           </div>
-                          
-                          
                           <div className="text-[11px] text-slate-500 dark:text-slate-400">
                             {entry.uid_game}
                           </div>
-                        
+                        </div>
                       </div>
                       
-                        
-                        <div className="flex items-center justify-center w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-                          <div className=" text-slate-900 dark:text-slate-100">
+                      <div className="flex flex-wrap items-center gap-2 mt-2 xl:mt-0">
+                        <div className="flex items-center justify-center w-24 sm:w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
                             จอง {entry.requested_qty}
                           </div>
                         </div>
-                        <div className="flex items-center justify-center w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-                          <div className=" text-slate-900 dark:text-slate-100">
+                        <div className="flex items-center justify-center w-24 sm:w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
                             ได้รับ {entry.awarded_qty}
                           </div>
                         </div>
-                        <div className="flex items-center justify-center w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 col-span-2">
-                          <div className=" text-slate-900 dark:text-slate-100">
+                        <div className="flex items-center justify-center w-24 sm:w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
                             {entry.status}
                           </div>
-                          
                         </div>
-                        <div className="gap-2 flex items-center justify-center w-50 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 col-span-2">
-                          <div className="  text-slate-900 dark:text-slate-100">
+                        <div className="gap-2 flex flex-col sm:flex-row items-center justify-center w-full sm:w-auto bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
                             วันที่ประมูล
                           </div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 text-center sm:text-left">
                             {entry.awarded_at
-                              ? new Date(entry.awarded_at).toLocaleString(
-                                  "th-TH",
-                                )
+                              ? new Date(entry.awarded_at).toLocaleString("th-TH")
                               : "ไม่ระบุ"}
                           </div>
                         </div>
+
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            disabled={actionLoading[entry.id]}
+                            onClick={async () => {
+                              if (!confirm("ยืนยันการลบประวัติ? (คิวจะถูกดึงกลับไปรอแจกใหม่ที่หน้ากระดานหลัก)")) return;
+                              
+                              setActionLoading((prev) => ({ ...prev, [entry.id]: true }));
+                              
+                              const result = await revertAuctionQueue(entry.id)
+                              
+                              setActionLoading((prev) => ({ ...prev, [entry.id]: false }));
+                              
+                              if (!result.success) {
+                                alert("ไม่สามารถลบได้: " + result.error);
+                              } else {
+                                await onRefresh();
+                              }
+                            }}
+                            className="w-full sm:w-auto cursor-pointer flex items-center justify-center bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400 dark:hover:bg-rose-900/40 px-6 py-2 h-[42px] rounded-xl border border-rose-200 dark:border-rose-800/50 text-sm font-bold transition-all disabled:opacity-50 shadow-sm"
+                          >
+                            {actionLoading[entry.id] ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4 mr-2 text-rose-500" viewBox="0 0 24 24" fill="none">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                                </svg>
+                                กำลังลบ...
+                              </>
+                            ) : (
+                              "ลบ"
+                            )}
+                          </button>
+                        )}
+                      </div>
                       
                     </div>
                   ))}
@@ -771,6 +796,27 @@ export default function AuctionWindow({
         </div>
       </div>
       {renderEditModal()}
+      {(Object.values(actionLoading).some(Boolean) || editLoading || isSaving) && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col items-center transform transition-all">
+            <svg 
+              className="animate-spin h-14 w-14 text-blue-500 mb-5 drop-shadow-md" 
+              xmlns="http://www.w3.org/2000/svg" 
+              fill="none" 
+              viewBox="0 0 24 24"
+            >
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+            </svg>
+            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">
+              กำลังประมวลผล...
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
+              กรุณารอสักครู่ ระบบกำลังสื่อสารกับฐานข้อมูล
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

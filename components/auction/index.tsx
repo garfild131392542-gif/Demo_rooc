@@ -165,7 +165,14 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
       }
     })
 
-    // ✨ Filter by activeSubTab
+    // ✨ Assign absolute locked page and slot numbers to all slots
+    slots = slots.map((s, index) => ({
+      ...s,
+      originalPage: Math.floor(index / 4) + 1,
+      originalSlot: (index % 4) + 1
+    }))
+
+    // ✨ Filter by activeSubTab (condense empty/non-matching slots)
     if (activeSubTab !== 'all') {
       slots = slots.filter(s => s.type === activeSubTab)
     }

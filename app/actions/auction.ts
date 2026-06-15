@@ -166,8 +166,9 @@ export async function getTodayAuctionDashboard() {
     if (!session?.profile) return { success: false, error: 'Not authenticated' }
 
     const supabase = await createClient()
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toISOString().split('T')[0] // ได้ฟอร์แมต YYYY-MM-DD ของวันนี้
 
+    // ดึงเซสชันไอเทมที่แอดมินตั้งค่าเปิดประมูลในวันนี้
     const { data: todayItems } = await supabase
       .from('auction_sessions')
       .select('*')
@@ -175,6 +176,7 @@ export async function getTodayAuctionDashboard() {
       .eq('session_date', today)
       .order('item_priority', { ascending: true })
 
+    // ดึงคิวทั้งหมดที่ยังอยู่ในระบบคิวหลัก
     const { data: rawQueues } = await supabase
       .from('auction_queues')
       .select('*, profiles:user_id(display_name, uid_game)')
@@ -182,17 +184,27 @@ export async function getTodayAuctionDashboard() {
       .in('status', ['waiting', 'partial', 'completed'])
       .order('queue_timestamp', { ascending: true })
 
-    const processedQueues = (rawQueues || []).map((q: any) => ({
-      id: q.id,
-      user_id: q.user_id,
-      display_name: q.profiles?.display_name || 'ไม่ทราบชื่อ',
-      uid_game: q.profiles?.uid_game || '-',
-      item_type: q.item_name,
-      requested_qty: q.requested_qty,
-      received_qty: q.received_qty,
-      status: q.status,
-      queue_timestamp: q.queue_timestamp
-    }))
+    // 🌟 พระเอกของงาน: กรองแยกประวัติวันเก่าออกจากวันปัจจุบัน
+    const processedQueues = (rawQueues || [])
+      .filter((q: any) => {
+        // เงื่อนไขที่ 1: ถ้ายังค้างสถานะรอ (waiting) -> ให้แสดงผลต่อได้เลย ไม่ว่าจะจองมาวันไหน (ทบยอดข้ามวัน)
+        if (q.status === 'waiting') return true;
+
+        // เงื่อนไขที่ 2: ถ้าได้รับของไปแล้ว (completed / partial) -> จะแสดงบนกระดานนี้ได้ ต้องเป็นคิวของ "วันนี้" เท่านั้น
+        const queueDate = q.updated_at ? q.updated_at.split('T')[0] : (q.queue_timestamp ? q.queue_timestamp.split('T')[0] : '');
+        return queueDate === today;
+      })
+      .map((q: any) => ({
+        id: q.id,
+        user_id: q.user_id,
+        display_name: q.profiles?.display_name || 'ไม่ทราบชื่อ',
+        uid_game: q.profiles?.uid_game || '-',
+        item_type: q.item_name,
+        requested_qty: q.requested_qty,
+        received_qty: q.received_qty,
+        status: q.status,
+        queue_timestamp: q.queue_timestamp
+      }))
 
     return {
       success: true,
@@ -273,36 +285,42 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
     if (fetchError) throw fetchError
     if (!queue) return { success: false, error: 'ไม่พบรายการคิว' }
 
-    // ดึงค่าลิมิต
+    // ดึงค่าลิมิตส่วนบุคคลของไอเทมชิ้นนี้ในเซสชันวันนี้
     const personalLimit = await getAuctionSessionPersonalLimit(supabase, session.profile.guild_id, queue.item_name as ItemType)
     if (personalLimit === null) {
       return { success: false, error: 'ไม่พบรายการประมูลสำหรับไอเท็มนี้ในวันนี้' }
     }
 
-    // 🌟 1. ดึงคิว "ทั้งหมด" ของคนนี้ ที่ยัง active อยู่ (ไม่ใช้วันที่กรอง เพื่อแก้ปัญหา Timezone)
+    // ดึงคิวประมูลทั้งหมดของยูสเซอร์คนนี้
     const { data: userQueues } = await supabase
       .from('auction_queues')
-      .select('id, received_qty, status')
-      .eq('user_id', String(queue.user_id))     // ✨ แก้ตรงนี้: ใส่ String() ครอบไว้
-      .eq('item_name', String(queue.item_name)) // ✨ แนะนำให้ครอบอันนี้ด้วยเพื่อความชัวร์
+      .select('id, received_qty, status, updated_at, queue_timestamp')
+      .eq('user_id', String(queue.user_id))
+      .eq('item_name', String(queue.item_name))
       .in('status', ['waiting', 'partial', 'completed'])
 
-    // 🌟 2. นับยอดที่เคยได้รับไปแล้วสำเร็จ (ไม่นับช่องที่กำลังจะกดแจก)
-    const receivedBefore = userQueues
-      ?.filter(q => q.id !== queue.id)
+    const today = new Date().toISOString().split('T')[0]
+
+    // 🌟 คำนวณยอดที่เคยได้รับไปแล้วสำเร็จ "เฉพาะของวันนี้เท่านั้น" (กรองด้วยเวลาปัจจุบัน)
+    const receivedTodayBefore = userQueues
+      ?.filter(q => q.id !== queue.id && q.status === 'completed')
+      .filter(q => {
+        // ยึดวันที่อัปเดตล่าสุดเป็นหลัก ถ้าไม่มีให้ถอยไปเช็คเวลาสร้างคิว
+        const targetDate = q.updated_at ? q.updated_at.split('T')[0] : (q.queue_timestamp ? q.queue_timestamp.split('T')[0] : '');
+        return targetDate === today;
+      })
       .reduce((sum, q) => sum + (q.received_qty || 0), 0) || 0
 
-    // 🛑 เซฟตี้ด่าน 1: ถ้ารับครบโควตาไปก่อนแล้ว (เช่น แอดมินเผลอกดรัวๆ)
-    if (receivedBefore >= personalLimit) {
-        // กวาดล้างคิว waiting ที่เหลือให้กลายเป็น canceled
+    // เซฟตี้ด่าน 1: ถ้าวันนี้เขารับไปจนครบโควตาก่อนหน้านี้แล้ว ให้กวาดล้างคิวรอที่เหลือทิ้งและแจ้งเตือน
+    if (receivedTodayBefore >= personalLimit) {
         const waitingIds = userQueues?.filter(q => q.status === 'waiting').map(q => q.id) || []
         if (waitingIds.length > 0) {
-           await supabase.from('auction_queues').update({ status: 'canceled' }).in('id', waitingIds)
+           await supabase.from('auction_queues').delete().in('id', waitingIds)
         }
-        return { success: false, error: `ได้รับครบโควตา ${personalLimit} ชิ้นแล้ว ระบบเคลียร์คิวที่เหลือทิ้งให้แล้วครับ!` }
+        return { success: false, error: `วันนี้สมาชิกได้รับครบโควตา ${personalLimit} ชิ้นแล้ว ระบบลบคิวส่วนเกินให้แล้วครับ` }
     }
 
-    // 🌟 3. อัปเดตช่องปัจจุบันที่กด ให้แจกสำเร็จ (1 สล็อต = 1 ชิ้น)
+    // อัปเดตคิวปัจจุบันแสตมป์สถานะสำเร็จ
     const { error: updateError } = await supabase
       .from('auction_queues')
       .update({ 
@@ -314,19 +332,17 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
 
     if (updateError) throw updateError
 
-    // 🌟 4. ไคลแมกซ์: เช็คยอดหลังแจก ถ้า "ครบโควตาพอดี" ให้กวาดล้างคิวติ่งที่เหลือทิ้ง!
-    const totalNow = receivedBefore + 1
+    // 🌟 เช็คยอดรวมในวันนี้หลังแจกชิ้นนี้ไป: ถ้าครบโควตาของวันนี้พอดี -> สั่งทำลาย (DELETE) คิว waiting ที่เหลือทิ้งทันที!
+    const totalNow = receivedTodayBefore + 1
     if (totalNow >= personalLimit) {
-        // หา ID ของคิวที่ยังเป็น waiting อยู่ทั้งหมด
         const remainingWaitingIds = userQueues
           ?.filter(q => q.id !== queue.id && q.status === 'waiting')
           .map(q => q.id) || []
 
         if (remainingWaitingIds.length > 0) {
-           // ✨ ใช้ Soft Delete อัปเดตสถานะเป็น 'canceled' (ข้ามปัญหา RLS ลบไม่ได้)
            await supabase
              .from('auction_queues')
-             .update({ status: 'canceled', updated_at: new Date().toISOString() })
+             .delete()
              .in('id', remainingWaitingIds)
         }
     }

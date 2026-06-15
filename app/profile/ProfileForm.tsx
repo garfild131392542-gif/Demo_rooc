@@ -88,12 +88,14 @@ export default function ProfileForm({
   const [showGoToAuctionLink, setShowGoToAuctionLink] = useState(false);
 
   const openReservationModal = () => {
+    setMessage(null);
     setShowGoToAuctionLink(false);
     setReservationModalOpen(true);
     fetchReservations();
   };
 
   const closeReservationModal = () => {
+    setMessage(null);
     setReservationModalOpen(false);
     setReservations([]);
     setReservationDraftQty({});
@@ -555,6 +557,17 @@ export default function ProfileForm({
               </button>
             </div>
             <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
+              {message && (
+                <div className={`p-4 rounded-xl font-medium text-sm shadow-sm border ${
+                  message.type === "success"
+                    ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                    : message.type === "error"
+                      ? "bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
+                      : "bg-sky-50 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300 border-sky-200 dark:border-sky-800"
+                }`}>
+                  {message.text}
+                </div>
+              )}
               <MemberForm
                 reservationQtys={reservationQtys}
                 setReservationQtys={setReservationQtys}

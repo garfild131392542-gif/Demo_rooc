@@ -193,7 +193,7 @@ export default function AuctionWindow({
 </div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/80 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-600">
-                หน้า {currentPage} คิว {index + 1}
+                หน้า {(slot as any).originalPage || currentPage} ช่องที่ {(slot as any).originalSlot || (index + 1)}
               </span>
             </div>
           </div>

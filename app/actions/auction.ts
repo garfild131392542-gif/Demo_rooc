@@ -780,7 +780,7 @@ export async function syncMemberAuctionQueue(userId: string, itemType: string, q
   }
 }
 
-// 11. เคลียร์คิวประมูลตามประเภทไอเทม (Soft Delete - Canceled คิวรอรอบถัดไป & คิวประมูลเสร็จแล้ว)
+// 11. เคลียร์คิวประมูลตามประเภทไอเทม (Hard Delete - ลบคิวรอรอบถัดไป & คิวประมูลเสร็จแล้วออกจากฐานข้อมูล)
 export async function clearQueueByItemType(itemType: ItemType) {
   try {
     const session = await getSession()
@@ -862,19 +862,16 @@ export async function clearQueueByItemType(itemType: ItemType) {
       .filter((q: any) => q.status === 'completed')
       .map((q: any) => q.id)
 
-    // รวมรายการที่ต้องยกเลิก (soft delete)
-    const idsToCancel = Array.from(new Set([...waitlistedIds, ...completedIds]))
+    // รวมรายการที่ต้องลบ (hard delete)
+    const idsToDelete = Array.from(new Set([...waitlistedIds, ...completedIds]))
 
-    if (idsToCancel.length > 0) {
-      const { error: updateError } = await supabase
+    if (idsToDelete.length > 0) {
+      const { error: deleteError } = await supabase
         .from('auction_queues')
-        .update({
-          status: 'canceled',
-          updated_at: new Date().toISOString()
-        })
-        .in('id', idsToCancel)
+        .delete()
+        .in('id', idsToDelete)
 
-      if (updateError) throw updateError
+      if (deleteError) throw deleteError
     }
 
     // ส่งการแจ้งเตือน Discord Webhook เคลียร์คิว/เริ่มรอบใหม่
@@ -895,7 +892,7 @@ export async function clearQueueByItemType(itemType: ItemType) {
     revalidatePath('/auction')
     revalidatePath('/profile')
 
-    return { success: true, count: idsToCancel.length }
+    return { success: true, count: idsToDelete.length }
   } catch (err: any) {
     return { success: false, error: err.message }
   }

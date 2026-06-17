@@ -596,7 +596,7 @@ export default function AuctionWindow({
                       type="button"
                       disabled={actionLoading[`clear-${type}`]}
                       onClick={async () => {
-                        if (!confirm(`ยืนยันการล้างคิว (ยกเลิกคิวรอรอบถัดไปและคิวประมูลเสร็จแล้ว) ของไอเทม ${type}?`)) {
+                        if (!confirm(`ยืนยันการล้างคิว (ลบคิวรอรอบถัดไปและคิวประมูลเสร็จแล้วออกจากฐานข้อมูลจริง ๆ) ของไอเทม ${type}?`)) {
                           return;
                         }
 
@@ -613,7 +613,7 @@ export default function AuctionWindow({
                         }));
 
                         if (result.success) {
-                          alert(`ล้างคิว ${type} สำเร็จ! ยกเลิกไปทั้งหมด ${result.count} คิว`);
+                          alert(`ล้างคิว ${type} สำเร็จ! ลบออกจากฐานข้อมูลไปทั้งหมด ${result.count} คิว`);
                           if (onRefresh) await onRefresh();
                         } else {
                           alert(`ไม่สามารถล้างคิวได้: ${result.error}`);

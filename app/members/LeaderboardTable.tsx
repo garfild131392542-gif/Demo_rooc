@@ -43,6 +43,11 @@ const PodiumSlot = ({
   medalBg: string;
   glowClass?: string;
 }) => {
+  const [imgError, setImgError] = useState(false);
+  const badgeSizeClass = rank === 1
+    ? "w-20 h-20 sm:w-24 sm:h-24"
+    : "w-16 h-16 sm:w-20 sm:h-20";
+
   return (
     <div className="flex flex-col items-center flex-1 max-w-[200px] sm:max-w-[240px] transition-all duration-300 hover:-translate-y-1">
       {/* Character Image container */}
@@ -74,16 +79,28 @@ const PodiumSlot = ({
           </div>
         )}
 
-        {/* Medal Badge floating above the character */}
-        <div className={`absolute top-0 flex items-center justify-center w-8 h-8 rounded-full border border-white/20 shadow-md ${medalBg} text-white font-black text-sm z-20`}>
-          {medalText}
-        </div>
       </div>
 
       {/* The 3D Podium Box */}
-      <div className={`w-full ${heightClass} ${colorClass} ${glowClass} rounded-t-2xl flex flex-col items-center justify-center p-3 relative border-t-4 border-l border-r border-b-0`}>
+      <div className={`w-full ${heightClass} ${colorClass} ${glowClass} rounded-t-2xl flex flex-col items-center justify-between p-2 sm:p-3 relative border-t-4 border-l border-r border-b-0 overflow-hidden`}>
+        {/* Medal Badge inside the podium stand */}
+        <div className="z-10 select-none pointer-events-none my-auto flex items-center justify-center">
+          {!imgError ? (
+            <img
+              src={`/${rank}.png`}
+              alt={`Rank ${rank}`}
+              className={`${badgeSizeClass} object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.35)] transition-transform duration-300 group-hover:scale-110`}
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full border border-white/20 shadow-md ${medalBg} text-white font-black text-sm`}>
+              {medalText}
+            </div>
+          )}
+        </div>
+
         {/* Name and class info */}
-        <div className="text-center w-full z-10 space-y-0.5 sm:space-y-1">
+        <div className="text-center w-full z-10 space-y-0.5 sm:space-y-1 mt-auto">
           <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate max-w-full px-1">
             {profile ? profile.display_name : "-"}
           </p>
@@ -270,7 +287,7 @@ export default function LeaderboardTable({
           <PodiumSlot
             profile={rank2}
             rank={2}
-            heightClass="h-20 sm:h-28"
+            heightClass="h-28 sm:h-36"
             colorClass="bg-gradient-to-t from-slate-400/30 to-slate-400/5 dark:from-slate-500/30 dark:to-slate-500/5 border-slate-300/40 dark:border-slate-600/40 border-t-slate-400 dark:border-t-slate-400"
             medalText="2"
             medalBg="bg-slate-400 shadow-slate-400/40"
@@ -280,7 +297,7 @@ export default function LeaderboardTable({
           <PodiumSlot
             profile={rank1}
             rank={1}
-            heightClass="h-28 sm:h-40"
+            heightClass="h-36 sm:h-48"
             colorClass="bg-gradient-to-t from-yellow-500/30 to-yellow-500/5 border-yellow-300/40 dark:border-yellow-600/40 border-t-yellow-400 dark:border-t-yellow-500"
             medalText="👑"
             medalBg="bg-gradient-to-r from-yellow-500 to-amber-500 shadow-yellow-500/40 ring-4 ring-yellow-400/20"
@@ -291,7 +308,7 @@ export default function LeaderboardTable({
           <PodiumSlot
             profile={rank3}
             rank={3}
-            heightClass="h-16 sm:h-20"
+            heightClass="h-24 sm:h-30"
             colorClass="bg-gradient-to-t from-amber-700/30 to-amber-700/5 border-amber-600/40 border-t-amber-600"
             medalText="3"
             medalBg="bg-amber-600 shadow-amber-600/40"

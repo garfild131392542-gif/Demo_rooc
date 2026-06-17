@@ -784,29 +784,33 @@ export default function ProfileForm({
             </div>
           </div>
         </form>
-
       </div>
 
       {/* Modal จองคิว */}
       {reservationModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-3xl overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-6 py-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-5xl overflow-hidden rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl border border-slate-200 dark:border-slate-800 glass-panel">
+            <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/80 px-6 py-4">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  คิวประมูลของฉัน
+                <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>📦</span> จัดการคิวประมูลของฉัน
                 </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                  จัดการคิวและจำนวนที่ต้องการรับได้จากที่นี่
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                  ลงทะเบียนคิวประมูลใหม่ หรือ ตรวจสอบสถานะการจองไอเทมทั้งหมดในวันนี้
                 </p>
               </div>
-              <button type="button" onClick={closeReservationModal} className="cursor-pointer rounded-full border border-slate-300 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 transition-colors">
-                ปิด
+              <button 
+                type="button" 
+                onClick={closeReservationModal} 
+                className="cursor-pointer px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition-all"
+              >
+                ปิดหน้าต่าง
               </button>
             </div>
-            <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
+
+            <div className="p-6 max-h-[75vh] overflow-y-auto">
               {message && (
-                <div className={`p-4 rounded-xl font-medium text-sm shadow-sm border ${
+                <div className={`mb-6 p-4 rounded-xl font-medium text-sm shadow-sm border ${
                   message.type === "success"
                     ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
                     : message.type === "error"
@@ -816,119 +820,177 @@ export default function ProfileForm({
                   {message.text}
                 </div>
               )}
-              <MemberForm
-                reservationQtys={reservationQtys}
-                setReservationQtys={setReservationQtys}
-                handleMemberRegister={handleMemberRegister}
-                isSaving={isReservationSubmitting || isPending || isAiLoading}
-              />
-              {isReservationLoading ? (
-                <div className="text-center py-16 text-slate-500 dark:text-slate-400 flex flex-col items-center gap-3">
-                  <svg className="animate-spin h-6 w-6 text-indigo-500" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
-                  กำลังโหลดข้อมูล...
-                </div>
-              ) : reservations.length === 0 ? (
-                <div className="text-center py-16 text-slate-500 dark:text-slate-400">ยังไม่มีรายการจองคิวในขณะนี้</div>
-              ) : (
-                <div className="space-y-4">
-                  {(() => {
-                    const sessionMap = new Map<string, QueueReservation[]>();
-                    const sessionOrder: string[] = [];
-                    
-                    reservations.forEach((res) => {
-                      const sessionKey = `${res.item_name}|${res.queue_timestamp || 'no-timestamp'}`;
-                      if (!sessionMap.has(sessionKey)) {
-                        sessionMap.set(sessionKey, []);
-                        sessionOrder.push(sessionKey);
-                      }
-                      sessionMap.get(sessionKey)!.push(res);
-                    });
-                    
-                    return sessionOrder.map((sessionKey) => {
-                      const sessionReservations = sessionMap.get(sessionKey) || [];
-                      const firstRes = sessionReservations[0];
-                      const itemLabel = ITEM_CONFIG[firstRes.item_name as keyof typeof ITEM_CONFIG].label;
-                      const totalRequested = sessionReservations.reduce((sum, r) => sum + (r.requested_qty || 0), 0);
-                      const totalReceived = sessionReservations.reduce((sum, r) => sum + (r.received_qty || 0), 0);
-                      const formattedTime = firstRes.queue_timestamp 
-                        ? new Date(firstRes.queue_timestamp).toLocaleString('th-TH')
-                        : '-';
-                      
-                      return (
-                        <div key={sessionKey} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700/50 dark:bg-slate-800/30">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                              <div className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                                {itemLabel}
-                              </div>
-                              <div className="text-sm text-slate-500 dark:text-slate-400 mt-2 space-y-1">
-                                <div className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                                  {firstRes.status === 'partial' ? 'รับแล้วบางส่วน' : 'รอรับการจัดสรร'}
-                                </div>
-                                <div className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                                  {formattedTime}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-3 text-sm font-semibold text-slate-900 dark:text-slate-100 shadow-sm">
-                              ได้รับแล้ว {totalReceived} ชิ้น
-                            </div>
-                          </div>
 
-                          <div className="mt-5 grid gap-3 sm:grid-cols-[1.5fr_1fr_1fr]">
-                            <div className="sm:col-span-2">
-                              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                                ระบุจำนวนที่ต้องการ
-                              </label>
-                              <input 
-                                type="number" 
-                                value={totalRequested}
-                                disabled
-                                className="block w-full rounded-xl border-0 py-2 px-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 dark:bg-slate-900 dark:text-white dark:ring-slate-700 sm:text-sm font-semibold bg-slate-100 dark:bg-slate-800 cursor-not-allowed"
-                              />
-                              <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-500">รวมจำนวนที่จอง ({sessionReservations.length} รายการ)</p>
-                            </div>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* ฝั่งซ้าย: ฟอร์มจองคิวใหม่ */}
+                <div className="lg:col-span-5 space-y-4">
+                  <MemberForm
+                    reservationQtys={reservationQtys}
+                    setReservationQtys={setReservationQtys}
+                    handleMemberRegister={handleMemberRegister}
+                    isSaving={isReservationSubmitting || isPending || isAiLoading}
+                  />
 
-                            {/* ✨ ปุ่มลบเปลี่ยน Logic เป็น Loop อัปเดตคิวลบให้เกลี้ยง */}
-                            <button 
-                              type="button" 
-                              onClick={async () => {
-                                if (!confirm("ยืนยันการยกเลิกการจองคิวไอเทมนี้ทั้งหมด?")) return;
-                                
-                                setReservationActionLoading(true);
-                                try {
-                                  // วนลูปใช้ deleteAuctionQueueReservation ยิงลบออกจากตาราง DB รัวๆ
-                                  for (const res of sessionReservations) {
-                                    await deleteAuctionQueueReservation(String(res.id));
-                                  }
-                                  setMessage({ type: "success", text: "ยกเลิกคิวไอเทมนี้ออกจากฐานข้อมูลสำเร็จ" });
-                                  await fetchReservations();
-                                } catch (err) {
-                                  setMessage({ type: "error", text: "ไม่สามารถยกเลิกคิวได้ทั้งหมด" });
-                                } finally {
-                                  setReservationActionLoading(false);
-                                }
-                              }} 
-                              disabled={reservationActionLoading} 
-                              className="cursor-pointer mt-3 sm:mt-0 h-11 self-center w-full rounded-xl border border-rose-300 bg-white px-4 text-sm font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-400 disabled:opacity-50 transition-colors"
-                            >
-                              ยกเลิกคิวทั้งหมด
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
+                  {showGoToAuctionLink && (
+                    <div className="rounded-2xl border border-slate-200/60 dark:border-slate-800/80 p-4 bg-slate-50 dark:bg-slate-950/40 flex flex-col gap-2.5">
+                      <div className="text-xs font-bold text-slate-700 dark:text-slate-300">🎉 บันทึกข้อมูลคิวเรียบร้อยแล้ว</div>
+                      <Link href="/auction" className="inline-flex items-center justify-center rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-2.5 text-xs font-bold text-white transition-colors">
+                        ไปหน้าจัดการประมูล &rarr;
+                      </Link>
+                    </div>
+                  )}
                 </div>
-              )}
-              {showGoToAuctionLink && (
-                <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 bg-slate-50 dark:bg-slate-950/70 flex flex-col gap-3">
-                  <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">บันทึกข้อมูลคิวเรียบร้อยแล้ว</div>
-                  <Link href="/auction" className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-500 transition-colors">
-                    ไปหน้าจัดการประมูลต่อ
-                  </Link>
+
+                {/* ฝั่งขวา: รายการจองคิวปัจจุบัน */}
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                      <span>📋</span> รายการคิวจองปัจจุบัน
+                    </h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                      ทั้งหมด {reservations.length} รายการ
+                    </span>
+                  </div>
+
+                  {isReservationLoading ? (
+                    <div className="text-center py-16 text-slate-500 dark:text-slate-400 flex flex-col items-center gap-3 bg-slate-50/50 dark:bg-slate-800/10 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
+                      <svg className="animate-spin h-6 w-6 text-indigo-500" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                      กำลังโหลดข้อมูลคิว...
+                    </div>
+                  ) : reservations.length === 0 ? (
+                    <div className="text-center py-16 text-slate-400 dark:text-slate-500 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-6 bg-slate-50/20 dark:bg-slate-900/10">
+                      <span className="text-3xl block mb-2 opacity-30">📦</span>
+                      ยังไม่มีรายการจองคิวในขณะนี้
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {(() => {
+                        const sessionMap = new Map<string, QueueReservation[]>();
+                        const sessionOrder: string[] = [];
+                        
+                        reservations.forEach((res) => {
+                          const sessionKey = `${res.item_name}|${res.queue_timestamp || 'no-timestamp'}`;
+                          if (!sessionMap.has(sessionKey)) {
+                            sessionMap.set(sessionKey, []);
+                            sessionOrder.push(sessionKey);
+                          }
+                          sessionMap.get(sessionKey)!.push(res);
+                        });
+                        
+                        return sessionOrder.map((sessionKey) => {
+                          const sessionReservations = sessionMap.get(sessionKey) || [];
+                          const firstRes = sessionReservations[0];
+                          const itemType = firstRes.item_name;
+                          const itemCfg = ITEM_CONFIG[itemType as keyof typeof ITEM_CONFIG];
+                          const itemLabel = itemCfg?.label || itemType;
+                          const itemIcon = itemCfg?.icon;
+                          
+                          const totalRequested = sessionReservations.reduce((sum, r) => sum + (r.requested_qty || 0), 0);
+                          const totalReceived = sessionReservations.reduce((sum, r) => sum + (r.received_qty || 0), 0);
+                          const formattedTime = firstRes.queue_timestamp 
+                            ? new Date(firstRes.queue_timestamp).toLocaleString('th-TH', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
+                            : '-';
+                          
+                          const percent = totalRequested > 0 ? Math.min(100, (totalReceived / totalRequested) * 100) : 0;
+                          
+                          return (
+                            <div key={sessionKey} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700/50 dark:bg-slate-800/30 shadow-sm glass-panel relative overflow-hidden transition-all hover:border-slate-300 dark:hover:border-slate-700 group">
+                              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                {/* ส่วนหัวไอเทมพร้อมรูปภาพ */}
+                                <div className="flex items-center gap-3">
+                                  {itemIcon ? (
+                                    <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center p-1 border border-slate-200 dark:border-slate-700 shrink-0 shadow-sm">
+                                      <img src={itemIcon} alt={itemLabel} className="w-10 h-10 object-contain" />
+                                    </div>
+                                  ) : (
+                                    <div className="w-12 h-12 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xl shrink-0">
+                                      📦
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div className="text-sm font-black text-slate-800 dark:text-white tracking-tight">
+                                      {itemLabel}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 mt-1.5 items-center">
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
+                                        firstRes.status === 'partial' 
+                                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' 
+                                          : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300'
+                                      }`}>
+                                        {firstRes.status === 'partial' ? 'ได้รับแล้วบางส่วน' : 'รอจัดสรร'}
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                                        🕒 {formattedTime}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* ข้อมูลจำนวนด้านขวา */}
+                                <div className="flex flex-col items-end shrink-0">
+                                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                                    จัดสรรแล้ว
+                                  </div>
+                                  <div className="text-base font-black text-slate-800 dark:text-white">
+                                    {totalReceived} <span className="text-xs font-semibold text-slate-400">/ {totalRequested} ชิ้น</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Progress bar */}
+                              <div className="mt-4">
+                                <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full bg-indigo-500 dark:bg-indigo-600 rounded-full transition-all duration-500" 
+                                    style={{ width: `${percent}%` }}
+                                  />
+                                </div>
+                                <div className="flex justify-between items-center mt-1.5">
+                                  <span className="text-[10px] text-slate-400 dark:text-slate-500">รวมจำนวนจอง ({sessionReservations.length} คิวย่อย)</span>
+                                  <span className="text-[10px] font-black text-indigo-500 dark:text-indigo-400">{Math.round(percent)}%</span>
+                                </div>
+                              </div>
+
+                              {/* Cancel action */}
+                              <div className="mt-4 pt-4 border-t border-slate-200/40 dark:border-slate-800/40 flex justify-end">
+                                <button 
+                                  type="button" 
+                                  onClick={async () => {
+                                    if (!confirm("ยืนยันการยกเลิกการจองคิวไอเทมนี้ทั้งหมด?")) return;
+                                    
+                                    setReservationActionLoading(true);
+                                    try {
+                                      for (const res of sessionReservations) {
+                                        await deleteAuctionQueueReservation(String(res.id));
+                                      }
+                                      setMessage({ type: "success", text: "ยกเลิกคิวไอเทมนี้สำเร็จ" });
+                                      await fetchReservations();
+                                    } catch (err) {
+                                      setMessage({ type: "error", text: "ไม่สามารถยกเลิกคิวได้ทั้งหมด" });
+                                    } finally {
+                                      setReservationActionLoading(false);
+                                    }
+                                  }} 
+                                  disabled={reservationActionLoading} 
+                                  className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-xs font-bold text-red-600 bg-white hover:bg-red-50 dark:border-red-950/30 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-950/20 transition-all disabled:opacity-50"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  ยกเลิกคิวจองทั้งหมด
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
@@ -936,3 +998,4 @@ export default function ProfileForm({
     </div>
   );
 }
+

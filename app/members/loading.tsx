@@ -1,50 +1,55 @@
 export default function MembersLoading() {
   return (
-    // 💡 ปรับพื้นหลังหลักของหน้าจอ (bg-slate-50 -> dark:bg-slate-900)
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 py-12 px-4 sm:px-6 lg:px-8 transition-colors">
-      
-      {/* 💡 ปรับพื้นหลังกล่อง (bg-white -> dark:bg-slate-800) และเส้นขอบ */}
-      <div className="w-full max-w-lg bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl dark:shadow-2xl p-8 flex flex-col items-center transition-colors">
+    <div className="max-w-[1800px] mx-auto px-4 py-8 animate-pulse">
+      {/* Header Skeleton */}
+      <header className="mb-6 space-y-2">
+        <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded w-64"></div>
+        <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-96"></div>
+      </header>
 
-        {/* ไอคอนกำลังโหลด (Spinner) - ปรับสีฟ้าให้สว่างขึ้นนิดนึงในโหมดมืด */}
-        <svg
-          className="h-12 w-12 animate-spin text-blue-600 dark:text-blue-500 mb-6"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
+      {/* Filters bar Skeleton */}
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60 shadow-sm">
+        <div className="flex flex-wrap gap-2">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-9 w-24 bg-slate-100 dark:bg-slate-700/50 rounded-xl"></div>
+          ))}
+        </div>
+        <div className="h-10 w-64 bg-slate-100 dark:bg-slate-700/50 rounded-xl"></div>
+      </div>
 
-        {/* 💡 ปรับสีตัวอักษร */}
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">กำลังโหลดข้อมูลสมาชิก...</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 animate-pulse">โปรดรอสักครู่ ระบบกำลังดึงข้อมูลจากฐานข้อมูล</p>
+      {/* Table Skeleton */}
+      <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <div className="min-w-[1200px]">
+            {/* Table Header */}
+            <div className="grid grid-cols-[repeat(14,minmax(0,1fr))] bg-slate-50 dark:bg-slate-900/50 p-5 border-b border-slate-200 dark:border-slate-700/60">
+              <div className="col-span-2 h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/3"></div>
+              <div className="col-span-1 h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
+              {[...Array(11)].map((_, i) => (
+                <div key={i} className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16 mx-auto"></div>
+              ))}
+            </div>
 
-        {/* Skeleton Card (โครงร่างจำลองระหว่างรอโหลด) */}
-        {/* 💡 ปรับพื้นหลังกล่องจำลองด้านใน */}
-        <div className="w-full space-y-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-inner dark:shadow-none">
-          <div className="animate-pulse flex space-x-4">
-            <div className="flex-1 space-y-6 py-1">
-              {/* 💡 ปรับสีแท่งโหลด (bg-slate-200 -> dark:bg-slate-700) */}
-              <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded w-1/4"></div>
-              <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
-
-              {/* 💡 ปรับสีเส้นคั่น */}
-              <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-                <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded w-1/3"></div>
-                <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-full"></div>
-                <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-5/6"></div>
-              </div>
-
-              <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-                <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded w-1/4"></div>
-                <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
-              </div>
+            {/* Table Rows */}
+            <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
+              {[...Array(10)].map((_, rowIndex) => (
+                <div key={rowIndex} className="grid grid-cols-[repeat(14,minmax(0,1fr))] p-5 items-center">
+                  {/* Name column */}
+                  <div className="col-span-2 flex items-center space-x-3">
+                    <div className="h-8 w-8 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-2/3"></div>
+                  </div>
+                  {/* Job Column */}
+                  <div className="col-span-1 h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div>
+                  {/* Stats columns */}
+                  {[...Array(11)].map((_, colIndex) => (
+                    <div key={colIndex} className="h-4 bg-slate-100 dark:bg-slate-700/50 rounded w-12 mx-auto"></div>
+                  ))}
+                </div>
+              ))}
             </div>
           </div>
         </div>
-
       </div>
     </div>
   )

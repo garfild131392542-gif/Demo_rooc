@@ -21,6 +21,8 @@ type LeaderboardProfile = {
   sp: number | null;
   ignore_pdef: number | null;
   ignore_mdef: number | null;
+  cri: number | null;
+  cri_dmg: number | null;
 };
 
 const SORT_OPTIONS = [
@@ -39,6 +41,8 @@ const SORT_OPTIONS = [
   { label: "M.Reduc (%)", value: "m_reduc" },
   { label: "PvP DMG", value: "pvp_dmg" },
   { label: "PvP Reduc", value: "pvp_reduc" },
+  { label: "Cri", value: "cri" },
+  { label: "Cri Dam (%)", value: "cri_dmg" },
 ];
 
 export default function LeaderboardTable({
@@ -256,8 +260,8 @@ export default function LeaderboardTable({
 
       {/* --- ตารางดีไซน์ใหม่ ไร้ขอบกลาง --- */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto scroll-smooth pb-2">
-          <table className="min-w-full text-sm text-left">
+        <div className="overflow-x-auto scroll-smooth pb-2" style={{ transform: "rotateX(180deg)" }}>
+          <table className="min-w-full text-sm text-left" style={{ transform: "rotateX(180deg)" }}>
             <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="px-6 py-4 font-medium whitespace-nowrap">
@@ -338,6 +342,16 @@ export default function LeaderboardTable({
                   className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("pvp_reduc")}`}
                 >
                   PvP Reduc
+                </th>
+                <th
+                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("cri")}`}
+                >
+                  Cri
+                </th>
+                <th
+                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("cri_dmg")}`}
+                >
+                  Cri Dam(%)
                 </th>
               </tr>
             </thead>
@@ -444,6 +458,16 @@ export default function LeaderboardTable({
                   >
                     {profile.pvp_reduc ?? 0}
                   </td>
+                  <td
+                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("cri")}`}
+                  >
+                    {profile.cri ?? 0}
+                  </td>
+                  <td
+                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("cri_dmg")}`}
+                  >
+                    {profile.cri_dmg ?? 0}
+                  </td>
                   
                   
                 </tr>
@@ -452,7 +476,7 @@ export default function LeaderboardTable({
               {/* กรณีไม่มีข้อมูล */}
               {filteredProfiles.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="px-6 py-16 text-center">
+                  <td colSpan={19} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
                       <svg
                         className="w-10 h-10 mb-3 stroke-current"

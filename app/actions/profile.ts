@@ -5,6 +5,26 @@ import { getSession } from "./auth";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/server";
 import { buildProfileUpdatePayload } from "./profileHelpers";
+import { STAT_LIMITS } from "@/lib/stat-limits";
+
+const STAT_LABELS: Record<string, string> = {
+  hp: "Max HP",
+  sp: "Max SP",
+  p_atk: "P.ATK",
+  m_atk: "M.ATK",
+  p_def: "P.DEF",
+  m_def: "M.DEF",
+  ignore_pdef: "Ignore P.DEF",
+  ignore_mdef: "Ignore M.DEF",
+  p_dmg: "P.DMG (%)",
+  m_dmg: "M.DMG (%)",
+  p_reduc: "P.Reduc (%)",
+  m_reduc: "M.Reduc (%)",
+  pvp_dmg: "PvP DMG",
+  pvp_reduc: "PvP Reduc",
+  cri: "Cri",
+  cri_dmg: "Cri Dam (%)",
+};
 
 export interface ProfileSetupFormData {
   displayName?: string;
@@ -27,6 +47,19 @@ export async function updateMyProfile(formData: FormData) {
   const supabase = await createClient();
 
   const payload = buildProfileUpdatePayload(formData);
+
+  // ตรวจสอบลิมิตของสเตตัสป้องกันการป้อนค่าปลอม (เช่น 999999)
+  for (const key of Object.keys(STAT_LIMITS) as (keyof typeof STAT_LIMITS)[]) {
+    const val = payload[key as keyof typeof payload];
+    const maxVal = STAT_LIMITS[key];
+    if (typeof val === "number" && val > maxVal) {
+      const label = STAT_LABELS[key] || key;
+      return { 
+        success: false, 
+        error: `ค่า ${label} ต้องไม่เกิน ${maxVal.toLocaleString()}` 
+      };
+    }
+  }
 
   const { error } = await (supabase as any)
     .from("profiles")
@@ -140,8 +173,10 @@ export async function setupProfileAction(formData: ProfileSetupFormData) {
             pvp_reduc: 0,
             hp:0,
             sp:0,
-              ignore_pdef: 0,
-              ignore_mdef: 0,
+            ignore_pdef: 0,
+            ignore_mdef: 0,
+            cri: 0,
+            cri_dmg: 0,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },

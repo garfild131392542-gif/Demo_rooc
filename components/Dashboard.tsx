@@ -41,6 +41,8 @@ export type Profile = {
   sp: number;
   ignore_pdef: number;
   ignore_mdef: number;
+  cri?: number | null;
+  cri_dmg?: number | null;
 
   // Guild & Authorization
   guild_id?: string | null;

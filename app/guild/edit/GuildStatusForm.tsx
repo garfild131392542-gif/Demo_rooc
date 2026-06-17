@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { updateGuildAction } from "@/app/actions/guild"; // 🌟 ชี้ไปที่ไฟล์ action ในโปรเจกต์ของคุณ
+import { createClient } from "@/lib/supabase/client";
 
 interface GuildStatusFormProps {
   guild: {
@@ -27,11 +28,28 @@ export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps
   const [primaryColor, setPrimaryColor] = useState(guild.primary_color || "#3b82f6");
   const [discordWebhookUrl, setDiscordWebhookUrl] = useState(guild.discord_webhook_url || "");
 
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>(guild.logo_url || "");
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setLogoFile(file);
+      setLogoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoFile(null);
+    setLogoUrl("");
+    setLogoPreview("");
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,11 +59,45 @@ export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps
     setError(null);
     setSuccess(null);
 
+    let finalLogoUrl = logoUrl;
+
+    if (logoFile) {
+      try {
+        const supabase = createClient();
+        const fileExt = logoFile.name.split('.').pop();
+        const fileName = `logo_${Date.now()}.${fileExt}`;
+        const filePath = `${guild.id}/${fileName}`;
+
+        // Upload to bucket 'guild-logos'
+        const { error: uploadError } = await supabase.storage
+          .from('guild-logos')
+          .upload(filePath, logoFile, { upsert: true });
+
+        if (uploadError) {
+          throw new Error('อัปโหลดโลโก้ล้มเหลว: ' + uploadError.message);
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('guild-logos')
+          .getPublicUrl(filePath);
+
+        finalLogoUrl = publicUrl;
+        setLogoUrl(publicUrl);
+        setLogoPreview(publicUrl);
+        setLogoFile(null); // Clear selected file after success
+      } catch (uploadErr: any) {
+        setError(uploadErr.message || 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ');
+        setIsLoading(false);
+        return;
+      }
+    }
+
     const result = await updateGuildAction(guild.id, {
       name: guildName,
       description: description,
       discordLink: discordLink,
-      logoUrl: logoUrl,
+      logoUrl: finalLogoUrl,
       primaryColor: primaryColor,
       discordWebhookUrl: discordWebhookUrl,
     });
@@ -126,62 +178,83 @@ export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps
           />
         </div>
 
-        {/* 4. โลโก้กิลด์ (Logo URL) */}
-        <div>
-          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">ลิงก์รูปโลโก้กิลด์ (Logo URL)</label>
-          <input
-            type="url"
-            disabled={!isAdmin || isLoading}
-            value={logoUrl}
-            onChange={(e) => setLogoUrl(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2.5 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-600 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-mono dark:placeholder-slate-400"
-            placeholder="https://example.com/logo.png"
-          />
-          {logoUrl && (
-            <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/60 flex items-center justify-center">
-              <img src={logoUrl} alt="Preview" className="h-12 w-auto object-contain rounded" onError={(e) => { (e.target as any).src = 'https://placehold.co/100x100?text=Invalid+Image'; }} />
+        {/* 4. โลโก้กิลด์ (Logo Upload) - เฉพาะแอดมินเห็น */}
+        {isAdmin && (
+          <div>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">รูปโลโก้กิลด์ (Logo Image)</label>
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <input
+                type="file"
+                accept="image/*"
+                disabled={isLoading}
+                onChange={handleFileChange}
+                className="w-full text-sm text-slate-500 dark:text-slate-400
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-xl file:border-0
+                  file:text-xs file:font-semibold
+                  file:bg-guild-primary file:text-white
+                  hover:file:opacity-90 file:cursor-pointer"
+              />
+              {logoPreview && (
+                <button
+                  type="button"
+                  onClick={handleRemoveLogo}
+                  className="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-950/20 px-3 py-2 rounded-xl border border-red-200 dark:border-red-900/40"
+                >
+                  ลบโลโก้
+                </button>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* 5. โทนสีหลักกิลด์ (Primary Theme Color) */}
-        <div>
-          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">สีหลักของกิลด์ (Theme Color)</label>
-          <div className="flex gap-3">
-            <input
-              type="color"
-              disabled={!isAdmin || isLoading}
-              value={primaryColor}
-              onChange={(e) => setPrimaryColor(e.target.value)}
-              className="h-10 w-16 cursor-pointer rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 p-1"
-            />
-            <input
-              type="text"
-              pattern="^#[0-9a-fA-F]{6}$"
-              disabled={!isAdmin || isLoading}
-              value={primaryColor}
-              onChange={(e) => setPrimaryColor(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 text-sm font-mono"
-              placeholder="#3b82f6"
-            />
+            {logoPreview && (
+              <div className="mt-3 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/60 flex items-center justify-center">
+                <img src={logoPreview} alt="Preview" className="h-12 w-auto object-contain rounded" onError={(e) => { (e.target as any).src = 'https://placehold.co/100x100?text=Invalid+Image'; }} />
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
-        {/* 6. Discord Webhook URL */}
-        <div>
-          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Discord Webhook URL (สำหรับแจ้งเตือนระบบ)</label>
-          <input
-            type="password"
-            disabled={!isAdmin || isLoading}
-            value={discordWebhookUrl}
-            onChange={(e) => setDiscordWebhookUrl(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2.5 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-600 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-mono dark:placeholder-slate-400"
-            placeholder="https://discord.com/api/webhooks/xxxxxx"
-          />
-          <p className="text-[10px] text-slate-400 mt-1">
-            * ระบบจะใช้ส่งการแจ้งเตือนไปยังดิสคอร์ด เช่น เมื่อล้างคิว หรือแจกจ่ายไอเทม
-          </p>
-        </div>
+        {/* 5. โทนสีหลักกิลด์ (Primary Theme Color) - เฉพาะแอดมินเห็น */}
+        {isAdmin && (
+          <div>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">สีหลักของกิลด์ (Theme Color)</label>
+            <div className="flex gap-3">
+              <input
+                type="color"
+                disabled={isLoading}
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="h-10 w-16 cursor-pointer rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 p-1"
+              />
+              <input
+                type="text"
+                pattern="^#[0-9a-fA-F]{6}$"
+                disabled={isLoading}
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 text-sm font-mono"
+                placeholder="#3b82f6"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* 6. Discord Webhook URL - เฉพาะแอดมินเห็น */}
+        {isAdmin && (
+          <div>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Discord Webhook URL (สำหรับแจ้งเตือนระบบ)</label>
+            <input
+              type="password"
+              disabled={isLoading}
+              value={discordWebhookUrl}
+              onChange={(e) => setDiscordWebhookUrl(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2.5 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-600 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-mono dark:placeholder-slate-400"
+              placeholder="https://discord.com/api/webhooks/xxxxxx"
+            />
+            <p className="text-[10px] text-slate-400 mt-1">
+              * ระบบจะใช้ส่งการแจ้งเตือนไปยังดิสคอร์ด เช่น เมื่อล้างคิว หรือแจกจ่ายไอเทม
+            </p>
+          </div>
+        )}
 
         {/* 💡 ปรับเส้นคั่น */}
         <div className="border-t border-slate-100 dark:border-slate-700 pt-5 space-y-5">

@@ -260,14 +260,28 @@ export default function MemberCard({
 
                 {/* คู่ PvP */}
                 <div>
-                  <p className="text-gray-400">PvP DMG</p>
-                  <p className="font-medium text-rose-400">{profile.pvp_dmg}</p>
+                   <p className="text-gray-400">PvP DMG</p>
+                   <p className="font-medium text-rose-400">{profile.pvp_dmg}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">PvP Reduc</p>
-                  <p className="font-medium text-emerald-400">
-                    {profile.pvp_reduc}
-                  </p>
+                   <p className="text-gray-400">PvP Reduc</p>
+                   <p className="font-medium text-emerald-400">
+                     {profile.pvp_reduc}
+                   </p>
+                </div>
+
+                {/* คู่ Cri */}
+                <div>
+                   <p className="text-gray-400">Cri</p>
+                   <p className="font-medium text-amber-400">
+                     {profile.cri ?? 0}
+                   </p>
+                </div>
+                <div>
+                   <p className="text-gray-400">Cri Dam</p>
+                   <p className="font-medium text-amber-400">
+                     {profile.cri_dmg ?? 0}%
+                   </p>
                 </div>
               </div>
             </div>

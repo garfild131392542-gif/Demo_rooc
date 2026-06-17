@@ -4,6 +4,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { getSession } from "./auth";
 import { revalidatePath } from "next/cache";
 import { Profile } from "@/types/database";
+import { STAT_LIMITS } from "@/lib/stat-limits";
 
 /**
  * [LAYER A] สำหรับ Super Admin (ผู้ดูแลระบบสูงสุดของเว็บ)
@@ -79,14 +80,34 @@ export async function createMember(formData: FormData) {
 
     const p_atk = parseInt(formData.get("p_atk") as string) || 0;
     const m_atk = parseInt(formData.get("m_atk") as string) || 0;
-    const p_dmg = parseInt(formData.get("p_dmg") as string) || 0;
-    const m_dmg = parseInt(formData.get("m_dmg") as string) || 0;
-    const p_reduc = parseInt(formData.get("p_reduc") as string) || 0;
-    const m_reduc = parseInt(formData.get("m_reduc") as string) || 0;
+    const p_dmg = parseFloat(formData.get("p_dmg") as string) || 0;
+    const m_dmg = parseFloat(formData.get("m_dmg") as string) || 0;
+    const p_reduc = parseFloat(formData.get("p_reduc") as string) || 0;
+    const m_reduc = parseFloat(formData.get("m_reduc") as string) || 0;
     const hp = parseInt(formData.get("hp") as string) || 0;
     const sp = parseInt(formData.get("sp") as string) || 0;
     const ignore_pdef = parseInt(formData.get("ignore_pdef") as string) || 0;
     const ignore_mdef = parseInt(formData.get("ignore_mdef") as string) || 0;
+    const cri = parseInt(formData.get("cri") as string) || 0;
+    const cri_dmg = parseFloat(formData.get("cri_dmg") as string) || 0;
+
+    // ตรวจสอบลิมิตของสเตตัสป้องกันการป้อนค่าปลอม (เช่น 999999)
+    const statsObj = { hp, sp, p_atk, m_atk, p_def, m_def, p_dmg, m_dmg, p_reduc, m_reduc, pvp_dmg, pvp_reduc, ignore_pdef, ignore_mdef, cri, cri_dmg };
+    const statLabels: Record<string, string> = {
+      hp: "Max HP", sp: "Max SP", p_atk: "P.ATK", m_atk: "M.ATK",
+      p_def: "P.DEF", m_def: "M.DEF", ignore_pdef: "Ignore P.DEF", ignore_mdef: "Ignore M.DEF",
+      p_dmg: "P.DMG (%)", m_dmg: "M.DMG (%)", p_reduc: "P.Reduc (%)", m_reduc: "M.Reduc (%)",
+      pvp_dmg: "PvP DMG", pvp_reduc: "PvP Reduc", cri: "Cri", cri_dmg: "Cri Dam (%)"
+    };
+
+    for (const key of Object.keys(STAT_LIMITS) as (keyof typeof STAT_LIMITS)[]) {
+      const val = statsObj[key];
+      const maxVal = STAT_LIMITS[key];
+      if (val > maxVal) {
+        const label = statLabels[key] || key;
+        return { success: false, error: `ค่า ${label} ต้องไม่เกิน ${maxVal.toLocaleString()}` };
+      }
+    }
 
     const { error } = await supabase.from("profiles").insert([
       {
@@ -106,6 +127,7 @@ export async function createMember(formData: FormData) {
         pvp_reduc,
         pvp_dmg,
         hp, sp, ignore_pdef, ignore_mdef,
+        cri, cri_dmg,
         last_stat_update: new Date().toISOString(),
       },
     ] as any);
@@ -150,14 +172,34 @@ export async function updateMember(id: string, formData: FormData) {
 
     const p_atk = parseInt(formData.get("p_atk") as string) || 0;
     const m_atk = parseInt(formData.get("m_atk") as string) || 0;
-    const p_dmg = parseInt(formData.get("p_dmg") as string) || 0;
-    const m_dmg = parseInt(formData.get("m_dmg") as string) || 0;
-    const p_reduc = parseInt(formData.get("p_reduc") as string) || 0;
-    const m_reduc = parseInt(formData.get("m_reduc") as string) || 0;
+    const p_dmg = parseFloat(formData.get("p_dmg") as string) || 0;
+    const m_dmg = parseFloat(formData.get("m_dmg") as string) || 0;
+    const p_reduc = parseFloat(formData.get("p_reduc") as string) || 0;
+    const m_reduc = parseFloat(formData.get("m_reduc") as string) || 0;
     const hp = parseInt(formData.get("hp") as string) || 0;
     const sp = parseInt(formData.get("sp") as string) || 0;
     const ignore_pdef = parseInt(formData.get("ignore_pdef") as string) || 0;
     const ignore_mdef = parseInt(formData.get("ignore_mdef") as string) || 0;
+    const cri = parseInt(formData.get("cri") as string) || 0;
+    const cri_dmg = parseFloat(formData.get("cri_dmg") as string) || 0;
+
+    // ตรวจสอบลิมิตของสเตตัสป้องกันการป้อนค่าปลอม (เช่น 999999)
+    const statsObj = { hp, sp, p_atk, m_atk, p_def, m_def, p_dmg, m_dmg, p_reduc, m_reduc, pvp_dmg, pvp_reduc, ignore_pdef, ignore_mdef, cri, cri_dmg };
+    const statLabels: Record<string, string> = {
+      hp: "Max HP", sp: "Max SP", p_atk: "P.ATK", m_atk: "M.ATK",
+      p_def: "P.DEF", m_def: "M.DEF", ignore_pdef: "Ignore P.DEF", ignore_mdef: "Ignore M.DEF",
+      p_dmg: "P.DMG (%)", m_dmg: "M.DMG (%)", p_reduc: "P.Reduc (%)", m_reduc: "M.Reduc (%)",
+      pvp_dmg: "PvP DMG", pvp_reduc: "PvP Reduc", cri: "Cri", cri_dmg: "Cri Dam (%)"
+    };
+
+    for (const key of Object.keys(STAT_LIMITS) as (keyof typeof STAT_LIMITS)[]) {
+      const val = statsObj[key];
+      const maxVal = STAT_LIMITS[key];
+      if (val > maxVal) {
+        const label = statLabels[key] || key;
+        return { success: false, error: `ค่า ${label} ต้องไม่เกิน ${maxVal.toLocaleString()}` };
+      }
+    }
 
     const { error } = await (supabase as any)
       .from("profiles")
@@ -177,6 +219,7 @@ export async function updateMember(id: string, formData: FormData) {
         pvp_reduc,
         pvp_dmg,
         hp, sp, ignore_pdef, ignore_mdef,
+        cri, cri_dmg,
         last_stat_update: new Date().toISOString(),
       } as any)
       .eq("id", id)

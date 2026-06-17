@@ -54,32 +54,32 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
       case "completed":
         return (
           <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-            สำเร็จแล้ว (Completed)
+            สำเร็จแล้ว
           </span>
         );
       case "waiting":
         return (
           <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-            รอจัดสรร (Waiting)
+            รอจัดสรร
           </span>
         );
       case "waitlist":
         return (
           <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 animate-pulse">
-            รอรอบถัดไป (Waitlist)
+            รอรอบถัดไป
           </span>
         );
       case "partial":
         return (
           <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-            บางส่วน (Partial)
+            ได้รับบางส่วน
           </span>
         );
       case "canceled":
       default:
         return (
           <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-            ยกเลิกแล้ว (Canceled)
+            ยกเลิกแล้ว
           </span>
         );
     }
@@ -88,7 +88,7 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
   // กรองตามคำค้นหาและแท็บสถานะที่เลือก
   const filteredQueues = initialQueues.filter((q) => {
     const matchesSearch = q.item_name.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     if (activeTab === "all") return matchesSearch;
     if (activeTab === "waiting") {
       return matchesSearch && (q.calculated_status === "waiting" || q.calculated_status === "waitlist" || q.calculated_status === "partial");
@@ -116,7 +116,7 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      
+
       {/* ส่วนหัว และปุ่มย้อนกลับ */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
@@ -164,7 +164,7 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
       {/* บล็อกกรอง และค้นหา */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-6 shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          
+
           {/* แท็บคัดกรองสถานะ */}
           <div className="flex flex-wrap p-1 bg-slate-100 dark:bg-slate-900/60 rounded-2xl w-fit border border-slate-200/50 dark:border-slate-800/40">
             {(
@@ -178,11 +178,10 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === tab.id
-                    ? "bg-guild-primary text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-                }`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === tab.id
+                  ? "bg-guild-primary text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                  }`}
               >
                 {tab.label}
               </button>

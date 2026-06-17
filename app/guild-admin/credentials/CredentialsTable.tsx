@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx';
 // 🌟 เพิ่มการอิมพอร์ต resetMemberPassword เข้ามาจากไฟล์หลังบ้าน
 import { changeMemberRole, createMember, updateMember, deleteMember, toggleMemberLeave, resetMemberPassword } from '@/app/actions/admin'
+import { STAT_LIMITS } from '@/lib/stat-limits'
 
 type ManagementItem = {
   id: string
@@ -26,6 +27,8 @@ type ManagementItem = {
   sp:number
   ignore_pdef: number
   ignore_mdef: number
+  cri?: number | null
+  cri_dmg?: number | null
   is_on_leave: boolean
   updated_at?: string
   last_stat_update?: string;
@@ -110,6 +113,25 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
     if (!editingMember) return
     const formData = new FormData(e.currentTarget)
 
+    // ตรวจสอบลิมิตของสเตตัสฝั่งหน้าบ้าน
+    for (const key of Object.keys(STAT_LIMITS) as (keyof typeof STAT_LIMITS)[]) {
+      const value = formData.get(key);
+      if (value !== null && value !== "") {
+        const numVal = parseFloat(value as string);
+        const maxVal = STAT_LIMITS[key];
+        if (numVal > maxVal) {
+          const labels: Record<string, string> = {
+            hp: "Max HP", sp: "Max SP", p_atk: "P.ATK", m_atk: "M.ATK",
+            p_def: "P.DEF", m_def: "M.DEF", ignore_pdef: "Ignore P.DEF", ignore_mdef: "Ignore M.DEF",
+            p_dmg: "P.DMG (%)", m_dmg: "M.DMG (%)", p_reduc: "P.Reduc (%)", m_reduc: "M.Reduc (%)",
+            pvp_dmg: "PvP DMG", pvp_reduc: "PvP Reduc", cri: "Cri", cri_dmg: "Cri Dam (%)"
+          };
+          alert(`ค่า ${labels[key] || key} ต้องไม่เกิน ${maxVal.toLocaleString()}`);
+          return;
+        }
+      }
+    }
+
     startTransition(async () => {
       const result = await updateMember(editingMember.id, formData)
       if (result?.success) {
@@ -124,6 +146,26 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
   const handleCreateSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
+
+    // ตรวจสอบลิมิตของสเตตัสฝั่งหน้าบ้าน
+    for (const key of Object.keys(STAT_LIMITS) as (keyof typeof STAT_LIMITS)[]) {
+      const value = formData.get(key);
+      if (value !== null && value !== "") {
+        const numVal = parseFloat(value as string);
+        const maxVal = STAT_LIMITS[key];
+        if (numVal > maxVal) {
+          const labels: Record<string, string> = {
+            hp: "Max HP", sp: "Max SP", p_atk: "P.ATK", m_atk: "M.ATK",
+            p_def: "P.DEF", m_def: "M.DEF", ignore_pdef: "Ignore P.DEF", ignore_mdef: "Ignore M.DEF",
+            p_dmg: "P.DMG (%)", m_dmg: "M.DMG (%)", p_reduc: "P.Reduc (%)", m_reduc: "M.Reduc (%)",
+            pvp_dmg: "PvP DMG", pvp_reduc: "PvP Reduc", cri: "Cri", cri_dmg: "Cri Dam (%)"
+          };
+          alert(`ค่า ${labels[key] || key} ต้องไม่เกิน ${maxVal.toLocaleString()}`);
+          return;
+        }
+      }
+    }
+
     startTransition(async () => {
       const result = await createMember(formData)
       if (result?.success) {
@@ -228,6 +270,8 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       "M.REDUC": item.m_reduc || 0,
       "PVP DMG": item.pvp_dmg || 0,
       "PVP REDUC": item.pvp_reduc || 0,
+      "Cri": item.cri || 0,
+      "Cri Dam (%)": item.cri_dmg || 0,
       "ลากิจกรรม": item.is_on_leave ? "ลา" : "ปกติ",
       "อัพเดทล่าสุด": formatUpdatedAt(item.last_stat_update),
     }));
@@ -238,7 +282,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
     worksheet['!cols'] = [
       { wch: 8 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 12 },
       { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
-      { wch: 15 }, { wch: 10 }, { wch: 20 },
+      { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 20 },
     ];
 
     XLSX.utils.book_append_sheet(workbook, worksheet, "Credentials");
@@ -483,6 +527,14 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                     <label className="block text-sm font-medium text-rose-600 dark:text-rose-400 mb-1">PvP DMG</label>
                     <input name="pvp_dmg" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">Cri</label>
+                    <input name="cri" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">Cri Dam (%)</label>
+                    <input name="cri_dmg" type="number" step="0.01" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
+                  </div>
                 </div>
               </form>
             </div>
@@ -581,6 +633,14 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                   <div>
                     <label className="block text-sm font-medium text-rose-600 dark:text-rose-400 mb-1">PvP DMG</label>
                     <input name="pvp_dmg" type="number" defaultValue={editingMember.pvp_dmg ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">Cri</label>
+                    <input name="cri" type="number" defaultValue={editingMember.cri ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">Cri Dam (%)</label>
+                    <input name="cri_dmg" type="number" step="0.01" defaultValue={editingMember.cri_dmg ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 font-semibold" />
                   </div>
                 </div>
               </form>

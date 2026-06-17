@@ -309,6 +309,8 @@ export type Database = {
           party_id: number | null
           pvp_dmg: number | null
           pvp_reduc: number | null
+          cri: number | null
+          cri_dmg: number | null
           role: string | null
           slot_index: number | null
           sp: number | null
@@ -338,6 +340,8 @@ export type Database = {
           party_id?: number | null
           pvp_dmg?: number | null
           pvp_reduc?: number | null
+          cri?: number | null
+          cri_dmg?: number | null
           role?: string | null
           slot_index?: number | null
           sp?: number | null
@@ -367,6 +371,8 @@ export type Database = {
           party_id?: number | null
           pvp_dmg?: number | null
           pvp_reduc?: number | null
+          cri?: number | null
+          cri_dmg?: number | null
           role?: string | null
           slot_index?: number | null
           sp?: number | null

@@ -43,7 +43,7 @@ export default async function AdminCredentialsPage() {
   // 3. ดึงข้อมูลโปรไฟล์เฉพาะสมาชิกที่อยู่ภายในกิลด์เดียวกันเท่านั้น (แยกสิทธิ์การจัดการตามกิลด์)
   const { data: profiles, error } = await supabase
     .from('profiles')
-    .select('id, uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, is_on_leave, updated_at, last_stat_update, p_def, m_def, p_atk, m_atk, p_dmg, m_dmg, p_reduc, m_reduc, hp, sp, ignore_pdef, ignore_mdef')
+    .select('id, uid_game, display_name, job_name, role, pvp_reduc, pvp_dmg, is_on_leave, updated_at, last_stat_update, p_def, m_def, p_atk, m_atk, p_dmg, m_dmg, p_reduc, m_reduc, hp, sp, ignore_pdef, ignore_mdef, cri, cri_dmg')
     .eq('guild_id', adminProfile.guild_id) // คัดกรองข้อมูลเจาะจงเฉพาะสมาชิกในกิลด์ของแอดมินคนนั้น
     .order('id', { ascending: true })
 
@@ -76,6 +76,8 @@ export default async function AdminCredentialsPage() {
     sp: p.sp,
     ignore_pdef: p.ignore_pdef,
     ignore_mdef: p.ignore_mdef,
+    cri: p.cri,
+    cri_dmg: p.cri_dmg,
 
     is_on_leave: p.is_on_leave || false,
     updated_at: p.updated_at,

@@ -81,6 +81,8 @@ export async function registerMemberWithGuildInvite(
           m_reduc: 0,
           pvp_dmg: 0,
           pvp_reduc: 0,
+          cri: 0,
+          cri_dmg: 0,
           party_id: null,
           slot_index: null,
           is_on_leave: false,

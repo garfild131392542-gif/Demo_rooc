@@ -149,6 +149,11 @@ export default function AuctionWindow({
       return;
     }
 
+    if (requestedQty > 10) {
+      alert("ท่านสามารถจองไอเทมแต่ละประเภทได้ไม่เกิน 10 ชิ้น");
+      return;
+    }
+
     setEditLoading(true);
     // 💡 เรียกใช้ Sync ด้วยการระบุเป้าหมายตัวเลขสัมบูรณ์ ลบส่วนเกิน เพิ่มส่วนขาดออโต้
     const result = await syncMemberAuctionQueue(
@@ -379,12 +384,13 @@ export default function AuctionWindow({
               <input
                 type="number"
                 min={Math.max(1, totalReceived)}
+                max={10}
                 value={editQty}
                 onChange={(e) => setEditQty(e.target.value)}
                 className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-3 text-slate-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                จำนวนต้องไม่น้อยกว่ายอดรวมที่ได้รับแล้ว ({totalReceived})
+                จำนวนต้องอยู่ระหว่าง {Math.max(1, totalReceived)} ถึง 10 (ไม่เกินยอดสูงสุด 10 ชิ้น)
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">

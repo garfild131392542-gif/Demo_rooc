@@ -11,6 +11,7 @@ import { toggleMemberLeave } from "@/app/actions/admin";
 import { getMyAuctionReservations, updateAuctionQueueReservation, deleteAuctionQueueReservation, syncUserAuctionQueues } from "@/app/actions/auction";
 import { ITEM_CONFIG } from "@/components/auction/constants";
 import { Profile } from "@/components/Dashboard";
+import { STAT_LIMITS } from "@/lib/stat-limits";
 
 type AuctionItemType = keyof typeof ITEM_CONFIG;
 
@@ -33,23 +34,27 @@ const StatInput = ({
   name: string, 
   value: string, 
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void 
-}) => (
-  <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-    <label htmlFor={name} className="block text-xs font-semibold mb-2 text-slate-700 dark:text-slate-300">
-      {label}
-    </label>
-    <input
-      id={name}
-      name={name}
-      type="number"
-      step={name.includes('dmg') || name.includes('reduc') ? "0.01" : "1"}
-      min="0"
-      value={value}
-      onChange={onChange}
-      className="block w-full rounded-xl border border-slate-200 dark:border-slate-700 py-2 px-3 text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 ring-1 ring-inset ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm font-mono"
-    />
-  </div>
-);
+}) => {
+  const maxVal = STAT_LIMITS[name as keyof typeof STAT_LIMITS];
+  return (
+    <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <label htmlFor={name} className="block text-xs font-semibold mb-2 text-slate-700 dark:text-slate-300">
+        {label}
+      </label>
+      <input
+        id={name}
+        name={name}
+        type="number"
+        step={name.includes('dmg') || name.includes('reduc') ? "0.01" : "1"}
+        min="0"
+        max={maxVal}
+        value={value}
+        onChange={onChange}
+        className="block w-full rounded-xl border border-slate-200 dark:border-slate-700 py-2 px-3 text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 ring-1 ring-inset ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm font-mono"
+      />
+    </div>
+  );
+};
 
 export default function ProfileForm({
   initialProfile,
@@ -168,6 +173,15 @@ export default function ProfileForm({
         qty: parseInt(value || "0", 10), 
       }));
 
+    // ตรวจสอบ limit 10 ชิ้น
+    for (const item of selectedItems) {
+      if (item.qty > 10) {
+        const itemLabel = ITEM_CONFIG[item.itemType]?.label || item.itemType;
+        setMessage({ type: 'error', text: `ท่านสามารถจอง ${itemLabel} ได้ไม่เกิน 10 ชิ้น` });
+        return;
+      }
+    }
+
     setIsReservationSubmitting(true);
     setMessage(null);
 
@@ -206,6 +220,8 @@ export default function ProfileForm({
     sp: initialProfile.sp ? String(initialProfile.sp) : "",
     ignore_pdef: initialProfile.ignore_pdef ? String(initialProfile.ignore_pdef) : "",
     ignore_mdef: initialProfile.ignore_mdef ? String(initialProfile.ignore_mdef) : "",
+    cri: (initialProfile as any).cri ? String((initialProfile as any).cri) : "",
+    cri_dmg: (initialProfile as any).cri_dmg ? String((initialProfile as any).cri_dmg) : "",
   });
 
   const handleStatChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -291,6 +307,8 @@ export default function ProfileForm({
           mergedData.sp = selectValue(mergedData.sp, data2.sp);
           mergedData.ignore_pdef = selectValue(mergedData.ignore_pdef, data2.ignore_pdef);
           mergedData.ignore_mdef = selectValue(mergedData.ignore_mdef, data2.ignore_mdef);
+          mergedData.cri = selectValue(mergedData.cri, data2.cri);
+          mergedData.cri_dmg = selectValue(mergedData.cri_dmg, data2.cri_dmg);
         }
 
         const toStringStat = (value?: number, currentValue?: string) =>
@@ -311,6 +329,8 @@ export default function ProfileForm({
           sp: toStringStat(mergedData.sp, stats.sp),
           ignore_pdef: toStringStat(mergedData.ignore_pdef, stats.ignore_pdef),
           ignore_mdef: toStringStat(mergedData.ignore_mdef, stats.ignore_mdef),
+          cri: toStringStat(mergedData.cri, stats.cri),
+          cri_dmg: toStringStat(mergedData.cri_dmg, stats.cri_dmg),
         });
       } else {
         let userFriendlyMessage = "🤔 AI มองเห็นตัวเลขไม่ชัดเจน รบกวนแคปรูปใหม่ให้เห็นสเตตัสครบถ้วน แล้วลองอีกครั้งนะครับ";
@@ -333,9 +353,29 @@ export default function ProfileForm({
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setMessage({ type: "info", text: "กำลังบันทึกข้อมูล..." });
+    
+    // ตรวจสอบลิมิตของสเตตัสฝั่งหน้าบ้าน
     const formData = new FormData(e.currentTarget);
+    for (const key of Object.keys(STAT_LIMITS) as (keyof typeof STAT_LIMITS)[]) {
+      const value = formData.get(key);
+      if (value !== null && value !== "") {
+        const numVal = parseFloat(value as string);
+        const maxVal = STAT_LIMITS[key];
+        if (numVal > maxVal) {
+          const labels: Record<string, string> = {
+            hp: "Max HP", sp: "Max SP", p_atk: "P.ATK", m_atk: "M.ATK",
+            p_def: "P.DEF", m_def: "M.DEF", ignore_pdef: "Ignore P.DEF", ignore_mdef: "Ignore M.DEF",
+            p_dmg: "P.DMG (%)", m_dmg: "M.DMG (%)", p_reduc: "P.Reduc (%)", m_reduc: "M.Reduc (%)",
+            pvp_dmg: "PvP DMG", pvp_reduc: "PvP Reduc", cri: "Cri", cri_dmg: "Cri Dam (%)"
+          };
+          setMessage({ type: "error", text: `ค่า ${labels[key] || key} ต้องไม่เกิน ${maxVal.toLocaleString()}` });
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+      }
+    }
 
+    setMessage({ type: "info", text: "กำลังบันทึกข้อมูล..." });
     if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
 
     startTransition(async () => {
@@ -493,6 +533,8 @@ export default function ProfileForm({
                 
                 <StatInput label="PvP DMG" name="pvp_dmg" value={stats.pvp_dmg} onChange={handleStatChange} />
                 <StatInput label="PvP Reduc" name="pvp_reduc" value={stats.pvp_reduc} onChange={handleStatChange} />
+                <StatInput label="Cri" name="cri" value={stats.cri} onChange={handleStatChange} />
+                <StatInput label="Cri Dam (%)" name="cri_dmg" value={stats.cri_dmg} onChange={handleStatChange} />
               </div>
             </div>
 

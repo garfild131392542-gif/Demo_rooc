@@ -19,14 +19,14 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
     const [isOpen, setIsOpen] = useState(false)
     const { resolvedTheme, setTheme } = useTheme()
     const [mounted, setMounted] = useState(false)
-    
+
     const [guildName, setGuildName] = useState('กำลังโหลด...')
     const [logoUrl, setLogoUrl] = useState<string | null>(null)
-    
+
     // 🌟 1. เพิ่ม State สำหรับจัดการ Modal Logout
     const [showLogoutModal, setShowLogoutModal] = useState(false)
     const [isLoggingOut, setIsLoggingOut] = useState(false)
-    
+
     const router = useRouter()
     const pathname = usePathname()
 
@@ -36,7 +36,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
 
     useEffect(() => {
         setIsOpen(false)
-    }, [pathname]) 
+    }, [pathname])
 
     useEffect(() => {
         if (!mounted) return
@@ -49,7 +49,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
 
                 const { data: profile, error } = await supabase
                     .from('profiles')
-                    .select('guild_id, guilds(name, logo_url)') 
+                    .select('guild_id, guilds(name, logo_url)')
                     .eq('id', user.id)
                     .maybeSingle() as any
 
@@ -63,7 +63,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                     const guildData = profile.guilds as any
                     const finalName = Array.isArray(guildData) ? guildData[0]?.name : guildData?.name
                     const finalLogo = Array.isArray(guildData) ? guildData[0]?.logo_url : guildData?.logo_url
-                    
+
                     if (finalName) {
                         setGuildName(finalName)
                     } else {
@@ -136,12 +136,12 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
 
                             <div className="hidden sm:flex gap-1">
                                 {[
-                                    { name: 'Dashboard', href: '/' },
-                                    { name: 'Guild', href: '/guild/edit' },
-                                    { name: 'My Profile', href: '/profile' },
-                                    { name: 'Queue History', href: '/profile/history' },
-                                    { name: 'Members', href: '/members' },
-                                    { name: 'Auction', href: '/auction' },
+                                    { name: 'จัดปาร์ตี้', href: '/' },
+                                    { name: 'กิลด์', href: '/guild/edit' },
+                                    { name: 'ข้อมูลส่วนตัว', href: '/profile' },
+                                    { name: 'ประวัติการลงคิว', href: '/profile/history' },
+                                    { name: 'สมาชิก', href: '/members' },
+                                    { name: 'ประมูล', href: '/auction' },
                                 ].map((item) => (
                                     <Link
                                         key={item.name}
@@ -188,9 +188,9 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                     </span>
                                 </div>
                                 {/* 🌟 3. เปลี่ยนจาก Form เป็นปุ่มเปิด Modal ธรรมดา (สำหรับ Desktop) */}
-                                <button 
-                                    type="button" 
-                                    onClick={() => setShowLogoutModal(true)} 
+                                <button
+                                    type="button"
+                                    onClick={() => setShowLogoutModal(true)}
                                     className="hover cursor-pointer text-xs sm:text-sm bg-red-600/95 py-1 px-2 sm:px-3 rounded font-semibold text-red-200 hover:text-white hover:bg-red-600/10 transition-colors"
                                 >
                                     Logout
@@ -233,12 +233,12 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                         >
                             <div className="px-4 pb-6 space-y-2">
                                 {[
-                                    { name: 'Dashboard', href: '/' },
-                                    { name: 'Guild', href: '/guild/edit' },
-                                    { name: 'My Profile', href: '/profile' },
-                                    { name: 'Queue History', href: '/profile/history' },
-                                    { name: 'Members', href: '/members' },
-                                    { name: 'Auction', href: '/auction' },
+                                    { name: 'จัดปาร์ตี้', href: '/' },
+                                    { name: 'กิลด์', href: '/guild/edit' },
+                                    { name: 'ข้อมูลส่วนตัว', href: '/profile' },
+                                    { name: 'ประวัติการลงคิว', href: '/profile/history' },
+                                    { name: 'สมาชิก', href: '/members' },
+                                    { name: 'ประมูล', href: '/auction' },
                                     ...(enrichedSession.role === 'admin' ? [{ name: 'จัดการข้อมูลสมาชิกกิล', href: '/guild-admin/credentials' }] : [])
                                 ].map((item) => (
                                     <motion.div key={item.name} variants={itemVariants}>
@@ -256,9 +256,9 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                         Logged in as: {enrichedSession.uid_game} ({enrichedSession.role})
                                     </div>
                                     {/* 🌟 4. เปลี่ยนจาก Form เป็นปุ่มเปิด Modal ธรรมดา (สำหรับ Mobile) */}
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setShowLogoutModal(true)} 
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowLogoutModal(true)}
                                         className="cursor-pointer w-[100px] py-4 rounded-xl bg-red-500 text-white font-bold border border-red-500 active:scale-95 transition-all"
                                     >
                                         Logout
@@ -290,14 +290,14 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                                 </svg>
                             </div>
-                            
+
                             <h3 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-2">
                                 ยืนยันการออกจากระบบ
                             </h3>
                             <p className="text-gray-500 dark:text-slate-400 text-sm text-center mb-8">
                                 คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบบัญชีของคุณ?
                             </p>
-                            
+
                             <div className="flex gap-3 w-full">
                                 <button
                                     type="button"

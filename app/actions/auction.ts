@@ -7,6 +7,13 @@ import { sendDiscordNotification } from '@/lib/discord'
 
 export type ItemType = 'Album' | 'Puppet' | 'White' | 'RedBlack'
 
+const ITEM_NAMES: Record<ItemType, string> = {
+  Album: 'สมุดการ์ด',
+  Puppet: 'เศษการ์ดบอส',
+  White: 'ขนขาว',
+  RedBlack: 'ขนดำ/แดง'
+}
+
 // 1. แอดมินบันทึกของรางวัลรายวัน
 export async function saveAuctionSession(items: { item_type: ItemType; total_quantity: number; personal_limit: number }[]) {
   try {
@@ -70,6 +77,21 @@ export async function joinAuctionQueue(itemType: ItemType, requestedQty: number)
 
     const supabase = await createClient()
 
+    // เช็คจำนวนการจองปัจจุบันรวมกับจำนวนที่ขอจองใหม่ ต้องไม่เกิน 10
+    const { data: existingQueues, error: fetchCountError } = await supabase
+      .from('auction_queues')
+      .select('id')
+      .eq('user_id', session.profile.id)
+      .eq('item_name', itemType)
+      .in('status', ['waiting', 'partial', 'completed'])
+
+    if (fetchCountError) throw fetchCountError
+    const currentCount = existingQueues?.length ?? 0
+    if (currentCount + requestedQty > 10) {
+      const itemLabel = ITEM_NAMES[itemType] || itemType
+      return { success: false, error: `ท่านสามารถจอง ${itemLabel} ได้ไม่เกิน 10 ชิ้น (ปัจจุบันมีแล้ว ${currentCount} ชิ้น)` }
+    }
+
     // หา slot_number สูงสุดที่มีอยู่สำหรับ user นี้ + item type นี้
     const { data: existingSlots } = await supabase
       .from('auction_queues')
@@ -116,6 +138,24 @@ export async function joinAuctionQueues(items: { itemType: ItemType; qty: number
     if (!session?.profile) return { success: false, error: 'กรุณาเข้าสู่ระบบ' }
 
     const supabase = await createClient()
+
+    // ตรวจสอบ limit 10 ชิ้น สำหรับทุกไอเทมก่อนดำเนินการ
+    for (const { itemType, qty } of items) {
+      const { data: existingQueues, error: fetchCountError } = await supabase
+        .from('auction_queues')
+        .select('id')
+        .eq('user_id', session.profile.id)
+        .eq('item_name', itemType)
+        .in('status', ['waiting', 'partial', 'completed'])
+
+      if (fetchCountError) throw fetchCountError
+      const currentCount = existingQueues?.length ?? 0
+      if (currentCount + qty > 10) {
+        const itemLabel = ITEM_NAMES[itemType] || itemType
+        return { success: false, error: `ท่านสามารถจอง ${itemLabel} ได้ไม่เกิน 10 ชิ้น (ปัจจุบันมีแล้ว ${currentCount} ชิ้น)` }
+      }
+    }
+
     const inserts: any[] = []
 
     for (const { itemType, qty } of items) {
@@ -389,6 +429,14 @@ export async function syncUserAuctionQueues(items: { itemType: ItemType; qty: nu
     const session = await getSession()
     if (!session?.profile) return { success: false, error: 'กรุณาเข้าสู่ระบบ' }
 
+    // ตรวจสอบ limit 10 ชิ้น
+    for (const { itemType, qty } of items) {
+      if (qty > 10) {
+        const itemLabel = ITEM_NAMES[itemType] || itemType
+        return { success: false, error: `ท่านสามารถจอง ${itemLabel} ได้ไม่เกิน 10 ชิ้น` }
+      }
+    }
+
     const supabase = await createClient()
     const today = new Date().toISOString().split('T')[0]
 
@@ -548,9 +596,9 @@ export async function updateAuctionQueueReservation(id: string | number, request
     const supabase = await createClient()
     const { data: queue, error: fetchError } = await supabase
       .from('auction_queues')
-      .select('received_qty')
+      .select('received_qty, item_name')
       .eq('id', String(id))
-      .single()
+      .single() as any
 
     if (fetchError) throw fetchError
     if (!queue) return { success: false, error: 'ไม่พบรายการจองคิว' }
@@ -559,6 +607,13 @@ export async function updateAuctionQueueReservation(id: string | number, request
       return {
         success: false,
         error: 'จำนวนที่แก้ไขต้องไม่น้อยกว่าจำนวนที่ได้รับแล้ว'
+      }
+    }
+
+    if (requestedQty > 10) {
+      return {
+        success: false,
+        error: 'ท่านสามารถจองไอเทมแต่ละประเภทได้ไม่เกิน 10 ชิ้น'
       }
     }
 
@@ -642,6 +697,11 @@ export async function syncMemberAuctionQueue(userId: string, itemType: string, q
     const session = await getSession()
     if (!session?.profile) return { success: false, error: 'กรุณาเข้าสู่ระบบ' }
     // (ทางที่ดีควรเช็คเพิ่มตรงนี้ว่า session.profile เป็น Admin หรือไม่)
+
+    if (qty > 10) {
+      const itemLabel = ITEM_NAMES[itemType as ItemType] || itemType
+      return { success: false, error: `สามารถจอง ${itemLabel} ได้ไม่เกิน 10 ชิ้น` }
+    }
 
     const supabase = await createClient()
     const today = new Date().toISOString().split('T')[0]

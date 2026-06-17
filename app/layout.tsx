@@ -61,7 +61,7 @@ export default async function RootLayout({
     >
       <body 
         style={{ '--guild-primary': primaryColor } as any}
-        className="min-h-full flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-x-hidden"
+        className="min-h-full flex flex-col text-slate-900 dark:text-slate-100 overflow-x-hidden"
       >
         <NextTopLoader
           color={primaryColor}       // ปรับแต่งสีของแถบโหลดให้เข้ากับตีมเว็บ

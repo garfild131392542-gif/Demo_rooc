@@ -126,6 +126,7 @@ export async function registerAction(username: string, password: string) {
           p_atk: 0, m_atk: 0, p_def: 0, m_def: 0,
           p_dmg: 0, m_dmg: 0, p_reduc: 0, m_reduc: 0,
           pvp_dmg: 0, pvp_reduc: 0,
+          cri: 0, cri_dmg: 0,
           created_at: new Date().toISOString(),
         },
       ])

@@ -44,6 +44,7 @@ export default function MemberForm({
               <input
                 type="number"
                 min={0}
+                max={10}
                 value={reservationQtys[item.key]}
                 onChange={(e) => setReservationQtys((prev) => ({ ...prev, [item.key]: e.target.value }))}
                 onFocus={() => handleQtyFocus(item.key)}
@@ -55,7 +56,7 @@ export default function MemberForm({
         </div>
 
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          กรอกจำนวนที่ต้องการสำหรับไอเทมแต่ละประเภท สามารถเลือกได้หลายรายการพร้อมกัน
+          กรอกจำนวนที่ต้องการสำหรับไอเทมแต่ละประเภท (ไม่เกิน 10 ชิ้นต่อประเภท) สามารถเลือกได้หลายรายการพร้อมกัน
         </p>
 
         <button 

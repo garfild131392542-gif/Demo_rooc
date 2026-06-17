@@ -42,13 +42,54 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const [removeBgAutomatic, setRemoveBgAutomatic] = useState(true);
+  const [isProcessingBg, setIsProcessingBg] = useState(false);
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setLogoFile(file);
-      setLogoPreview(URL.createObjectURL(file));
+
+      // 1. Validate file type
+      const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+      if (!allowedTypes.includes(file.type)) {
+        setError("❌ อนุญาตเฉพาะไฟล์ภาพนามสกุล png, jpg, jpeg, และ webp เท่านั้น");
+        return;
+      }
+
+      // 2. Validate file size (max 5MB)
+      const maxBytes = 5 * 1024 * 1024;
+      if (file.size > maxBytes) {
+        setError("❌ ขนาดไฟล์รูปภาพต้องไม่เกิน 5MB");
+        return;
+      }
+
+      setError(null);
+      setSuccess(null);
+      setIsProcessingBg(true);
+
+      try {
+        let fileToUpload = file;
+        if (removeBgAutomatic) {
+          try {
+            // Dynamic import to support client-side only WASM/ONNX models
+            const { removeBackground } = await import("@imgly/background-removal");
+            const resultBlob = await removeBackground(file);
+            fileToUpload = new File([resultBlob], "logo_image.png", { type: "image/png" });
+          } catch (bgError: any) {
+            console.error("Failed to remove background:", bgError);
+            setError("⚠️ ไม่สามารถลบพื้นหลังด้วย AI ได้ ระบบจะใช้รูปภาพแบบปกติแทนครับ");
+            fileToUpload = file;
+          }
+        }
+        setLogoFile(fileToUpload);
+        setLogoPreview(URL.createObjectURL(fileToUpload));
+      } catch (err: any) {
+        setError(err.message || "เกิดข้อผิดพลาดในการประมวลผลรูปภาพ");
+      } finally {
+        setIsProcessingBg(false);
+      }
     }
   };
 
@@ -208,25 +249,47 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
               <input
                 type="file"
                 accept="image/*"
-                disabled={isLoading}
+                disabled={isLoading || isProcessingBg}
                 onChange={handleFileChange}
                 className="w-full text-sm text-slate-500 dark:text-slate-400
                   file:mr-4 file:py-2 file:px-4
                   file:rounded-xl file:border-0
                   file:text-xs file:font-semibold
                   file:bg-guild-primary file:text-white
-                  hover:file:opacity-90 file:cursor-pointer"
+                  hover:file:opacity-90 file:cursor-pointer disabled:opacity-50"
               />
               {logoPreview && (
                 <button
                   type="button"
+                  disabled={isLoading || isProcessingBg}
                   onClick={handleRemoveLogo}
-                  className="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-950/20 px-3 py-2 rounded-xl border border-red-200 dark:border-red-900/40"
+                  className="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-950/20 px-3 py-2 rounded-xl border border-red-200 dark:border-red-900/40 cursor-pointer disabled:opacity-50"
                 >
                   ลบโลโก้
                 </button>
               )}
             </div>
+
+            <div className="flex items-center gap-2 mt-2.5">
+              <input
+                id="remove_bg_toggle_logo"
+                type="checkbox"
+                checked={removeBgAutomatic}
+                onChange={(e) => setRemoveBgAutomatic(e.target.checked)}
+                disabled={isLoading || isProcessingBg}
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 cursor-pointer"
+              />
+              <label htmlFor="remove_bg_toggle_logo" className="text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer select-none">
+                🔮 ลบพื้นหลังอัตโนมัติด้วย AI
+              </label>
+            </div>
+
+            {isProcessingBg && (
+              <p className="text-xs text-indigo-500 font-semibold animate-pulse mt-2">
+                🔮 AI กำลังดาวน์โหลดโมเดลและประมวลผลลบพื้นหลัง (อาจใช้เวลาประมาณ 10-15 วินาทีในครั้งแรก)...
+              </p>
+            )}
+
             {logoPreview && (
               <div className="mt-3 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/60 flex items-center justify-center">
                 <img src={logoPreview} alt="Preview" className="h-12 w-auto object-contain rounded" onError={(e) => { (e.target as any).src = 'https://placehold.co/100x100?text=Invalid+Image'; }} />
@@ -353,10 +416,10 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
         {isAdmin && (
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || isProcessingBg}
             className="w-full rounded-2xl bg-guild-primary hover:opacity-95 disabled:opacity-50 text-white font-bold py-3.5 px-5 text-sm transition shadow-md cursor-pointer mt-2 border border-white/10"
           >
-            {isLoading ? "กำลังบันทึกข้อมูล..." : "💾 บันทึกการเปลี่ยนแปลงข้อมูลกิลด์"}
+            {isLoading ? "กำลังบันทึกข้อมูล..." : isProcessingBg ? "🔮 AI กำลังลบพื้นหลังรูปภาพ..." : "💾 บันทึกการเปลี่ยนแปลงข้อมูลกิลด์"}
           </button>
         )}
       </form>

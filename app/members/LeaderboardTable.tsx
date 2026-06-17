@@ -77,24 +77,14 @@ const PodiumSlot = ({
         )}
 
         {profile?.character_showcase_url ? (
-          <>
-            {/* Majestic Gold Wings for Rank 1 */}
-            {rank === 1 && (
-              <img
-                src="/wings-gold.png"
-                alt="Gold Wings"
-                className="absolute w-[240px] sm:w-[280px] md:w-[320px] max-w-[150%] h-auto bottom-[14%] left-1/2 -translate-x-1/2 pointer-events-none z-0 opacity-95 animate-game-wings select-none"
-              />
-            )}
-            <img
-              src={profile.character_showcase_url}
-              alt={profile.display_name || ""}
-              className="h-full w-auto object-contain z-10 transition-transform duration-300 group-hover:scale-105 select-none animate-game-idle"
-              onError={(e) => {
-                (e.target as any).src = profile.job_name ? getJobIconUrl(profile.job_name) : '/icons/jobs/default.png';
-              }}
-            />
-          </>
+          <img
+            src={profile.character_showcase_url}
+            alt={profile.display_name || ""}
+            className="h-full w-auto object-contain z-10 transition-transform duration-300 group-hover:scale-105 select-none animate-game-idle"
+            onError={(e) => {
+              (e.target as any).src = profile.job_name ? getJobIconUrl(profile.job_name) : '/icons/jobs/default.png';
+            }}
+          />
         ) : (
           /* Placeholder character/silhouette with large job icon */
           <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100/10 dark:bg-slate-800/10 rounded-2xl border border-dashed border-slate-300/20 dark:border-slate-700/25 relative overflow-hidden p-4">
@@ -463,8 +453,8 @@ export default function LeaderboardTable({
 
       {/* --- ตารางดีไซน์ใหม่ ไร้ขอบกลาง --- */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden glass-panel">
-        <div className="overflow-x-auto scroll-smooth pb-2" style={{ transform: "rotateX(180deg)" }}>
-          <table className="min-w-full text-sm text-left" style={{ transform: "rotateX(180deg)" }}>
+        <div className="max-h-[500px] overflow-auto scroll-smooth pb-2">
+          <table className="min-w-full text-sm text-left">
             <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="px-6 py-4 font-medium whitespace-nowrap">

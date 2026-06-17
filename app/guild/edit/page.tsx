@@ -12,7 +12,7 @@ export default async function GuildStatusPage() {
     redirect('/login')
   }
 
-  // 2. ดึงข้อมูล Profile, Role และข้อมูลกิลด์ (เพิ่มคอลัมน์ discord_link มาด้วย)
+  // 2. ดึงข้อมูล Profile, Role และข้อมูลกิลด์ (เพิ่มคอลัมน์ discord_link, logo_url, primary_color, discord_webhook_url มาด้วย)
   const { data: profile, error } = await supabase
     .from('profiles')
     .select(`
@@ -26,6 +26,9 @@ export default async function GuildStatusPage() {
         status,
         invite_code,
         discord_link,
+        logo_url,
+        primary_color,
+        discord_webhook_url,
         created_at
       )
     `)

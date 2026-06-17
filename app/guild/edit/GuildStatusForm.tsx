@@ -12,6 +12,9 @@ interface GuildStatusFormProps {
     status: string | null;
     invite_code: string | null;
     discord_link: string | null;
+    logo_url?: string | null;
+    primary_color?: string | null;
+    discord_webhook_url?: string | null;
   };
   isAdmin: boolean;
 }
@@ -20,6 +23,9 @@ export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps
   const [guildName, setGuildName] = useState(guild.name);
   const [description, setDescription] = useState(guild.description || "");
   const [discordLink, setDiscordLink] = useState(guild.discord_link || "");
+  const [logoUrl, setLogoUrl] = useState(guild.logo_url || "");
+  const [primaryColor, setPrimaryColor] = useState(guild.primary_color || "#3b82f6");
+  const [discordWebhookUrl, setDiscordWebhookUrl] = useState(guild.discord_webhook_url || "");
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +45,9 @@ export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps
       name: guildName,
       description: description,
       discordLink: discordLink,
+      logoUrl: logoUrl,
+      primaryColor: primaryColor,
+      discordWebhookUrl: discordWebhookUrl,
     });
 
     if (result.success) {
@@ -85,7 +94,7 @@ export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps
             value={guildName}
             onChange={(e) => setGuildName(e.target.value)}
             // 💡 ปรับสี Input ทั้งสถานะปกติและ disabled
-            className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2.5 text-slate-900 dark:text-white outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-600 dark:disabled:text-slate-500 disabled:cursor-not-allowed font-medium"
+            className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2.5 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-600 dark:disabled:text-slate-500 disabled:cursor-not-allowed font-medium"
           />
         </div>
 
@@ -98,7 +107,7 @@ export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             // 💡 ปรับสี Textarea
-            className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2.5 text-slate-900 dark:text-white outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-600 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-sm dark:placeholder-slate-400"
+            className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2.5 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-600 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-sm dark:placeholder-slate-400"
             placeholder="- ไม่ระบุข้อมูลรายละเอียด -"
           />
         </div>
@@ -112,14 +121,71 @@ export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps
             value={discordLink}
             onChange={(e) => setDiscordLink(e.target.value)}
             // 💡 ปรับสี Input
-            className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2.5 text-slate-900 dark:text-white outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-600 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-mono dark:placeholder-slate-400"
+            className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2.5 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-600 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-mono dark:placeholder-slate-400"
             placeholder="https://discord.gg/xxxxxx"
           />
         </div>
 
+        {/* 4. โลโก้กิลด์ (Logo URL) */}
+        <div>
+          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">ลิงก์รูปโลโก้กิลด์ (Logo URL)</label>
+          <input
+            type="url"
+            disabled={!isAdmin || isLoading}
+            value={logoUrl}
+            onChange={(e) => setLogoUrl(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2.5 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-600 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-mono dark:placeholder-slate-400"
+            placeholder="https://example.com/logo.png"
+          />
+          {logoUrl && (
+            <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/60 flex items-center justify-center">
+              <img src={logoUrl} alt="Preview" className="h-12 w-auto object-contain rounded" onError={(e) => { (e.target as any).src = 'https://placehold.co/100x100?text=Invalid+Image'; }} />
+            </div>
+          )}
+        </div>
+
+        {/* 5. โทนสีหลักกิลด์ (Primary Theme Color) */}
+        <div>
+          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">สีหลักของกิลด์ (Theme Color)</label>
+          <div className="flex gap-3">
+            <input
+              type="color"
+              disabled={!isAdmin || isLoading}
+              value={primaryColor}
+              onChange={(e) => setPrimaryColor(e.target.value)}
+              className="h-10 w-16 cursor-pointer rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 p-1"
+            />
+            <input
+              type="text"
+              pattern="^#[0-9a-fA-F]{6}$"
+              disabled={!isAdmin || isLoading}
+              value={primaryColor}
+              onChange={(e) => setPrimaryColor(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 text-sm font-mono"
+              placeholder="#3b82f6"
+            />
+          </div>
+        </div>
+
+        {/* 6. Discord Webhook URL */}
+        <div>
+          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Discord Webhook URL (สำหรับแจ้งเตือนระบบ)</label>
+          <input
+            type="password"
+            disabled={!isAdmin || isLoading}
+            value={discordWebhookUrl}
+            onChange={(e) => setDiscordWebhookUrl(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2.5 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-600 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-mono dark:placeholder-slate-400"
+            placeholder="https://discord.com/api/webhooks/xxxxxx"
+          />
+          <p className="text-[10px] text-slate-400 mt-1">
+            * ระบบจะใช้ส่งการแจ้งเตือนไปยังดิสคอร์ด เช่น เมื่อล้างคิว หรือแจกจ่ายไอเทม
+          </p>
+        </div>
+
         {/* 💡 ปรับเส้นคั่น */}
         <div className="border-t border-slate-100 dark:border-slate-700 pt-5 space-y-5">
-          {/* 4. 🔒 ลิงก์หน้ากิลด์ (ล็อกตายตัวถาวร ห้ามแก้ไขทุกกรณี!) */}
+          {/* 7. 🔒 ลิงก์หน้ากิลด์ (ล็อกตายตัวถาวร ห้ามแก้ไขทุกกรณี!) */}
           <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200/60 dark:border-slate-700 relative">
             <div className="absolute top-4 right-4 text-slate-400 dark:text-slate-500">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
@@ -128,7 +194,7 @@ export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps
             <p className="text-sm font-semibold text-slate-500 dark:text-slate-300 break-all select-all font-mono">{appUrl}/g/{guild.guild_url}</p>
           </div>
 
-          {/* 5. 🔒 รหัสเชิญกิลด์ (ล็อกตายตัวถาวร ห้ามแก้ไขทุกกรณี!) */}
+          {/* 8. 🔒 รหัสเชิญกิลด์ (ล็อกตายตัวถาวร ห้ามแก้ไขทุกกรณี!) */}
           <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200/60 dark:border-slate-700 relative">
             <div className="absolute top-4 right-4 text-slate-400 dark:text-slate-500">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
@@ -143,8 +209,7 @@ export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps
           <button
             type="submit"
             disabled={isLoading}
-            // 💡 ปรับสีปุ่มบันทึก (เป็นสีน้ำเงินในโหมดมืดเพื่อให้กลืนกับธีมหน้าอื่นๆ)
-            className="w-full rounded-2xl bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 disabled:bg-slate-400 dark:disabled:bg-slate-700 text-white font-bold py-3.5 px-5 text-sm transition shadow-md cursor-pointer mt-2"
+            className="w-full rounded-2xl bg-guild-primary hover:opacity-95 disabled:opacity-50 text-white font-bold py-3.5 px-5 text-sm transition shadow-md cursor-pointer mt-2 border border-white/10"
           >
             {isLoading ? "กำลังบันทึกข้อมูล..." : "💾 บันทึกการเปลี่ยนแปลงข้อมูลกิลด์"}
           </button>

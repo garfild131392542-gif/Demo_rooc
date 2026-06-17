@@ -7,6 +7,9 @@ interface UpdateGuildData {
   name: string
   description: string
   discordLink: string
+  logoUrl?: string
+  primaryColor?: string
+  discordWebhookUrl?: string
 }
 
 /**
@@ -42,13 +45,16 @@ export async function updateGuildAction(guildId: string, data: UpdateGuildData) 
     }
 
     // 3. 💾 เริ่มทำการบันทึกอัปเดตข้อมูลลงตาราง guilds
-    // อัปเดตเฉพาะ 3 ฟิลด์ที่เปิดสิทธิ์ให้แก้ (ชื่อ, รายละเอียด, ลิงก์ Discord) ส่วน URL กิลด์ และรหัสเชิญจะปลอดภัย 100% เพราะไม่มีในคำสั่งนี้
+    // อัปเดตเฉพาะ ฟิลด์ที่เปิดสิทธิ์ให้แก้ ส่วน URL กิลด์ และรหัสเชิญจะปลอดภัย 100% เพราะไม่มีในคำสั่งนี้
     const { error: updateError } = await (supabase as any) // 🌟 เติม (supabase as any) ครอบไว้ตรงนี้ครับ
       .from('guilds')
       .update({
         name: data.name.trim(),
         description: data.description.trim(), 
-        discord_link: data.discordLink.trim() || null
+        discord_link: data.discordLink.trim() || null,
+        logo_url: data.logoUrl?.trim() || null,
+        primary_color: data.primaryColor?.trim() || null,
+        discord_webhook_url: data.discordWebhookUrl?.trim() || null,
       })
       .eq('id', guildId)
 

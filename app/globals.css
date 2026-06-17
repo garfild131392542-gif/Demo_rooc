@@ -5,6 +5,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --guild-primary: #3b82f6; /* Default Blue */
 }
 
 /* ตั้งค่าสีกระดาษแผ่นล่างสุดเวลาเปิดโหมดมืด */
@@ -18,6 +19,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-guild-primary: var(--guild-primary);
 }
 
 body {
@@ -39,4 +41,8 @@ input[type="number"] {
 
 .grecaptcha-badge { 
   visibility: hidden !important; 
+}
+
+@theme inline {
+  --color-guild-primary: var(--guild-primary);
 }

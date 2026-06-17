@@ -45,7 +45,7 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
   })
 
   // ✨ ใหม่: Direct mapping จาก memberQueues - แต่ละ row = 1 slot (no allocation logic)
-  const mappedSlots = useMemo(() => {
+  const { boardSlots, waitlistSlots, rawSlots } = useMemo(() => {
     let slots: any[] = []
     const priorityOrder: ('Album' | 'Puppet' | 'White' | 'RedBlack')[] = ['Album', 'Puppet', 'White', 'RedBlack']
 
@@ -68,8 +68,13 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
     // ✨ สำหรับแต่ละ type ให้ทำการ populate empty slots ก่อน
     priorityOrder.forEach(type => {
       const session = (todayItems || []).find((s: any) => s.item_name === type)
+      // Hide inactive items: Only render items where total_quantity > 0 and status === 'active'
+      if (!session || session.status !== 'active' || (session.total_quantity ?? 0) <= 0) {
+        return
+      }
+
       const itemConfig = ITEM_CONFIG[type]
-      const personalLimit = session?.personal_limit ?? 0
+      const personalLimit = session.personal_limit ?? 0
       
       // Safe guard: skip if no session or config
       if (!itemConfig) return
@@ -119,8 +124,8 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
         sessionMap.get(sessionKey)!.push(q)
       })
       
-      let allocatedCount = qualifiedQueues.length ?? 0
-      const totalQuantity = Math.max(0, Number(session?.total_quantity ?? 0));
+      const totalQuantity = Math.max(0, Number(session.total_quantity ?? 0))
+      let allocatedSlotCount = 0
 
       // Add booked slots (all individual, but grouped by session)
       sessionMap.forEach((sessionQueues, sessionKey) => {
@@ -128,6 +133,8 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
         
         // Add ALL slots in the session with session metadata
         sessionQueues.forEach((q, slotIndexInSession) => {
+          const isWaitlisted = allocatedSlotCount >= totalQuantity
+
           slots.push({
             id: `slot-${q.id}`,  // ✨ Use actual queue id
             type,
@@ -145,13 +152,16 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
             // ✨ NEW: Booking session info
             bookingSessionSize: totalInSession,
             queueTimestamp: sessionKey,
-            isFirstInSession: slotIndexInSession === 0  // Mark first slot for header display
+            isFirstInSession: slotIndexInSession === 0,  // Mark first slot for header display
+            isWaitlist: isWaitlisted
           })
+
+          allocatedSlotCount++
         })
       })
 
-      // Add empty slots
-      const emptyCount = Math.max(totalQuantity - allocatedCount, 0)
+      // Add empty slots (only for absolute coordinate mapping, we will hide them from the board layout)
+      const emptyCount = Math.max(totalQuantity - allocatedSlotCount, 0)
       for (let i = 0; i < emptyCount; i++) {
         slots.push({
           id: `empty-${type}-${i}`,
@@ -160,38 +170,42 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
           assignedTo: '--- ไม่มีใครจอง ---',
           uid: '',
           isMe: false,
-          isEmpty: true
+          isEmpty: true,
+          isWaitlist: false
         })
       }
     })
 
     // ✨ Assign absolute locked page and slot numbers to all slots
-    slots = slots.map((s, index) => ({
+    const rawSlots = slots.map((s, index) => ({
       ...s,
       originalPage: Math.floor(index / 4) + 1,
       originalSlot: (index % 4) + 1
     }))
 
+    // ✨ Filter for board: keep empty slots but hide waitlist slots from the live board slots view
+    let boardSlots = rawSlots.filter(s => !s.isWaitlist)
+    let waitlistSlots = rawSlots.filter(s => s.isWaitlist)
+
     // ✨ Filter by activeSubTab (condense empty/non-matching slots)
     if (activeSubTab !== 'all') {
-      slots = slots.filter(s => s.type === activeSubTab)
+      boardSlots = boardSlots.filter(s => s.type === activeSubTab)
+      waitlistSlots = waitlistSlots.filter(s => s.type === activeSubTab)
     }
 
     if (DEBUG_AUCTION && typeof window !== 'undefined') {
       console.debug('[AuctionBoard] Slots mapped with booking sessions', {
         totalQueues: (memberQueues || []).length,
-        totalSlots: slots.length,
-        bookingGroups: Array.from(bookingGroups.entries()).map(([key, queues]) => ({
-          key,
-          count: queues.length
-        })),
-        slots
+        boardSlotsCount: boardSlots.length,
+        waitlistSlotsCount: waitlistSlots.length,
+        slots: rawSlots
       })
     }
 
-    return slots
+    return { boardSlots, waitlistSlots, rawSlots }
   }, [memberQueues, todayItems, activeSubTab, myProfile])
 
+  const mappedSlots = boardSlots
   const slotsPerPage = 4
   const totalPages = Math.ceil(mappedSlots.length / slotsPerPage) || 1
   const currentSlots = mappedSlots.slice((currentPage - 1) * slotsPerPage, currentPage * slotsPerPage)
@@ -266,6 +280,9 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
           history={history}
           memberQueues={memberQueues}
           mappedSlots={mappedSlots}
+          waitlistSlots={waitlistSlots}
+          rawSlots={rawSlots}
+          todayItems={todayItems}
           activeSubTab={activeSubTab}
           setActiveSubTab={setActiveSubTab} 
           currentPage={currentPage}

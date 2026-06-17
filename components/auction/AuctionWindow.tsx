@@ -38,13 +38,15 @@ type AuctionHistoryEntry = {
   awarded_at?: string | null;
 };
 
-// 💡 เปลี่ยนมาเรียกใช้ syncMemberAuctionQueue ตัวใหม่ที่เราเพิ่งสร้าง
+// 💡 เรียกใช้ actions ต่างๆ ของระบบประมูลคิว
 import {
   awardAuctionQueue,
   deleteAuctionQueueReservation,
   revertAuctionQueue,
   syncMemberAuctionQueue,
+  clearQueueByItemType,
 } from "@/app/actions/auction";
+import QueueSummaryTable from "./QueueSummaryTable";
 
 type AuctionWindowProps = {
   isAdmin: boolean;
@@ -60,6 +62,9 @@ type AuctionWindowProps = {
     queue_timestamp: string | null;
   }[];
   mappedSlots: AuctionSlot[];
+  waitlistSlots?: AuctionSlot[];
+  rawSlots?: AuctionSlot[];
+  todayItems?: any[];
   activeSubTab: "all" | AuctionItemType;
   setActiveSubTab: (tab: "all" | AuctionItemType) => void;
   currentPage: number;
@@ -86,6 +91,9 @@ export default function AuctionWindow({
   history = [],
   memberQueues = [],
   mappedSlots,
+  waitlistSlots = [],
+  rawSlots = [],
+  todayItems = [],
   activeSubTab,
   setActiveSubTab,
   currentPage,
@@ -95,7 +103,7 @@ export default function AuctionWindow({
   onRefresh,
   isSaving,
 }: AuctionWindowProps) {
-  const [viewMode, setViewMode] = useState<"slots" | "history" | "queue">(
+  const [viewMode, setViewMode] = useState<"slots" | "history" | "queue" | "summary">(
     "slots",
   );
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
@@ -424,6 +432,14 @@ export default function AuctionWindow({
           >
             คิวประมูล
           </button>
+          {isAdmin && (
+            <button
+              onClick={() => setViewMode("summary")}
+              className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-colors ${viewMode === "summary" ? "bg-white text-blue-600 shadow-sm" : "bg-white/20 hover:bg-white/30"}`}
+            >
+              สรุปจัดสรรคิว
+            </button>
+          )}
           <button
             onClick={() => setViewMode("history")}
             className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-colors ${viewMode === "history" ? "bg-white text-blue-600 shadow-sm" : "bg-white/20 hover:bg-white/30"}`}
@@ -450,7 +466,11 @@ export default function AuctionWindow({
                 <div className="flex flex-wrap justify-center bg-slate-100 dark:bg-slate-800 p-1 rounded-full border border-slate-200 dark:border-slate-700 transition-colors">
                   {(
                     ["all", "Album", "Puppet", "White", "RedBlack"] as const
-                  ).map((tab) => (
+                  ).filter(tab => {
+                    if (tab === "all") return true;
+                    const session = todayItems?.find((s: any) => s.item_name === tab);
+                    return session && session.status === 'active' && (session.total_quantity ?? 0) > 0;
+                  }).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => {
@@ -464,6 +484,8 @@ export default function AuctionWindow({
                   ))}
                 </div>
               </div>
+
+
 
               <div className="flex-1 flex flex-col gap-4 content-start overflow-y-auto pr-2">
                 {currentSlots.map((slot, index) => {
@@ -521,14 +543,89 @@ export default function AuctionWindow({
                   </button>
                 </div>
               </div>
+
+              {/* Waitlist Section */}
+              {waitlistSlots && waitlistSlots.length > 0 && (
+                <div className="mt-8 border-t border-slate-200 dark:border-slate-700 pt-6">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
+                    <span className="text-amber-500">⏳</span> คิวรอรอบถัดไป (Waitlist)
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {waitlistSlots.map((slot) => (
+                      <div
+                        key={slot.id}
+                        className="flex items-center justify-between p-4 rounded-2xl border border-dashed bg-slate-50/50 dark:bg-slate-800/50 border-amber-300 dark:border-amber-700/50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-12 h-12 bg-linear-to-b ${slot.color} rounded-lg border border-slate-200 dark:border-slate-600 flex items-center justify-center relative shrink-0`}>
+                            <Image src={slot.icon} alt={slot.type} fill className="object-contain p-1.5" sizes="48px" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold text-slate-800 dark:text-slate-100">{slot.assignedTo}</div>
+                            <div className="text-xs text-slate-400 font-semibold">{slot.uid}</div>
+                          </div>
+                        </div>
+                        <span className="text-xs px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 font-bold">
+                          Waitlist (คิวรอรอบถัดไป)
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           ) : viewMode === "queue" ? (
             <div className="flex-1 flex flex-col justify-start space-y-4">
+              {isAdmin && (
+                <div className="flex flex-wrap items-center gap-2 mb-4 bg-slate-100 dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-inner">
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    เครื่องมือแอดมิน:
+                  </span>
+                  {(['Album', 'Puppet', 'White', 'RedBlack'] as const).filter(type => {
+                    const session = todayItems?.find((s: any) => s.item_name === type);
+                    return session && session.status === 'active' && (session.total_quantity ?? 0) > 0;
+                  }).map(type => (
+                    <button
+                      key={`clear-${type}`}
+                      type="button"
+                      disabled={actionLoading[`clear-${type}`]}
+                      onClick={async () => {
+                        if (!confirm(`ยืนยันการล้างคิว (ยกเลิกคิวรอรอบถัดไปและคิวประมูลเสร็จแล้ว) ของไอเทม ${type}?`)) {
+                          return;
+                        }
+
+                        setActionLoading((prev) => ({
+                          ...prev,
+                          [`clear-${type}`]: true,
+                        }));
+
+                        const result = await clearQueueByItemType(type);
+
+                        setActionLoading((prev) => ({
+                          ...prev,
+                          [`clear-${type}`]: false,
+                        }));
+
+                        if (result.success) {
+                          alert(`ล้างคิว ${type} สำเร็จ! ยกเลิกไปทั้งหมด ${result.count} คิว`);
+                          if (onRefresh) await onRefresh();
+                        } else {
+                          alert(`ไม่สามารถล้างคิวได้: ${result.error}`);
+                        }
+                      }}
+                      className="cursor-pointer text-xs bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-xl font-bold transition-all shadow-sm flex items-center gap-1 shrink-0"
+                    >
+                      {actionLoading[`clear-${type}`] ? "กำลัง..." : `ล้างคิว ${type}`}
+                    </button>
+                  ))}
+                </div>
+              )}
               {memberQueues.length > 0 ? (
                 <div className="space-y-3">
                   {(() => {
                     const groupMap = new Map<string, typeof memberQueues>();
                     const groupOrder: string[] = [];
+                    const waitlistQueueIds = new Set(waitlistSlots?.map(s => s.queueId) || []);
 
                     memberQueues.forEach((queue) => {
                       const tsWithoutMs = queue.queue_timestamp
@@ -553,6 +650,7 @@ export default function AuctionWindow({
                         (sum, q) => sum + q.received_qty,
                         0,
                       );
+                      const waitlistedCount = groupQueues.filter(q => waitlistQueueIds.has(q.id)).length;
                       const formattedTime = firstQueue.queue_timestamp
                         ? new Date(firstQueue.queue_timestamp).toLocaleString(
                             "th-TH",
@@ -600,10 +698,20 @@ export default function AuctionWindow({
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex justify-center text-xs text-slate-500 dark:text-slate-400">
-                                  {totalRequested - totalReceived > 0
-                                    ? `กำลังรอ ${totalRequested - totalReceived} อัน`
-                                    : "สำเร็จ"}
+                                <div className="flex justify-center text-xs font-semibold">
+                                  {waitlistedCount > 0 ? (
+                                    <span className="text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-lg border border-amber-200 dark:border-amber-800">
+                                      คิวรอรอบถัดไป {waitlistedCount} อัน
+                                    </span>
+                                  ) : totalRequested - totalReceived > 0 ? (
+                                    <span className="text-slate-500 dark:text-slate-400">
+                                      กำลังรอ {totalRequested - totalReceived} อัน
+                                    </span>
+                                  ) : (
+                                    <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                                      สำเร็จ
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -684,7 +792,7 @@ export default function AuctionWindow({
                 </div>
               )}
             </div>
-         ) : (
+          ) : viewMode === "history" ? (
             <div className="flex-1 flex flex-col justify-start space-y-4">
               <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
                 Auction History
@@ -790,7 +898,49 @@ export default function AuctionWindow({
                 <div className="text-center text-slate-500 dark:text-slate-400 py-8 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
                   ยังไม่มีประวัติการประมูล
                 </div>
-              )}
+               )}
+             </div>
+          ) : (
+            <div className="flex-1 flex flex-col justify-start space-y-6">
+              <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                สรุปจัดสรรคิว (Queue Summary)
+              </div>
+              {(() => {
+                const priorityOrder = ['Album', 'Puppet', 'White', 'RedBlack'] as const;
+                const activeTypes = activeSubTab === 'all'
+                  ? priorityOrder.filter(type => {
+                      const session = todayItems?.find((s: any) => s.item_name === type);
+                      return session && session.status === 'active' && (session.total_quantity ?? 0) > 0;
+                    })
+                  : [activeSubTab];
+
+                if (activeTypes.length === 0) {
+                  return (
+                    <div className="text-center text-slate-500 dark:text-slate-400 py-8 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                      ไม่มีไอเทมที่เปิดประมูลในวันนี้
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-6">
+                    {activeTypes.map(type => {
+                      return (
+                        <div key={type} className="space-y-3">
+                          <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-200">
+                            <span className="text-lg">📦</span>
+                            <span>{ITEM_CONFIG[type]?.label || type}</span>
+                          </div>
+                          <QueueSummaryTable
+                            itemName={type}
+                            mappedSlots={mappedSlots}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

@@ -21,6 +21,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
     const [mounted, setMounted] = useState(false)
     
     const [guildName, setGuildName] = useState('กำลังโหลด...')
+    const [logoUrl, setLogoUrl] = useState<string | null>(null)
     
     // 🌟 1. เพิ่ม State สำหรับจัดการ Modal Logout
     const [showLogoutModal, setShowLogoutModal] = useState(false)
@@ -48,9 +49,9 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
 
                 const { data: profile, error } = await supabase
                     .from('profiles')
-                    .select('guild_id, guilds(name)') 
+                    .select('guild_id, guilds(name, logo_url)') 
                     .eq('id', user.id)
-                    .maybeSingle() as { data: { guild_id: string | null; guilds: any } | null; error: any }
+                    .maybeSingle() as any
 
                 if (error) {
                     console.error('Navbar database query error:', error.message)
@@ -61,18 +62,22 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                 if (profile?.guilds) {
                     const guildData = profile.guilds as any
                     const finalName = Array.isArray(guildData) ? guildData[0]?.name : guildData?.name
+                    const finalLogo = Array.isArray(guildData) ? guildData[0]?.logo_url : guildData?.logo_url
                     
                     if (finalName) {
                         setGuildName(finalName)
                     } else {
                         setGuildName('ไม่มีกิลด์')
                     }
+                    setLogoUrl(finalLogo || null)
                 } else {
                     setGuildName('ยังไม่มีกิลด์')
+                    setLogoUrl(null)
                 }
             } catch (err) {
                 console.error('Error fetching guild name:', err)
                 setGuildName('ROOC')
+                setLogoUrl(null)
             }
         }
 
@@ -112,14 +117,20 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
 
     return (
         <>
-            <nav className="sticky top-0 z-[100] bg-blue-500/90 dark:bg-gray-900/90 backdrop-blur-md text-white shadow-lg transition-colors border-b border-white/10">
+            <nav className="sticky top-0 z-[100] bg-guild-primary/95 dark:bg-gray-900/95 backdrop-blur-md text-white shadow-lg transition-colors border-b border-white/10">
                 <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
                     <div className="flex justify-between h-16 sm:h-18">
 
                         <div className="flex items-center sm:gap-4">
                             <div>
-                                <Link href="/" className="flex items-center font-bold text-2xl sm:text-2xl tracking-tighter hover:scale-105 transition-transform">
-                                    {guildName}<span className="ml-1 text-indigo-200  sm:text-xl">Guild</span>
+                                <Link href="/" className="flex items-center hover:scale-105 transition-transform gap-2 py-1">
+                                    {logoUrl ? (
+                                        <img src={logoUrl} alt={guildName} className="h-8 sm:h-10 w-auto object-contain rounded" />
+                                    ) : (
+                                        <span className="font-bold text-2xl sm:text-2xl tracking-tighter flex items-center">
+                                            {guildName}<span className="ml-1 text-indigo-200 sm:text-xl">Guild</span>
+                                        </span>
+                                    )}
                                 </Link>
                             </div>
 
@@ -128,6 +139,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                     { name: 'Dashboard', href: '/' },
                                     { name: 'Guild', href: '/guild/edit' },
                                     { name: 'My Profile', href: '/profile' },
+                                    { name: 'Queue History', href: '/profile/history' },
                                     { name: 'Members', href: '/members' },
                                     { name: 'Auction', href: '/auction' },
                                 ].map((item) => (
@@ -224,6 +236,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                     { name: 'Dashboard', href: '/' },
                                     { name: 'Guild', href: '/guild/edit' },
                                     { name: 'My Profile', href: '/profile' },
+                                    { name: 'Queue History', href: '/profile/history' },
                                     { name: 'Members', href: '/members' },
                                     { name: 'Auction', href: '/auction' },
                                     ...(enrichedSession.role === 'admin' ? [{ name: 'จัดการข้อมูลสมาชิกกิล', href: '/guild-admin/credentials' }] : [])

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSession } from './auth'
 import { revalidatePath } from 'next/cache'
+import { sendDiscordNotification } from '@/lib/discord'
 
 export type ItemType = 'Album' | 'Puppet' | 'White' | 'RedBlack'
 
@@ -278,12 +279,19 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
     const supabase = await createClient()
     const { data: queue, error: fetchError } = await supabase
       .from('auction_queues')
-      .select('*')
+      .select('*, profiles:user_id(display_name, uid_game)')
       .eq('id', String(queueId))
-      .single()
+      .single() as any
 
     if (fetchError) throw fetchError
     if (!queue) return { success: false, error: 'ไม่พบรายการคิว' }
+
+    // ดึงข้อมูลกิลด์และ webhook
+    const { data: guildData } = await supabase
+      .from('guilds')
+      .select('discord_webhook_url, name')
+      .eq('id', session.profile.guild_id)
+      .maybeSingle() as any
 
     // ดึงค่าลิมิตส่วนบุคคลของไอเทมชิ้นนี้ในเซสชันวันนี้
     const personalLimit = await getAuctionSessionPersonalLimit(supabase, session.profile.guild_id, queue.item_name as ItemType)
@@ -347,6 +355,23 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
         }
     }
 
+    // ส่งการแจ้งเตือน Discord Webhook
+    if (guildData?.discord_webhook_url) {
+      const recipientName = queue.profiles?.display_name || queue.profiles?.uid_game || 'สมาชิกกิลด์';
+      const itemName = queue.item_name;
+      const qty = 1; // standard qty distributed is 1
+      await sendDiscordNotification(guildData.discord_webhook_url, {
+        embeds: [
+          {
+            title: "🎉 แจกจ่ายไอเทมสำเร็จ (Item Distributed)",
+            description: `🎉 **${recipientName}** has received **${qty}x ${itemName}**!`,
+            color: 5763719, // Green
+            timestamp: new Date().toISOString(),
+          }
+        ]
+      });
+    }
+
     revalidatePath('/')
     revalidatePath('/auction')
     revalidatePath('/profile')
@@ -368,24 +393,35 @@ export async function syncUserAuctionQueues(items: { itemType: ItemType; qty: nu
     const today = new Date().toISOString().split('T')[0]
 
     for (const { itemType, qty } of items) {
-      // 1. ดึงคิวทั้งหมดของไอเทมชิ้นนี้ในวันนี้ มาเช็คสถานะ
-      // 1. ดึงคิวทั้งหมดของไอเทมชิ้นนี้ในวันนี้ มาเช็คสถานะ
+      // 1. ดึงคิวทั้งหมดของไอเทมชิ้นนี้เพื่อหาค่า slot_number สูงสุด และหาคิวที่ยังค้างอยู่
       const { data } = await supabase
         .from('auction_queues')
-        .select('id, status, slot_number, queue_timestamp')
+        .select('id, status, slot_number, queue_timestamp, updated_at')
         .eq('user_id', session.profile.id)
         .eq('item_name', itemType)
-        .gte('queue_timestamp', `${today}T00:00:00.000Z`)
+        .in('status', ['waiting', 'partial', 'completed'])
 
       // บังคับให้ TypeScript มองข้าม SelectQueryError ไปก่อนชั่วคราว
-      const existingQueues = data as any[] 
+      const existingQueues = data as any[] || []
+
+      // คำนวณหา max slot_number จากคิวทั้งหมดในระบบเพื่อไม่ให้ชน unique constraint
+      const maxSlotNumber = Math.max(...existingQueues.map(q => q.slot_number || 0), 0)
+
+      // คิวที่ถือว่ายังอยู่ในกระดานวันนี้: 
+      // - คิวที่รออยู่ (waiting) ไม่ว่าจะจองวันไหน (ทบยอด)
+      // - คิวที่สำเร็จ/แจกบางส่วนแล้ว (completed/partial) ของวันนี้เท่านั้น
+      const activeQueues = existingQueues.filter(q => {
+        if (q.status === 'waiting') return true;
+        const queueDate = q.updated_at ? q.updated_at.split('T')[0] : (q.queue_timestamp ? q.queue_timestamp.split('T')[0] : '');
+        return queueDate === today;
+      });
 
       // แยกคิวที่ยัง "รออยู่" ออกมาเรียงจากใหม่ไปเก่า
-      const waitingQueues = (existingQueues || [])
+      const waitingQueues = activeQueues
         .filter(q => q.status === 'waiting')
         .sort((a, b) => new Date(b.queue_timestamp).getTime() - new Date(a.queue_timestamp).getTime())      
-      // นับจำนวนคิวที่ได้รับของไปแล้ว
-      const nonWaitingCount = (existingQueues || []).filter(q => q.status !== 'waiting').length
+      // นับจำนวนคิวที่ได้รับของไปแล้วของวันนี้
+      const nonWaitingCount = activeQueues.filter(q => q.status !== 'waiting').length
 
       // 2. คำนวณหา "จำนวนคิวรอ (waiting) ที่ควรจะเป็น" 
       const targetWaitingCount = Math.max(0, qty - nonWaitingCount)
@@ -394,8 +430,6 @@ export async function syncUserAuctionQueues(items: { itemType: ItemType; qty: nu
 
       if (diff > 0) {
         // ✨ กรณีตัวเลขในช่อง "มากกว่า" คิวที่มีอยู่ -> สร้างเพิ่ม
-        const maxSlotNumber = Math.max(...(existingQueues || []).map(q => q.slot_number || 0), 0)
-        
         // 💡 แก้ไข Type โดยใส่ `as const` ให้ status และจัดการ `undefined` ของ guild_id
         const inserts = Array.from({ length: diff }, (_, i) => ({
           guild_id: session.profile.guild_id || null, // เปลี่ยน undefined เป็น null ป้องกัน error จาก Supabase
@@ -612,23 +646,35 @@ export async function syncMemberAuctionQueue(userId: string, itemType: string, q
     const supabase = await createClient()
     const today = new Date().toISOString().split('T')[0]
 
-    // 1. ดึงคิวทั้งหมดของ สมาชิกคนนี้ สำหรับไอเทมชิ้นนี้ในวันนี้
-    const { data: existingQueues } = await (supabase as any)
+    // 1. ดึงคิวทั้งหมดของ สมาชิกคนนี้ สำหรับไอเทมชิ้นนี้ (ไม่กรองวันที่เพื่อไม่ให้ชน unique constraint)
+    const { data: rawQueues } = await supabase
       .from('auction_queues')
-      .select('id, status, slot_number, queue_timestamp, guild_id' )
+      .select('id, status, slot_number, queue_timestamp, guild_id, updated_at')
       .eq('user_id', userId) 
       .eq('item_name', itemType)
-      .gte('queue_timestamp', `${today}T00:00:00.000Z`)
+      .in('status', ['waiting', 'partial', 'completed'])
 
-    const queues = (existingQueues as any[]) || []
+    const queues = (rawQueues as any[]) || []
+
+    // คำนวณหา max slot_number จากคิวทั้งหมดในระบบ
+    const maxSlotNumber = Math.max(...queues.map(q => q.slot_number || 0), 0)
+
+    // คิวที่ถือว่ายังอยู่ในกระดานวันนี้: 
+    // - คิวที่รออยู่ (waiting) ไม่ว่าจะจองวันไหน (ทบยอด)
+    // - คิวที่สำเร็จ/แจกบางส่วนแล้ว (completed/partial) ของวันนี้เท่านั้น
+    const activeQueues = queues.filter(q => {
+      if (q.status === 'waiting') return true;
+      const queueDate = q.updated_at ? q.updated_at.split('T')[0] : (q.queue_timestamp ? q.queue_timestamp.split('T')[0] : '');
+      return queueDate === today;
+    })
     
     // แยกคิวรอแจก เรียงจากใหม่ไปเก่า (เพื่อเวลาลบ จะได้ลบคิวท้ายแถวก่อน)
-    const waitingQueues = queues
+    const waitingQueues = activeQueues
       .filter(q => q.status === 'waiting') 
       .sort((a, b) => new Date(b.queue_timestamp).getTime() - new Date(a.queue_timestamp).getTime())
     
     // นับคิวที่ได้ของไปแล้ว
-    const nonWaitingCount = queues.filter(q => q.status !== 'waiting').length
+    const nonWaitingCount = activeQueues.filter(q => q.status !== 'waiting').length
 
     // 2. คำนวณหาเป้าหมายคิวรอ
     const targetWaitingCount = Math.max(0, qty - nonWaitingCount)
@@ -637,7 +683,6 @@ export async function syncMemberAuctionQueue(userId: string, itemType: string, q
 
     if (diff > 0) {
       // ➕ กรณีคีย์ตัวเลขเพิ่มขึ้น -> สร้างคิวรอเพิ่มต่อท้าย
-      const maxSlotNumber = Math.max(...queues.map(q => q.slot_number || 0), 0)
       const guildId = queues[0]?.guild_id || session.profile.guild_id || null;
 
       const inserts = Array.from({ length: diff }, (_, i) => ({
@@ -670,6 +715,127 @@ export async function syncMemberAuctionQueue(userId: string, itemType: string, q
     }
 
     return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+
+// 11. เคลียร์คิวประมูลตามประเภทไอเทม (Soft Delete - Canceled คิวรอรอบถัดไป & คิวประมูลเสร็จแล้ว)
+export async function clearQueueByItemType(itemType: ItemType) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin') {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const supabase = await createClient()
+    const today = new Date().toISOString().split('T')[0]
+
+    // ดึงข้อมูลกิลด์และ webhook URL
+    const { data: guildData } = await supabase
+      .from('guilds')
+      .select('discord_webhook_url, name')
+      .eq('id', session.profile.guild_id)
+      .maybeSingle() as any
+
+    // 1. ดึงข้อมูลเซสชันวันนี้เพื่อหา total_quantity และ personal_limit
+    const { data: todaySession, error: sessionError } = await supabase
+      .from('auction_sessions')
+      .select('total_quantity, personal_limit')
+      .eq('guild_id', session.profile.guild_id)
+      .eq('item_name', itemType)
+      .eq('session_date', today)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (sessionError) throw sessionError
+    const totalQuantity = todaySession?.total_quantity ?? 0
+    const personalLimit = todaySession?.personal_limit ?? 0
+
+    // 2. ดึงคิวทั้งหมดของวันนี้ (รอ, สำเร็จ, บางส่วน)
+    const { data: rawQueues, error: queueError } = await supabase
+      .from('auction_queues')
+      .select('id, user_id, status, queue_timestamp, slot_number')
+      .eq('guild_id', session.profile.guild_id)
+      .eq('item_name', itemType)
+      .in('status', ['waiting', 'partial', 'completed'])
+
+    if (queueError) throw queueError
+
+    // 3. กรองและคำนวณคิว waitlisted ตามลอจิกเดียวกันกับบอร์ด
+    const userTotalSlotsMap = new Map<string, number>()
+    ;(rawQueues || []).forEach((q: any) => {
+      const key = q.user_id
+      userTotalSlotsMap.set(key, (userTotalSlotsMap.get(key) ?? 0) + 1)
+    })
+
+    let shownCountPerUser = new Map<string, number>()
+    const qualifiedQueues = (rawQueues || []).filter((q: any) => {
+      const alreadyShown = shownCountPerUser.get(q.user_id) ?? 0
+      const shouldShow = alreadyShown < personalLimit
+      if (shouldShow) {
+        shownCountPerUser.set(q.user_id, alreadyShown + 1)
+      }
+      return shouldShow
+    })
+
+    // เรียงตามเวลาและลำดับคิว
+    qualifiedQueues.sort((a: any, b: any) => {
+      const timeA = a.queue_timestamp || ''
+      const timeB = b.queue_timestamp || ''
+      if (timeA !== timeB) return timeA.localeCompare(timeB)
+
+      const slotA = a.slot_number ?? 0
+      const slotB = b.slot_number ?? 0
+      if (slotA !== slotB) return slotA - slotB
+
+      return (a.id || '').localeCompare(b.id || '')
+    })
+
+    // คิวที่อยู่เกิน totalQuantity คือ waitlist
+    const waitlistedIds = qualifiedQueues
+      .slice(totalQuantity)
+      .map((q: any) => q.id)
+
+    // คิวที่แจกเสร็จแล้ว (status = 'completed')
+    const completedIds = (rawQueues || [])
+      .filter((q: any) => q.status === 'completed')
+      .map((q: any) => q.id)
+
+    // รวมรายการที่ต้องยกเลิก (soft delete)
+    const idsToCancel = Array.from(new Set([...waitlistedIds, ...completedIds]))
+
+    if (idsToCancel.length > 0) {
+      const { error: updateError } = await supabase
+        .from('auction_queues')
+        .update({
+          status: 'canceled',
+          updated_at: new Date().toISOString()
+        })
+        .in('id', idsToCancel)
+
+      if (updateError) throw updateError
+    }
+
+    // ส่งการแจ้งเตือน Discord Webhook เคลียร์คิว/เริ่มรอบใหม่
+    if (guildData?.discord_webhook_url) {
+      await sendDiscordNotification(guildData.discord_webhook_url, {
+        embeds: [
+          {
+            title: "📢 ล้างคิวสำเร็จ / เริ่มรอบใหม่ (Queue Reset)",
+            description: `📢 The queue for **${itemType}** has been reset. A new round is starting!`,
+            color: 16753920, // Orange
+            timestamp: new Date().toISOString(),
+          }
+        ]
+      });
+    }
+
+    revalidatePath('/')
+    revalidatePath('/auction')
+    revalidatePath('/profile')
+
+    return { success: true, count: idsToCancel.length }
   } catch (err: any) {
     return { success: false, error: err.message }
   }

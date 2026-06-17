@@ -81,6 +81,11 @@ export type Guild = {
   // Status
   status: 'pending' | 'approved' | 'rejected';
   
+  // Branding & Automations
+  logo_url?: string | null;
+  primary_color?: string | null;
+  discord_webhook_url?: string | null;
+  
   // Timestamps
   created_at?: string; // ISO 8601
   updated_at?: string; // ISO 8601 (auto-updated)

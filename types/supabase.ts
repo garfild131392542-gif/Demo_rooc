@@ -51,6 +51,7 @@ export type Database = {
           queue_timestamp: string | null
           received_qty: number
           requested_qty: number
+          slot_number: number
           status: string | null
           updated_at: string | null
           user_id: string | null
@@ -62,6 +63,7 @@ export type Database = {
           queue_timestamp?: string | null
           received_qty?: number
           requested_qty?: number
+          slot_number?: number
           status?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -73,6 +75,7 @@ export type Database = {
           queue_timestamp?: string | null
           received_qty?: number
           requested_qty?: number
+          slot_number?: number
           status?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -234,11 +237,14 @@ export type Database = {
           created_at: string | null
           description: string
           discord_link: string | null
+          discord_webhook_url: string | null
           guild_url: string | null
           id: string
           invite_code: string
+          logo_url: string | null
           name: string
           owner_id: string
+          primary_color: string | null
           status: string | null
           trial_ends_at: string | null
           updated_at: string | null
@@ -248,11 +254,14 @@ export type Database = {
           created_at?: string | null
           description: string
           discord_link?: string | null
+          discord_webhook_url?: string | null
           guild_url?: string | null
           id?: string
           invite_code: string
+          logo_url?: string | null
           name: string
           owner_id: string
+          primary_color?: string | null
           status?: string | null
           trial_ends_at?: string | null
           updated_at?: string | null
@@ -262,11 +271,14 @@ export type Database = {
           created_at?: string | null
           description?: string
           discord_link?: string | null
+          discord_webhook_url?: string | null
           guild_url?: string | null
           id?: string
           invite_code?: string
+          logo_url?: string | null
           name?: string
           owner_id?: string
+          primary_color?: string | null
           status?: string | null
           trial_ends_at?: string | null
           updated_at?: string | null

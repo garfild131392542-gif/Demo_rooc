@@ -74,6 +74,7 @@ export default function ProfileForm({
   const alertTimerRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const showcaseFileInputRef = useRef<HTMLInputElement>(null);
+  const infoFormRef = useRef<HTMLFormElement>(null);
 
   const [showcaseUrl, setShowcaseUrl] = useState((initialProfile as any).character_showcase_url || "");
   const [isShowcaseUploading, setIsShowcaseUploading] = useState(false);
@@ -306,7 +307,14 @@ export default function ProfileForm({
         const cacheBustedUrl = `${publicUrl}?t=${Date.now()}`;
 
         setShowcaseUrl(cacheBustedUrl);
-        setMessage({ type: "success", text: "อัปโหลดรูปภาพตัวละครสำเร็จ! กรุณากดปุ่ม 'บันทึกสเตตัส' ด้านล่างเพื่อบันทึกข้อมูลครับ" });
+        setMessage({ type: "success", text: "อัปโหลดรูปภาพตัวละครสำเร็จ! กำลังบันทึกข้อมูลอัตโนมัติ..." });
+
+        // Auto submit the form to save changes to DB
+        setTimeout(() => {
+          if (infoFormRef.current) {
+            infoFormRef.current.requestSubmit();
+          }
+        }, 100);
       } catch (err: any) {
         setMessage({ type: "error", text: err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อเพื่ออัปโหลด" });
       } finally {
@@ -318,6 +326,13 @@ export default function ProfileForm({
 
   const handleRemoveShowcase = () => {
     setShowcaseUrl("");
+    
+    // Auto submit the form to save changes to DB
+    setTimeout(() => {
+      if (infoFormRef.current) {
+        infoFormRef.current.requestSubmit();
+      }
+    }, 100);
   };
 
   const handleStatChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -549,7 +564,7 @@ export default function ProfileForm({
         {/* ═══════════════════════════════════════════════════════ */}
         {/* ROW 1: ข้อมูลตัวละคร + สถานะ + รูป Showcase (แถวบน) */}
         {/* ═══════════════════════════════════════════════════════ */}
-        <form onSubmit={handleInfoSubmit}>
+        <form ref={infoFormRef} onSubmit={handleInfoSubmit}>
           <div className="rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 glass-panel overflow-hidden">
             <div className="grid grid-cols-1 lg:grid-cols-12">
               {/* ── ฝั่งซ้าย: ข้อมูลตัวละคร + สถานะสมาชิก ── */}
@@ -708,7 +723,7 @@ export default function ProfileForm({
               </div>
             </div>
             {/* ── ปุ่มบันทึกข้อมูลตัวละคร (อยู่ล่างสุดของแถวนี้) ── */}
-            <div className="px-5 sm:px-6 py-4 border-t border-slate-200 dark:border-slate-700/60 bg-slate-50/50 dark:bg-slate-800/30">
+            <div className="px-5 sm:px-6 py-4 border-t border-slate-200 dark:border-slate-700/60 bg-slate-50/50 dark:bg-slate-800/30 flex justify-end">
               <button
                 type="submit"
                 disabled={isPending || isShowcaseUploading}

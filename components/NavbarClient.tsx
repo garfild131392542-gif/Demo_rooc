@@ -150,7 +150,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                     { name: 'ข้อมูลส่วนตัว', href: '/profile' },
 
                                     { name: 'สมาชิก', href: '/members' },
-                                    { name: 'จองคิวประมูล', href: '/profile/history' },
+                                    { name: 'คิวประมูล', href: '/profile/history' },
                                     { name: 'ประมูล', href: '/auction' },
 
                                 ].map((item) => (
@@ -249,7 +249,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                     { name: 'ข้อมูลส่วนตัว', href: '/profile' },
 
                                     { name: 'สมาชิก', href: '/members' },
-                                    { name: 'จองคิวประมูล', href: '/profile/history' },
+                                    { name: 'คิวประมูล', href: '/profile/history' },
                                     { name: 'ประมูล', href: '/auction' },
 
                                     ...(enrichedSession.role === 'admin' ? [{ name: 'จัดการข้อมูลสมาชิกกิล', href: '/guild-admin/credentials' }] : [])

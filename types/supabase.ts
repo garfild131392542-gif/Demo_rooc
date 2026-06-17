@@ -311,6 +311,7 @@ export type Database = {
           pvp_reduc: number | null
           cri: number | null
           cri_dmg: number | null
+          character_showcase_url: string | null
           role: string | null
           slot_index: number | null
           sp: number | null
@@ -342,6 +343,7 @@ export type Database = {
           pvp_reduc?: number | null
           cri?: number | null
           cri_dmg?: number | null
+          character_showcase_url?: string | null
           role?: string | null
           slot_index?: number | null
           sp?: number | null
@@ -373,6 +375,7 @@ export type Database = {
           pvp_reduc?: number | null
           cri?: number | null
           cri_dmg?: number | null
+          character_showcase_url?: string | null
           role?: string | null
           slot_index?: number | null
           sp?: number | null

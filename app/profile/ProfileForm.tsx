@@ -12,6 +12,7 @@ import { getMyAuctionReservations, updateAuctionQueueReservation, deleteAuctionQ
 import { ITEM_CONFIG } from "@/components/auction/constants";
 import { Profile } from "@/components/Dashboard";
 import { STAT_LIMITS } from "@/lib/stat-limits";
+import { createClient } from "@/lib/supabase/client";
 
 type AuctionItemType = keyof typeof ITEM_CONFIG;
 
@@ -37,7 +38,7 @@ const StatInput = ({
 }) => {
   const maxVal = STAT_LIMITS[name as keyof typeof STAT_LIMITS];
   return (
-    <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm glass-panel">
       <label htmlFor={name} className="block text-xs font-semibold mb-2 text-slate-700 dark:text-slate-300">
         {label}
       </label>
@@ -70,6 +71,10 @@ export default function ProfileForm({
 
   const alertTimerRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const showcaseFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [showcaseUrl, setShowcaseUrl] = useState((initialProfile as any).character_showcase_url || "");
+  const [isShowcaseUploading, setIsShowcaseUploading] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -79,9 +84,11 @@ export default function ProfileForm({
 
   const loadingText = isAiLoading
     ? "กำลังอ่านภาพจาก AI..."
-    : isPending
-      ? "กำลังบันทึกข้อมูล..."
-      : "";
+    : isShowcaseUploading
+      ? "กำลังอัปโหลดรูปตัวละคร..."
+      : isPending
+        ? "กำลังบันทึกข้อมูล..."
+        : "";
 
   const [reservationModalOpen, setReservationModalOpen] = useState(false);
   const [reservations, setReservations] = useState<QueueReservation[]>([]);
@@ -223,6 +230,69 @@ export default function ProfileForm({
     cri: (initialProfile as any).cri ? String((initialProfile as any).cri) : "",
     cri_dmg: (initialProfile as any).cri_dmg ? String((initialProfile as any).cri_dmg) : "",
   });
+
+  const handleShowcaseUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+
+      // 1. ตรวจสอบไฟล์รูปภาพ
+      const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+      if (!allowedTypes.includes(file.type)) {
+        setMessage({ type: "error", text: "❌ อนุญาตเฉพาะไฟล์ภาพนามสกุล png, jpg, jpeg, และ webp เท่านั้น" });
+        return;
+      }
+
+      // 2. ตรวจสอบขนาดไฟล์ไม่เกิน 5MB
+      const maxBytes = 5 * 1024 * 1024;
+      if (file.size > maxBytes) {
+        setMessage({ type: "error", text: "❌ ขนาดไฟล์รูปภาพต้องไม่เกิน 5MB" });
+        return;
+      }
+
+      setIsShowcaseUploading(true);
+      setMessage(null);
+
+      try {
+        const supabase = createClient();
+        
+        // 3. หลีกเลี่ยงไฟล์ขยะพูนสะสม: ลบไฟล์เก่าออกก่อนถ้ามี
+        if (showcaseUrl && showcaseUrl.includes("guild-logos/")) {
+          const oldPath = showcaseUrl.split("guild-logos/")[1];
+          if (oldPath) {
+            await supabase.storage.from("guild-logos").remove([oldPath]);
+          }
+        }
+
+        const fileName = `showcase_image`;
+        const filePath = `showcases/${initialProfile.id}/${fileName}`;
+
+        // 4. อัปโหลดรูปภาพลง Storage
+        const { error: uploadError } = await supabase.storage
+          .from("guild-logos")
+          .upload(filePath, file, { upsert: true });
+
+        if (uploadError) {
+          throw new Error("อัปโหลดล้มเหลว: " + uploadError.message);
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from("guild-logos")
+          .getPublicUrl(filePath);
+
+        setShowcaseUrl(publicUrl);
+        setMessage({ type: "success", text: "อัปโหลดรูปภาพตัวละครสำเร็จ! กรุณากดปุ่ม 'บันทึกสเตตัส' ด้านล่างเพื่อบันทึกข้อมูลครับ" });
+      } catch (err: any) {
+        setMessage({ type: "error", text: err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อเพื่ออัปโหลด" });
+      } finally {
+        setIsShowcaseUploading(false);
+        if (showcaseFileInputRef.current) showcaseFileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemoveShowcase = () => {
+    setShowcaseUrl("");
+  };
 
   const handleStatChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -429,7 +499,7 @@ export default function ProfileForm({
         className={`${isAiLoading || isPending ? "pointer-events-none opacity-70 blur-sm" : ""} transition-all duration-300 grid grid-cols-1 lg:grid-cols-12 gap-6`}
       >
         <div className="lg:col-span-4 xl:col-span-3 space-y-6">
-          <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
+          <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm glass-panel">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-semibold text-slate-900 dark:text-white">
@@ -440,13 +510,13 @@ export default function ProfileForm({
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" checked={isOnLeave} onChange={handleToggleLeave} disabled={isPending || isAiLoading} />
+                <input type="checkbox" className="sr-only peer" checked={isOnLeave} onChange={handleToggleLeave} disabled={isPending || isAiLoading || isShowcaseUploading} />
                 <div className="w-11 h-6 rounded-full bg-slate-200 peer-checked:bg-indigo-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform"></div>
               </label>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 glass-panel">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
               ข้อมูลตัวละคร
             </h3>
@@ -479,13 +549,60 @@ export default function ProfileForm({
                   <option value="Summoner">Summoner</option>
                 </select>
               </div>
+
+              {/* 🌟 ช่องอัปโหลดรูปภาพตัวละครเกียรติยศ (Showcase Upload Box) */}
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-700/60">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  รูปภาพตัวละครเพื่อยืนแท่นทำเนียบเกียรติยศ
+                </label>
+                <input
+                  type="hidden"
+                  name="character_showcase_url"
+                  value={showcaseUrl}
+                />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={showcaseFileInputRef}
+                      disabled={isShowcaseUploading || isPending}
+                      onChange={handleShowcaseUpload}
+                      className="w-full text-xs text-slate-500 dark:text-slate-400
+                        file:mr-2 file:py-1.5 file:px-2.5
+                        file:rounded-xl file:border-0
+                        file:text-xs file:font-semibold
+                        file:bg-slate-900 file:text-white dark:file:bg-slate-800
+                        hover:file:opacity-90 file:cursor-pointer"
+                    />
+                    {showcaseUrl && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveShowcase}
+                        className="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-950/20 px-2 py-1.5 rounded-xl border border-red-200 dark:border-red-900/40 cursor-pointer shrink-0"
+                      >
+                        ลบออก
+                      </button>
+                    )}
+                  </div>
+                  {showcaseUrl && (
+                    <div className="p-2 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-center">
+                      <img src={showcaseUrl} alt="Character Showcase" className="h-32 w-auto object-contain rounded" onError={(e) => { (e.target as any).src = 'https://placehold.co/150x150?text=Invalid+Image'; }} />
+                    </div>
+                  )}
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-normal">
+                    * ขนาดไม่เกิน 5MB (ไฟล์ png, jpg, jpeg, webp) รูปนี้จะนำไปโชว์ที่หน้า Leaderboard ในโซนทำเนียบเกียรติยศเมื่อคุณติดอันดับ Top 3 ของสายอาชีพคุณ!
+                  </p>
+                </div>
+              </div>
+
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 glass-panel">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">คิวประมูล</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">จัดการจำนวนกล่องที่ต้องการรับจากการประมูล</p>
-            <button type="button" onClick={openReservationModal} disabled={isPending || isAiLoading} className="cursor-pointer w-full rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold transition hover:bg-slate-800 disabled:opacity-50">
+            <button type="button" onClick={openReservationModal} disabled={isPending || isAiLoading || isShowcaseUploading} className="cursor-pointer w-full rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold transition hover:bg-slate-800 disabled:opacity-50">
               ดูรายการจองคิว
             </button>
           </div>
@@ -493,7 +610,7 @@ export default function ProfileForm({
         </div>
 
         <div className="lg:col-span-8 xl:col-span-9">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col h-full">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col h-full glass-panel">
             <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-700">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>

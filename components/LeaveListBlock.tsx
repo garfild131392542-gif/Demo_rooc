@@ -11,7 +11,7 @@ export default function LeaveListBlock({
   isEditMode?: boolean
 }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col flex-1 min-h-[300px]">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col flex-1 min-h-[300px] glass-panel">
       <div className="bg-rose-50 dark:bg-rose-900/30 p-4 border-b border-gray-200 dark:border-gray-700">
         <h3 className="font-bold text-lg text-rose-900 dark:text-rose-100 flex items-center justify-between">
           <span>ลากิจกรรม</span>

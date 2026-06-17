@@ -33,6 +33,7 @@ export type Profile = {
   pvp_reduc: number;
   cri?: number | null;
   cri_dmg?: number | null;
+  character_showcase_url?: string | null;
   
   // Guild & Multi-Tenancy
   guild_id?: string | null; // UUID, FK to guilds(id)

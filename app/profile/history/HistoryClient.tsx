@@ -141,28 +141,27 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
         </Link>
       </div>
 
-      {/* บล็อกสถิติ */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-5 shadow-sm text-center">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-5 shadow-sm text-center glass-panel">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">จำนวนจองสะสม</p>
           <p className="text-3xl font-extrabold text-slate-800 dark:text-white">{totalCount} ชิ้น</p>
         </div>
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-5 shadow-sm text-center">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-5 shadow-sm text-center glass-panel">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">กำลังรอจัดสรร</p>
           <p className="text-3xl font-extrabold text-blue-600 dark:text-blue-400">{waitingCount} ชิ้น</p>
         </div>
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-5 shadow-sm text-center">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-5 shadow-sm text-center glass-panel">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">ได้รับสำเร็จแล้ว</p>
           <p className="text-3xl font-extrabold text-green-600 dark:text-green-400">{completedCount} ชิ้น</p>
         </div>
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-5 shadow-sm text-center">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-5 shadow-sm text-center glass-panel">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">ยกเลิกแล้ว</p>
           <p className="text-3xl font-extrabold text-slate-500 dark:text-slate-400">{canceledCount} ชิ้น</p>
         </div>
       </div>
 
       {/* บล็อกกรอง และค้นหา */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-6 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-6 shadow-sm space-y-4 glass-panel">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 
           {/* แท็บคัดกรองสถานะ */}

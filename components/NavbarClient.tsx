@@ -125,7 +125,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                             <div>
                                 <Link href="/" className="flex items-center hover:scale-105 transition-transform gap-2 py-1">
                                     {logoUrl ? (
-                                        <img src={logoUrl} alt={guildName} className="h-8 sm:h-10 w-auto object-contain rounded" />
+                                        <img src={logoUrl} alt={guildName} className="h-11 sm:h-14 w-auto object-contain rounded" />
                                     ) : (
                                         <span className="font-bold text-2xl sm:text-2xl tracking-tighter flex items-center">
                                             {guildName}<span className="ml-1 text-indigo-200 sm:text-xl">Guild</span>

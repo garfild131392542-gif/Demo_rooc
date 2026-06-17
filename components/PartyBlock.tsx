@@ -79,7 +79,7 @@ export default function PartyBlock({
   const slots = Array.from({ length: 5 }, (_, i) => i)
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden glass-panel">
       <div className="bg-gray-100 dark:bg-gray-900 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
         <h3 className="font-bold text-gray-800 dark:text-gray-200">Party {partyId}</h3>
       </div>

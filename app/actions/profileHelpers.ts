@@ -17,6 +17,7 @@ export type ProfileUpdatePayload = {
   ignore_mdef: number;
   cri: number;
   cri_dmg: number;
+  character_showcase_url: string;
   updated_at: string;
 };
 
@@ -57,6 +58,7 @@ export const buildProfileUpdatePayload = (formData: FormData): ProfileUpdatePayl
     ignore_mdef: parseIntegerField(formData.get("ignore_mdef")),
     cri: parseIntegerField(formData.get("cri")),
     cri_dmg: parseFloatField(formData.get("cri_dmg")),
+    character_showcase_url: normalizeString(formData.get("character_showcase_url")),
     updated_at: new Date().toISOString(),
   };
 };

@@ -27,29 +27,36 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   
-  /* Ragnarok game fantasy style background: radial glows (Prontera Blue & Poring Pink) + subtle grid */
+  /* Bg-local.png background cover with light overlay to keep text readable */
   background-image: 
-    /* Soft blue glow (Prontera style) */
-    radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.07) 0%, transparent 45%),
-    /* Soft pink/purple glow (Poring style) */
-    radial-gradient(circle at 90% 10%, rgba(244, 63, 94, 0.06) 0%, transparent 40%),
-    /* Soft gold/yellow glow (Geffen style) */
-    radial-gradient(circle at 80% 80%, rgba(234, 179, 8, 0.05) 0%, transparent 50%),
-    /* Subtle gaming grid overlay */
-    linear-gradient(rgba(59, 130, 246, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(59, 130, 246, 0.015) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 32px 32px, 32px 32px;
-  background-attachment: fixed;
+    linear-gradient(to bottom, rgba(248, 250, 252, 0.4) 0%, rgba(248, 250, 252, 0.4) 100%),
+    url('/Bg-local.png') !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
 }
 
 .dark body {
-  /* Richer glows for dark mode */
+  /* Dark overlay for dark mode readability */
   background-image: 
-    radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.14) 0%, transparent 50%),
-    radial-gradient(circle at 90% 10%, rgba(244, 63, 94, 0.09) 0%, transparent 45%),
-    radial-gradient(circle at 80% 80%, rgba(234, 179, 8, 0.07) 0%, transparent 55%),
-    linear-gradient(rgba(99, 102, 241, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 102, 241, 0.02) 1px, transparent 1px);
+    linear-gradient(to bottom, rgba(11, 15, 25, 0.78) 0%, rgba(11, 15, 25, 0.78) 100%),
+    url('/Bg-local.png') !important;
+}
+
+/* Glassmorphism Cards Utility Class */
+.glass-panel {
+  background-color: rgba(255, 255, 255, 0.45) !important;
+  backdrop-filter: blur(12px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+}
+
+.dark .glass-panel {
+  background-color: rgba(15, 23, 42, 0.52) !important;
+  backdrop-filter: blur(12px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 /* Remove number input spinners */

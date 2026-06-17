@@ -23,6 +23,91 @@ type LeaderboardProfile = {
   ignore_mdef: number | null;
   cri: number | null;
   cri_dmg: number | null;
+  character_showcase_url: string | null;
+};
+
+const PodiumSlot = ({
+  profile,
+  rank,
+  heightClass,
+  colorClass,
+  medalText,
+  medalBg,
+  glowClass = "",
+}: {
+  profile: any;
+  rank: number;
+  heightClass: string;
+  colorClass: string;
+  medalText: string;
+  medalBg: string;
+  glowClass?: string;
+}) => {
+  return (
+    <div className="flex flex-col items-center flex-1 max-w-[200px] sm:max-w-[240px] transition-all duration-300 hover:-translate-y-1">
+      {/* Character Image container */}
+      <div className="relative w-full aspect-[2/3] max-h-[200px] sm:max-h-[260px] flex items-end justify-center mb-1 group">
+        {profile?.character_showcase_url ? (
+          <img
+            src={profile.character_showcase_url}
+            alt={profile.display_name || ""}
+            className="h-full w-auto object-contain z-10 transition-transform duration-300 group-hover:scale-105 select-none"
+            onError={(e) => {
+              (e.target as any).src = profile.job_name ? getJobIconUrl(profile.job_name) : '/icons/jobs/default.png';
+            }}
+          />
+        ) : (
+          /* Placeholder character/silhouette with large job icon */
+          <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100/10 dark:bg-slate-800/10 rounded-2xl border border-dashed border-slate-300/20 dark:border-slate-700/25 relative overflow-hidden p-4">
+            {profile?.job_name ? (
+              <img
+                src={getJobIconUrl(profile.job_name)}
+                alt={profile.job_name}
+                className="w-16 h-16 sm:w-24 sm:h-24 object-contain opacity-20 dark:opacity-10 absolute pointer-events-none"
+              />
+            ) : (
+              <span className="text-4xl opacity-10">👤</span>
+            )}
+            <span className="text-[10px] sm:text-xs text-slate-400/80 dark:text-slate-500/80 text-center font-medium mt-auto z-10">
+              {profile ? "ยังไม่ได้อัปโหลดรูป" : "ไม่มีข้อมูล"}
+            </span>
+          </div>
+        )}
+
+        {/* Medal Badge floating above the character */}
+        <div className={`absolute top-0 flex items-center justify-center w-8 h-8 rounded-full border border-white/20 shadow-md ${medalBg} text-white font-black text-sm z-20`}>
+          {medalText}
+        </div>
+      </div>
+
+      {/* The 3D Podium Box */}
+      <div className={`w-full ${heightClass} ${colorClass} ${glowClass} rounded-t-2xl flex flex-col items-center justify-center p-3 relative border-t-4 border-l border-r border-b-0`}>
+        {/* Name and class info */}
+        <div className="text-center w-full z-10 space-y-0.5 sm:space-y-1">
+          <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate max-w-full px-1">
+            {profile ? profile.display_name : "-"}
+          </p>
+          <div className="flex items-center justify-center gap-1">
+            {profile?.job_name && (
+              <img
+                src={getJobIconUrl(profile.job_name)}
+                alt={profile.job_name}
+                className="w-4 h-4 object-contain"
+              />
+            )}
+            <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-semibold truncate">
+              {profile ? profile.job_name : "ว่าง"}
+            </p>
+          </div>
+          {profile && (
+            <p className="text-[11px] sm:text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 dark:bg-indigo-400/10 px-2 py-0.5 rounded-full inline-block mt-1">
+              PvP DMG: {(profile.pvp_dmg ?? 0).toLocaleString()}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const SORT_OPTIONS = [
@@ -145,10 +230,116 @@ export default function LeaderboardTable({
       : "";
   };
 
+  const rawJobProfiles = selectedJob === "All" 
+    ? profiles 
+    : profiles.filter(p => (p.job_name || "").toLowerCase() === selectedJob.toLowerCase());
+
+  const podiumProfiles = [...rawJobProfiles]
+    .sort((a, b) => (b.pvp_dmg || 0) - (a.pvp_dmg || 0))
+    .slice(0, 3);
+
+  const rank1 = podiumProfiles[0] || null;
+  const rank2 = podiumProfiles[1] || null;
+  const rank3 = podiumProfiles[2] || null;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* ทำเนียบเกียรติยศ (Hall of Fame) */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg p-6 space-y-6 glass-panel relative overflow-hidden">
+        {/* Section Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-4">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl sm:text-3xl">🏆</span>
+            <div>
+              <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                ทำเนียบเกียรติยศ (Hall of Fame)
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
+                ผู้เล่นยอดเยี่ยมที่มีพลัง PvP DMG สูงสุด 3 อันดับแรก
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-400/15 dark:bg-yellow-400/10 border border-yellow-400/25 px-3 py-1 text-xs font-bold text-yellow-700 dark:text-yellow-400">
+              🥇 Top Players
+            </span>
+          </div>
+        </div>
+
+        {/* Job Sub-tabs Selector inside Hall of Fame */}
+        <div className="w-full">
+          <div className="flex items-center gap-2 overflow-x-auto pb-3 pt-1 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-850">
+            <button
+              onClick={() => setSelectedJob("All")}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
+                selectedJob === "All"
+                  ? "bg-guild-primary text-white border-guild-primary shadow-md shadow-guild-primary/20 scale-[1.03]"
+                  : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+              }`}
+            >
+              🌟 ทุกอาชีพ
+            </button>
+            {JOB_OPTIONS.map((job) => {
+              const isSelected = selectedJob === job;
+              return (
+                <button
+                  key={job}
+                  onClick={() => setSelectedJob(job)}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
+                    isSelected
+                      ? "bg-guild-primary text-white border-guild-primary shadow-md shadow-guild-primary/20 scale-[1.03]"
+                      : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+                  }`}
+                >
+                  <img
+                    src={getJobIconUrl(job)}
+                    alt={job}
+                    className="w-4 h-4 object-contain"
+                  />
+                  {job}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* The Podiums View */}
+        <div className="flex items-end justify-center gap-2 sm:gap-6 pt-16 pb-4 max-w-2xl mx-auto border-b border-slate-100 dark:border-slate-800/60">
+          {/* Rank 2 (Left) */}
+          <PodiumSlot
+            profile={rank2}
+            rank={2}
+            heightClass="h-20 sm:h-28"
+            colorClass="bg-gradient-to-t from-slate-400/30 to-slate-400/5 dark:from-slate-500/30 dark:to-slate-500/5 border-slate-300/40 dark:border-slate-600/40 border-t-slate-400 dark:border-t-slate-400"
+            medalText="2"
+            medalBg="bg-slate-400 shadow-slate-400/40"
+          />
+
+          {/* Rank 1 (Center) */}
+          <PodiumSlot
+            profile={rank1}
+            rank={1}
+            heightClass="h-28 sm:h-40"
+            colorClass="bg-gradient-to-t from-yellow-500/30 to-yellow-500/5 border-yellow-300/40 dark:border-yellow-600/40 border-t-yellow-400 dark:border-t-yellow-500"
+            medalText="👑"
+            medalBg="bg-gradient-to-r from-yellow-500 to-amber-500 shadow-yellow-500/40 ring-4 ring-yellow-400/20"
+            glowClass="shadow-[0_-8px_25px_-5px_rgba(234,179,8,0.15)]"
+          />
+
+          {/* Rank 3 (Right) */}
+          <PodiumSlot
+            profile={rank3}
+            rank={3}
+            heightClass="h-16 sm:h-20"
+            colorClass="bg-gradient-to-t from-amber-700/30 to-amber-700/5 border-amber-600/40 border-t-amber-600"
+            medalText="3"
+            medalBg="bg-amber-600 shadow-amber-600/40"
+          />
+        </div>
+      </div>
+
       {/* --- Toolbar มินิมอล --- */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl shadow-sm glass-panel">
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           {/* ตัวกรองอาชีพแบบเรียบๆ */}
           <div className="relative">
@@ -259,7 +450,7 @@ export default function LeaderboardTable({
       </div>
 
       {/* --- ตารางดีไซน์ใหม่ ไร้ขอบกลาง --- */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden glass-panel">
         <div className="overflow-x-auto scroll-smooth pb-2" style={{ transform: "rotateX(180deg)" }}>
           <table className="min-w-full text-sm text-left" style={{ transform: "rotateX(180deg)" }}>
             <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">

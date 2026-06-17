@@ -31,7 +31,7 @@ export default function WaitlistBlock({
   return (
     <div 
       ref={setNodeRef} // 💡 ย้าย setNodeRef มาไว้ที่ div กล่องนอกสุดเลย
-      className={`bg-white dark:bg-gray-800 rounded-xl shadow-md border overflow-hidden flex flex-col flex-1 min-h-[300px] transition-colors ${
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-md border overflow-hidden flex flex-col flex-1 min-h-[300px] transition-colors glass-panel ${
         isOver ? 'border-indigo-400 ring-2 ring-indigo-500/50 bg-indigo-50/30' : 'border-gray-200 dark:border-gray-700'
       }`}
     >

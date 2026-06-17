@@ -112,7 +112,7 @@ export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps
 
   return (
     // 💡 ปรับพื้นหลังกล่องฟอร์มและเส้นขอบ
-    <div className="w-full max-w-lg bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl dark:shadow-2xl p-8 transition-colors">
+    <div className="w-full max-w-lg bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl dark:shadow-2xl p-8 transition-colors glass-panel">
       <div className="flex items-center justify-between mb-4">
         {/* 💡 ปรับสีหัวข้อ */}
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">ข้อมูลกิลด์ของคุณ</h1>
@@ -130,6 +130,18 @@ export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps
       <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
         {isAdmin ? "🔒 โหมดหัวหน้ากิลด์: คุณสามารถแก้ไขข้อมูลกิลด์ได้" : "👥 โหมดสมาชิก: ดูรายละเอียดข้อมูลกิลด์ (อ่านอย่างเดียว)"}
       </p>
+
+      {/* 💡 แสดงโลโก้กิลด์เด่นชัดด้านบนสำหรับทุกคน */}
+      {logoPreview && (
+        <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700/60 flex items-center justify-center shadow-inner">
+          <img 
+            src={logoPreview} 
+            alt="Guild Logo" 
+            className="h-28 w-auto object-contain rounded-xl"
+            onError={(e) => { (e.target as any).src = 'https://placehold.co/200x80?text=Invalid+Logo'; }}
+          />
+        </div>
+      )}
 
       {/* 💡 ปรับสีกล่องแจ้งเตือน Success / Error */}
       {success && <div className="mb-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 p-4 text-sm text-green-700 dark:text-green-400 text-center font-medium">{success}</div>}

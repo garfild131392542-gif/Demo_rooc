@@ -31,7 +31,7 @@ export default async function HistoryPage() {
       .from('auction_queues')
       .select('*')
       .eq('guild_id', profile.guild_id)
-      .order('queue_timestamp', { ascending: false })
+      .order('queue_timestamp', { ascending: true })
 
     if (queueError) {
       console.error('Fetch guild queues error:', queueError.message)
@@ -207,7 +207,7 @@ export default async function HistoryPage() {
   })
 
   return (
-    <div className="w-full mx-auto px-4 py-8">
+    <div className="w-full mx-auto px-4 py-4 md:py-6 h-[calc(100vh-4.5rem)] overflow-hidden flex flex-col">
       <HistoryClient initialQueues={groupedQueues} rawQueues={processedQueues} />
     </div>
   )

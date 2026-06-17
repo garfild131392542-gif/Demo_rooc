@@ -115,7 +115,7 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
     .reduce((sum, q) => sum + q.requested_qty, 0);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl w-full mx-auto space-y-4 flex flex-col flex-1 min-h-0">
 
       {/* ส่วนหัว และปุ่มย้อนกลับ */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -161,7 +161,7 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
       </div>
 
       {/* บล็อกกรอง และค้นหา */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-6 shadow-sm space-y-4 glass-panel">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-6 shadow-sm flex-1 flex flex-col min-h-0 space-y-4 glass-panel">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 
           {/* แท็บคัดกรองสถานะ */}
@@ -203,9 +203,9 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
         </div>
 
         {/* รายการประวัติ - ตาราง (สำหรับ Desktop) */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 border border-slate-200/60 dark:border-slate-700 rounded-2xl overflow-hidden">
-            <thead className="bg-slate-50 dark:bg-slate-900/40">
+        <div className="hidden md:block flex-1 overflow-y-auto pr-1 min-h-0 border border-slate-200/60 dark:border-slate-700 rounded-2xl">
+          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+            <thead className="bg-slate-50 dark:bg-slate-900/40 sticky top-0 z-10 shadow-sm">
               <tr>
                 <th className="px-6 py-3.5 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">ผู้จอง (Member)</th>
                 <th className="px-6 py-3.5 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">ชื่อไอเทม</th>
@@ -251,7 +251,7 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
         </div>
 
         {/* รายการประวัติ - การ์ด (สำหรับ Mobile) */}
-        <div className="block md:hidden space-y-4">
+        <div className="block md:hidden flex-1 overflow-y-auto pr-1 min-h-0 space-y-4">
           {filteredQueues.length > 0 ? (
             filteredQueues.map((item) => (
               <div

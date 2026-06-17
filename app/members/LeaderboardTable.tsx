@@ -83,7 +83,7 @@ const PodiumSlot = ({
               <img
                 src="/wings-gold.png"
                 alt="Gold Wings"
-                className="absolute w-[320px] sm:w-[380px] md:w-[420px] max-w-[220%] h-auto bottom-[15%] left-1/2 -translate-x-1/2 pointer-events-none z-0 opacity-95 animate-game-wings select-none"
+                className="absolute w-[240px] sm:w-[280px] md:w-[320px] max-w-[150%] h-auto bottom-[14%] left-1/2 -translate-x-1/2 pointer-events-none z-0 opacity-95 animate-game-wings select-none"
               />
             )}
             <img

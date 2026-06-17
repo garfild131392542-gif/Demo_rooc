@@ -71,8 +71,8 @@ export default async function GuildStatusPage() {
   // 3. กรณีที่ไม่พบข้อมูลกิลด์
   if (!guild) {
     return (
-      // 💡 เพิ่มพื้นหลัง dark:bg-slate-900
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 py-12 px-4 transition-colors">
+      // 💡 ปรับให้ไม่มีสีทับ เพื่อโชว์ BG ภาพ
+      <div className="min-h-screen flex items-center justify-center py-12 px-4 transition-colors">
         
         {/* 💡 เพิ่มสีกล่อง dark:bg-slate-800, เส้นขอบ, และเงาในโหมดมืด */}
         <div className="w-full max-w-lg bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl dark:shadow-2xl p-8 text-center transition-colors">
@@ -91,8 +91,8 @@ export default async function GuildStatusPage() {
 
   // 4. ส่งข้อมูลไปให้ฟอร์ม Client Component จัดการต่อ
   return (
-    // 💡 เพิ่มพื้นหลัง dark:bg-slate-900
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 py-12 px-4 sm:px-6 lg:px-8 transition-colors">
+    // 💡 ปรับให้ไม่มีสีทับ เพื่อโชว์ BG ภาพ
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 transition-colors">
       <GuildStatusForm guild={guild} isAdmin={isAdmin} members={guildMembers} />
     </div>
   )

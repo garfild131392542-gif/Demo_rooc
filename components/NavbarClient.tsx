@@ -47,29 +47,38 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                 const { data: { user } } = await supabase.auth.getUser()
                 if (!user) return
 
-                const { data: profile, error } = await supabase
+                const { data: profile, error: profileError } = await supabase
                     .from('profiles')
-                    .select('guild_id, guilds(name, logo_url)')
+                    .select('guild_id')
                     .eq('id', user.id)
-                    .maybeSingle() as any
+                    .maybeSingle()
 
-                if (error) {
-                    console.error('Navbar database query error:', error.message)
+                if (profileError) {
+                    console.error('Navbar profile query error:', profileError.message)
                     setGuildName('ข้อผิดพลาดระบบ')
                     return
                 }
 
-                if (profile?.guilds) {
-                    const guildData = profile.guilds as any
-                    const finalName = Array.isArray(guildData) ? guildData[0]?.name : guildData?.name
-                    const finalLogo = Array.isArray(guildData) ? guildData[0]?.logo_url : guildData?.logo_url
+                if (profile?.guild_id) {
+                    const { data: guild, error: guildError } = await supabase
+                        .from('guilds')
+                        .select('name, logo_url')
+                        .eq('id', profile.guild_id)
+                        .maybeSingle()
 
-                    if (finalName) {
-                        setGuildName(finalName)
+                    if (guildError) {
+                        console.error('Navbar guild query error:', guildError.message)
+                        setGuildName('ข้อผิดพลาดระบบ')
+                        return
+                    }
+
+                    if (guild) {
+                        setGuildName(guild.name)
+                        setLogoUrl(guild.logo_url || null)
                     } else {
                         setGuildName('ไม่มีกิลด์')
+                        setLogoUrl(null)
                     }
-                    setLogoUrl(finalLogo || null)
                 } else {
                     setGuildName('ยังไม่มีกิลด์')
                     setLogoUrl(null)
@@ -139,9 +148,10 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                     { name: 'จัดปาร์ตี้', href: '/' },
                                     { name: 'กิลด์', href: '/guild/edit' },
                                     { name: 'ข้อมูลส่วนตัว', href: '/profile' },
-                                    { name: 'ประวัติการลงคิว', href: '/profile/history' },
+
                                     { name: 'สมาชิก', href: '/members' },
                                     { name: 'ประมูล', href: '/auction' },
+                                    { name: 'จองคิวประมูล', href: '/profile/history' },
                                 ].map((item) => (
                                     <Link
                                         key={item.name}
@@ -236,9 +246,10 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                     { name: 'จัดปาร์ตี้', href: '/' },
                                     { name: 'กิลด์', href: '/guild/edit' },
                                     { name: 'ข้อมูลส่วนตัว', href: '/profile' },
-                                    { name: 'ประวัติการลงคิว', href: '/profile/history' },
+
                                     { name: 'สมาชิก', href: '/members' },
                                     { name: 'ประมูล', href: '/auction' },
+                                    { name: 'จองคิวประมูล', href: '/profile/history' },
                                     ...(enrichedSession.role === 'admin' ? [{ name: 'จัดการข้อมูลสมาชิกกิล', href: '/guild-admin/credentials' }] : [])
                                 ].map((item) => (
                                     <motion.div key={item.name} variants={itemVariants}>

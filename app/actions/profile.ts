@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSession } from "./auth";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/server";
-import { buildProfileUpdatePayload } from "./profileHelpers";
+import { buildProfileUpdatePayload, normalizeString, parseIntegerField, parseFloatField } from "./profileHelpers";
 import { STAT_LIMITS } from "@/lib/stat-limits";
 
 const STAT_LABELS: Record<string, string> = {
@@ -40,15 +40,116 @@ export interface ProfileSetupFormData {
 // ==========================================
 // อัปเดตสเตตัสของตัวละคร (จากหน้า My Profile)
 // ==========================================
-export async function updateMyProfile(formData: FormData) {
+// ==========================================
+// 1. อัปเดตข้อมูลตัวละครพื้นฐาน (ชื่อ, อาชีพ, รูปโชว์เคส)
+// ==========================================
+export async function updateCharacterInfoAction(formData: FormData) {
   const session = await getSession();
   if (!session) return { success: false, error: "Not authenticated" };
 
   const supabase = await createClient();
+  const currentUserId = (session as any).user?.id ?? (session as any).id;
 
-  const payload = buildProfileUpdatePayload(formData);
+  const display_name = normalizeString(formData.get("display_name"));
+  const job_name = normalizeString(formData.get("job_name"));
+  const character_showcase_url = normalizeString(formData.get("character_showcase_url"));
 
-  // ตรวจสอบลิมิตของสเตตัสป้องกันการป้อนค่าปลอม (เช่น 999999)
+  if (!display_name) {
+    return { success: false, error: "กรุณาระบุชื่อตัวละคร" };
+  }
+  if (!job_name) {
+    return { success: false, error: "กรุณาระบุสายอาชีพ" };
+  }
+
+  // 1. ดึงสเตตัสรูปตัวละครเดิมและกิลด์ไอดีเพื่อตรวจสอบ
+  const { data: currentProfile, error: getProfileError } = await (supabase as any)
+    .from("profiles")
+    .select("guild_id, character_showcase_url")
+    .eq("id", currentUserId)
+    .maybeSingle();
+
+  if (getProfileError || !currentProfile) {
+    return { success: false, error: "ไม่พบข้อมูลโปรไฟล์ของคุณในระบบ" };
+  }
+
+  // 2. ป้องกันผู้เล่นทั่วไปอัปโหลดรูปเกียรติยศ (อนุญาตกรณีลบรูปออกเป็นค่าว่าง หรือยังคงใช้รูปเดิม)
+  if (character_showcase_url && character_showcase_url !== currentProfile.character_showcase_url) {
+    if (!currentProfile.guild_id) {
+      return { success: false, error: "คุณต้องเป็นสมาชิกกิลด์ก่อนจึงจะใช้งานฟีเจอร์นี้ได้" };
+    }
+
+    // ดึงข้อมูลกิลด์เพื่อเช็คสิทธิ์ทำเนียบเกียรติยศ
+    const { data: guild } = await (supabase as any)
+      .from("guilds")
+      .select("hall_of_fame_gold_uid, hall_of_fame_silver_uid, hall_of_fame_bronze_uid")
+      .eq("id", currentProfile.guild_id)
+      .maybeSingle();
+
+    if (!guild) {
+      return { success: false, error: "ไม่พบข้อมูลกิลด์ของคุณ" };
+    }
+
+    const isSelected = 
+      currentUserId === guild.hall_of_fame_gold_uid ||
+      currentUserId === guild.hall_of_fame_silver_uid ||
+      currentUserId === guild.hall_of_fame_bronze_uid;
+
+    if (!isSelected) {
+      return { 
+        success: false, 
+        error: "🔒 ขออภัย สิทธิ์การระบุรูปภาพตัวละครสงวนไว้เฉพาะสำหรับผู้ที่ติดอันดับ Top 3 ทำเนียบเกียรติยศของกิลด์เท่านั้นครับ" 
+      };
+    }
+  }
+
+  const { error } = await (supabase as any)
+    .from("profiles")
+    .update({
+      display_name,
+      job_name,
+      character_showcase_url,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", currentUserId);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath("/profile");
+  revalidatePath("/");
+  return { success: true };
+}
+
+// ==========================================
+// 2. อัปเดตเฉพาะค่าพลังสเตตัสตัวละคร
+// ==========================================
+export async function updateCharacterStatsAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) return { success: false, error: "Not authenticated" };
+
+  const supabase = await createClient();
+  const currentUserId = (session as any).user?.id ?? (session as any).id;
+
+  const payload = {
+    pvp_reduc: parseIntegerField(formData.get("pvp_reduc")),
+    pvp_dmg: parseIntegerField(formData.get("pvp_dmg")),
+    p_def: parseIntegerField(formData.get("p_def")),
+    m_def: parseIntegerField(formData.get("m_def")),
+    p_atk: parseIntegerField(formData.get("p_atk")),
+    m_atk: parseIntegerField(formData.get("m_atk")),
+    p_dmg: parseFloatField(formData.get("p_dmg")),
+    m_dmg: parseFloatField(formData.get("m_dmg")),
+    p_reduc: parseFloatField(formData.get("p_reduc")),
+    m_reduc: parseFloatField(formData.get("m_reduc")),
+    hp: parseIntegerField(formData.get("hp")),
+    sp: parseIntegerField(formData.get("sp")),
+    ignore_pdef: parseIntegerField(formData.get("ignore_pdef")),
+    ignore_mdef: parseIntegerField(formData.get("ignore_mdef")),
+    cri: parseIntegerField(formData.get("cri")),
+    cri_dmg: parseFloatField(formData.get("cri_dmg")),
+    updated_at: new Date().toISOString()
+  };
+
+  // ตรวจสอบลิมิตของสเตตัสป้องกันการป้อนค่าปลอม
   for (const key of Object.keys(STAT_LIMITS) as (keyof typeof STAT_LIMITS)[]) {
     const val = payload[key as keyof typeof payload];
     const maxVal = STAT_LIMITS[key];
@@ -63,8 +164,8 @@ export async function updateMyProfile(formData: FormData) {
 
   const { error } = await (supabase as any)
     .from("profiles")
-    .update(payload as any)
-    .eq("id", (session as any).user?.id ?? (session as any).id);
+    .update(payload)
+    .eq("id", currentUserId);
 
   if (error) return { success: false, error: error.message };
 

@@ -106,23 +106,23 @@ export default function PoringAssistant() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.8, y: 20 }}
               // 🌟 จุดสำคัญ: ปรับ w และ h ให้เป็นแบบ Responsive รองรับทั้งจอเล็ก/จอใหญ่
-              className="bg-white/90 backdrop-blur-sm border-2 border-pink-300 rounded-xl shadow-xl p-3 sm:p-4 mb-2 sm:mb-4 w-[calc(90vw-2rem)] sm:w-96 h-[70vh] sm:h-[32rem] max-h-[85vh] flex flex-col overflow-hidden origin-bottom-right"
+              className="bg-white/90 dark:bg-slate-900/95 backdrop-blur-sm border-2 border-pink-300 dark:border-pink-800/60 rounded-xl shadow-xl dark:shadow-2xl dark:shadow-black/40 p-3 sm:p-4 mb-2 sm:mb-4 w-[calc(90vw-2rem)] sm:w-96 h-[70vh] sm:h-[32rem] max-h-[85vh] flex flex-col overflow-hidden origin-bottom-right"
             >
-              <div className="flex justify-between items-center border-b pb-2 mb-2">
-                <h3 className="font-bold text-pink-600 flex items-center gap-2 text-sm sm:text-base">
+              <div className="flex justify-between items-center border-b border-pink-200 dark:border-slate-700 pb-2 mb-2">
+                <h3 className="font-bold text-pink-600 dark:text-pink-400 flex items-center gap-2 text-sm sm:text-base">
                   Poring Guild Helper
                   <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                 </h3>
-                <button onClick={toggleChat} className="cursor-pointer text-gray-400 hover:text-red-500 transition p-1">
+                <button onClick={toggleChat} className="cursor-pointer text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition p-1">
                   <X size={18} />
                 </button>
               </div>
               
               {/* พื้นที่แสดงข้อความ */}
-              <div className="flex-1 overflow-y-auto space-y-3 mb-3 pr-1 sm:pr-2 text-xs sm:text-sm scrollbar-thin scrollbar-thumb-pink-200">
+              <div className="flex-1 overflow-y-auto space-y-3 mb-3 pr-1 sm:pr-2 text-xs sm:text-sm scrollbar-thin scrollbar-thumb-pink-200 dark:scrollbar-thumb-slate-700">
                 {messages.map((msg, idx) => (
                   <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`p-2.5 rounded-lg max-w-[85%] ${msg.role === 'user' ? 'bg-blue-100 text-blue-900' : 'bg-pink-100 text-pink-900'} shadow-sm whitespace-pre-wrap`}>
+                    <div className={`p-2.5 rounded-lg max-w-[85%] ${msg.role === 'user' ? 'bg-blue-100 text-blue-900 dark:bg-blue-900/40 dark:text-blue-200' : 'bg-pink-100 text-pink-900 dark:bg-pink-900/30 dark:text-pink-200'} shadow-sm whitespace-pre-wrap`}>
                       {msg.content}
                     </div>
                   </div>
@@ -130,7 +130,7 @@ export default function PoringAssistant() {
                 
                 {isLoading && (
                   <div className="flex justify-start">
-                    <div className="p-2.5 rounded-lg bg-pink-100 text-pink-900 shadow-sm italic flex items-center gap-1">
+                    <div className="p-2.5 rounded-lg bg-pink-100 dark:bg-pink-900/30 text-pink-900 dark:text-pink-300 shadow-sm italic flex items-center gap-1">
                       <span className="animate-pulse">●</span>
                       <span className="animate-pulse delay-100">●</span>
                       <span className="animate-pulse delay-200">●</span>
@@ -152,14 +152,14 @@ export default function PoringAssistant() {
                     }
                   }}
                   placeholder="ถามเรื่องกิลด์มาได้เลย..."
-                  className="flex-1 border-2 border-pink-200 rounded-lg p-2 text-xs sm:text-sm resize-none focus:outline-none focus:ring-2 focus:ring-pink-300 transition"
+                  className="flex-1 border-2 border-pink-200 dark:border-slate-700 rounded-lg p-2 text-xs sm:text-sm resize-none focus:outline-none focus:ring-2 focus:ring-pink-300 dark:focus:ring-pink-700 transition bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   rows={2}
                   disabled={isLoading}
                 />
                 <button 
                   onClick={handleSendMessage}
                   disabled={isLoading}
-                  className={`bg-pink-500 text-white p-2 sm:p-3 rounded-lg hover:bg-pink-600 transition flex items-center justify-center ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`bg-pink-500 dark:bg-pink-600 text-white p-2 sm:p-3 rounded-lg hover:bg-pink-600 dark:hover:bg-pink-500 transition flex items-center justify-center cursor-pointer ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <Send size={18} className="sm:w-5 sm:h-5" />
                 </button>

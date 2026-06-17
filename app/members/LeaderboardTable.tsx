@@ -99,11 +99,7 @@ const PodiumSlot = ({
               {profile ? profile.job_name : "ว่าง"}
             </p>
           </div>
-          {profile && (
-            <p className="text-[11px] sm:text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 dark:bg-indigo-400/10 px-2 py-0.5 rounded-full inline-block mt-1">
-              PvP DMG: {(profile.pvp_dmg ?? 0).toLocaleString()}
-            </p>
-          )}
+
         </div>
       </div>
     </div>
@@ -236,14 +232,10 @@ export default function LeaderboardTable({
       : "";
   };
 
-  // Find manually selected members or fall back to overall top 3 players by PvP DMG
-  const overallTop3 = [...profiles]
-    .sort((a, b) => (b.pvp_dmg || 0) - (a.pvp_dmg || 0))
-    .slice(0, 3);
-
-  const rank1 = profiles.find((p) => p.id === hallOfFameGold) || overallTop3[0] || null;
-  const rank2 = profiles.find((p) => p.id === hallOfFameSilver) || overallTop3[1] || null;
-  const rank3 = profiles.find((p) => p.id === hallOfFameBronze) || overallTop3[2] || null;
+  // Find manually selected members by the admin
+  const rank1 = profiles.find((p) => p.id === hallOfFameGold) || null;
+  const rank2 = profiles.find((p) => p.id === hallOfFameSilver) || null;
+  const rank3 = profiles.find((p) => p.id === hallOfFameBronze) || null;
 
   return (
     <div className="space-y-6">
@@ -257,7 +249,9 @@ export default function LeaderboardTable({
               <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">
                 ทำเนียบเกียรติยศ (Hall of Fame)
               </h2>
-
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
+                ทำเนียบเกียรติยศ 3 อันดับแรกที่หัวหน้ากิลด์เลือกไว้เป็นเกียรติประวัติ
+              </p>
             </div>
           </div>
           <div className="text-right">
@@ -267,13 +261,8 @@ export default function LeaderboardTable({
           </div>
         </div>
 
-        {/* Job Sub-tabs Selector inside Hall of Fame */}
-        <div className="w-full">
-          <div className="flex items-center gap-2 overflow-x-auto pb-3 pt-1 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-850">
 
 
-          </div>
-        </div>
 
         {/* The Podiums View */}
         <div className="flex items-end justify-center gap-2 sm:gap-6 pt-16 pb-4 max-w-2xl mx-auto border-b border-slate-100 dark:border-slate-800/60">

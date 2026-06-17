@@ -4,7 +4,7 @@ import { useState, useTransition, useRef, useEffect } from "react";
 import Image from "next/image";
 import MemberForm from "@/components/auction/MemberForm";
 import Link from 'next/link';
-import { updateMyProfile } from "@/app/actions/profile";
+import { updateCharacterInfoAction, updateCharacterStatsAction } from "@/app/actions/profile";
 import { extractStatsFromImage } from "@/app/actions/ai";
 import { toggleMemberLeave } from "@/app/actions/admin";
 // ✨ เปลี่ยนมารับ syncUserAuctionQueues และเอา joinAuctionQueues ออก
@@ -38,8 +38,8 @@ const StatInput = ({
 }) => {
   const maxVal = STAT_LIMITS[name as keyof typeof STAT_LIMITS];
   return (
-    <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm glass-panel">
-      <label htmlFor={name} className="block text-xs font-semibold mb-2 text-slate-700 dark:text-slate-300">
+    <div className="bg-slate-50/70 dark:bg-slate-900/60 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm glass-panel flex flex-col justify-between min-h-[85px] transition-colors">
+      <label htmlFor={name} className="block text-[11px] font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 uppercase font-sans">
         {label}
       </label>
       <input
@@ -51,7 +51,7 @@ const StatInput = ({
         max={maxVal}
         value={value}
         onChange={onChange}
-        className="block w-full rounded-xl border border-slate-200 dark:border-slate-700 py-2 px-3 text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 ring-1 ring-inset ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm font-mono"
+        className="block w-full rounded-md border border-slate-300 dark:border-slate-700 py-1.5 px-2.5 text-slate-950 dark:text-white bg-white dark:bg-slate-950 ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 text-xs sm:text-sm font-semibold font-mono"
       />
     </div>
   );
@@ -59,8 +59,10 @@ const StatInput = ({
 
 export default function ProfileForm({
   initialProfile,
+  isEligibleForShowcase = false,
 }: {
   initialProfile: Profile;
+  isEligibleForShowcase?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -233,6 +235,12 @@ export default function ProfileForm({
   });
 
   const handleShowcaseUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isEligibleForShowcase) {
+      setMessage({ type: "error", text: "🔒 ขออภัย สิทธิ์การระบุรูปภาพตัวละครสงวนไว้เฉพาะสำหรับผู้ที่ติดอันดับ Top 3 ทำเนียบเกียรติยศของกิลด์เท่านั้นครับ" });
+      if (showcaseFileInputRef.current) showcaseFileInputRef.current.value = "";
+      return;
+    }
+
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
 
@@ -439,11 +447,30 @@ export default function ProfileForm({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleInfoSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    setMessage({ type: "info", text: "กำลังบันทึกข้อมูลตัวละคร..." });
+    if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+
+    startTransition(async () => {
+      const result = await updateCharacterInfoAction(formData);
+      if (result.success) {
+        setMessage({ type: "success", text: "อัปเดตข้อมูลตัวละครสำเร็จ!" });
+      } else {
+        setMessage({ type: "error", text: result.error || "ไม่สามารถอัปเดตข้อมูลตัวละครได้" });
+      }
+
+      alertTimerRef.current = setTimeout(() => setMessage(null), 3500);
+    });
+  };
+
+  const handleStatsSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     
     // ตรวจสอบลิมิตของสเตตัสฝั่งหน้าบ้าน
-    const formData = new FormData(e.currentTarget);
     for (const key of Object.keys(STAT_LIMITS) as (keyof typeof STAT_LIMITS)[]) {
       const value = formData.get(key);
       if (value !== null && value !== "") {
@@ -463,15 +490,15 @@ export default function ProfileForm({
       }
     }
 
-    setMessage({ type: "info", text: "กำลังบันทึกข้อมูล..." });
+    setMessage({ type: "info", text: "กำลังบันทึกค่าสเตตัส..." });
     if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
 
     startTransition(async () => {
-      const result = await updateMyProfile(formData);
+      const result = await updateCharacterStatsAction(formData);
       if (result.success) {
-        setMessage({ type: "success", text: "อัปเดตข้อมูลสำเร็จ!" });
+        setMessage({ type: "success", text: "อัปเดตค่าสเตตัสสำเร็จ!" });
       } else {
-        setMessage({ type: "error", text: result.error || "ไม่สามารถอัปเดตข้อมูลได้" });
+        setMessage({ type: "error", text: result.error || "ไม่สามารถอัปเดตค่าสเตตัสได้" });
       }
 
       alertTimerRef.current = setTimeout(() => setMessage(null), 3500);
@@ -479,7 +506,7 @@ export default function ProfileForm({
   };
 
   return (
-    <div className="relative w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="relative w-full max-w-[1550px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
       
       {/* Loading Overlay */}
       {(isAiLoading || isPending || isShowcaseUploading) && (
@@ -516,189 +543,249 @@ export default function ProfileForm({
         </div>
       )}
 
-      <form
-        onSubmit={handleSubmit}
-        className={`${isAiLoading || isPending ? "pointer-events-none opacity-70 blur-sm" : ""} transition-all duration-300 grid grid-cols-1 lg:grid-cols-12 gap-6`}
+      <div
+        className={`${isAiLoading || isPending ? "pointer-events-none opacity-70 blur-sm" : ""} transition-all duration-300 space-y-6`}
       >
-        <div className="lg:col-span-4 xl:col-span-3 space-y-6">
-          <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm glass-panel">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-                  สถานะสมาชิก
-                </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                  {isOnLeave ? "กำลังอยู่ในสถานะลากิจกรรม" : "พร้อมเข้าร่วมกิลด์วอร์"}
-                </p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" checked={isOnLeave} onChange={handleToggleLeave} disabled={isPending || isAiLoading || isShowcaseUploading} />
-                <div className="w-11 h-6 rounded-full bg-slate-200 peer-checked:bg-indigo-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform"></div>
-              </label>
-            </div>
-          </div>
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/* ROW 1: ข้อมูลตัวละคร + สถานะ + รูป Showcase (แถวบน) */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        <form onSubmit={handleInfoSubmit}>
+          <div className="rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 glass-panel overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-12">
+              {/* ── ฝั่งซ้าย: ข้อมูลตัวละคร + สถานะสมาชิก ── */}
+              <div className="lg:col-span-7 xl:col-span-7 p-5 sm:p-6 space-y-5">
+                {/* สถานะสมาชิก */}
+                <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                      สถานะสมาชิก
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {isOnLeave ? "กำลังอยู่ในสถานะลากิจกรรม" : "พร้อมเข้าร่วมกิลด์วอร์"}
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" checked={isOnLeave} onChange={handleToggleLeave} disabled={isPending || isAiLoading || isShowcaseUploading} />
+                    <div className="w-11 h-6 rounded-full bg-slate-200 peer-checked:bg-indigo-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform"></div>
+                  </label>
+                </div>
 
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 glass-panel">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-              ข้อมูลตัวละคร
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">UID (อ้างอิงระบบ)</label>
-                <input type="text" value={initialProfile.uid_game} disabled className="block w-full rounded-lg border-0 py-2.5 px-3 bg-slate-100 text-slate-500 cursor-not-allowed dark:bg-slate-900 dark:text-slate-500 text-sm" />
-              </div>
-              <div>
-                <label htmlFor="display_name" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">ชื่อตัวละคร</label>
-                <input id="display_name" name="display_name" type="text" defaultValue={initialProfile.display_name || ""} required className="block w-full rounded-lg border-0 py-2.5 px-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 dark:bg-slate-900 dark:text-white dark:ring-slate-700 sm:text-sm" />
-              </div>
-              <div>
-                <label htmlFor="job_name" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">สายอาชีพ</label>
-                <select id="job_name" name="job_name" defaultValue={initialProfile.job_name || ""} className="block w-full rounded-lg border-0 py-2.5 px-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 dark:bg-slate-900 dark:text-white dark:ring-slate-700 sm:text-sm cursor-pointer">
-                  <option value="" disabled>-- เลือกอาชีพ --</option>
-                  <option value="Lord Knight">Lord Knight</option>
-                  <option value="Paladin">Paladin</option>
-                  <option value="Biochemist">Biochemist</option>
-                  <option value="Mastersmith">Mastersmith</option>
-                  <option value="Bard">Bard</option>
-                  <option value="Gypsy">Gypsy</option>
-                  <option value="Sniper">Sniper</option>
-                  <option value="Champion">Champion</option>
-                  <option value="Priest">Priest</option>
-                  <option value="Assassin">Assassin</option>
-                  <option value="Rogue">Rogue</option>
-                  <option value="Wizard">Wizard</option>
-                  <option value="Sage">Sage</option>
-                  <option value="Summoner">Summoner</option>
-                </select>
-              </div>
-
-              {/* 🌟 ช่องอัปโหลดรูปภาพตัวละครเกียรติยศ (Showcase Upload Box) */}
-              <div className="pt-2 border-t border-slate-200 dark:border-slate-700/60">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  รูปภาพตัวละครเพื่อยืนแท่นทำเนียบเกียรติยศ
-                </label>
-                <input
-                  type="hidden"
-                  name="character_showcase_url"
-                  value={showcaseUrl}
-                />
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      ref={showcaseFileInputRef}
-                      disabled={isShowcaseUploading || isPending}
-                      onChange={handleShowcaseUpload}
-                      className="w-full text-xs text-slate-500 dark:text-slate-400
-                        file:mr-2 file:py-1.5 file:px-2.5
-                        file:rounded-xl file:border-0
-                        file:text-xs file:font-semibold
-                        file:bg-slate-900 file:text-white dark:file:bg-slate-800
-                        hover:file:opacity-90 file:cursor-pointer"
-                    />
-                    {showcaseUrl && (
+                {/* ข้อมูลตัวละคร - Grid 2 คอลัมน์ */}
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-3">
+                    ข้อมูลตัวละคร
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">UID (อ้างอิงระบบ)</label>
+                      <input type="text" value={initialProfile.uid_game} disabled className="block w-full rounded-lg border-0 py-2.5 px-3 bg-slate-100 text-slate-500 cursor-not-allowed dark:bg-slate-900 dark:text-slate-500 text-sm" />
+                    </div>
+                    <div>
+                      <label htmlFor="display_name" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">ชื่อตัวละคร</label>
+                      <input id="display_name" name="display_name" type="text" defaultValue={initialProfile.display_name || ""} required className="block w-full rounded-lg border-0 py-2.5 px-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 dark:bg-slate-900 dark:text-white dark:ring-slate-700 sm:text-sm" />
+                    </div>
+                    <div>
+                      <label htmlFor="job_name" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">สายอาชีพ</label>
+                      <select id="job_name" name="job_name" defaultValue={initialProfile.job_name || ""} className="block w-full rounded-lg border-0 py-2.5 px-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 dark:bg-slate-900 dark:text-white dark:ring-slate-700 sm:text-sm cursor-pointer">
+                        <option value="" disabled>-- เลือกอาชีพ --</option>
+                        <option value="Lord Knight">Lord Knight</option>
+                        <option value="Paladin">Paladin</option>
+                        <option value="Biochemist">Biochemist</option>
+                        <option value="Mastersmith">Mastersmith</option>
+                        <option value="Bard">Bard</option>
+                        <option value="Gypsy">Gypsy</option>
+                        <option value="Sniper">Sniper</option>
+                        <option value="Champion">Champion</option>
+                        <option value="Priest">Priest</option>
+                        <option value="Assassin">Assassin</option>
+                        <option value="Rogue">Rogue</option>
+                        <option value="Wizard">Wizard</option>
+                        <option value="Sage">Sage</option>
+                        <option value="Summoner">Summoner</option>
+                      </select>
+                    </div>
+                    <div className="flex items-end">
                       <button
                         type="button"
-                        onClick={handleRemoveShowcase}
-                        className="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-950/20 px-2 py-1.5 rounded-xl border border-red-200 dark:border-red-900/40 cursor-pointer shrink-0"
+                        onClick={openReservationModal}
+                        disabled={isPending || isAiLoading || isShowcaseUploading}
+                        style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)' }}
+                        className="w-full rounded-lg bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 hover:from-slate-600 hover:to-slate-800 active:translate-y-[1px] text-white font-bold py-2.5 px-4 text-xs sm:text-sm shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.2)] border border-slate-950 transition-all duration-150 cursor-pointer disabled:opacity-50"
                       >
-                        ลบออก
+                        📦 ดูรายการจองคิวประมูล
                       </button>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 py-1">
-                    <input
-                      id="remove_bg_toggle"
-                      type="checkbox"
-                      checked={removeBgAutomatic}
-                      onChange={(e) => setRemoveBgAutomatic(e.target.checked)}
-                      disabled={isShowcaseUploading || isPending}
-                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 cursor-pointer"
-                    />
-                    <label htmlFor="remove_bg_toggle" className="text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer select-none">
-                      🔮 ลบพื้นหลังอัตโนมัติด้วย AI (แนะนำเพื่อให้ตัวละครยืนแท่นสวยงาม)
-                    </label>
-                  </div>
-                  {showcaseUrl && (
-                    <div className="p-2 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-center">
-                      <img src={showcaseUrl} alt="Character Showcase" className="h-32 w-auto object-contain rounded" onError={(e) => { (e.target as any).src = 'https://placehold.co/150x150?text=Invalid+Image'; }} />
                     </div>
-                  )}
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-normal">
-                    * ขนาดไม่เกิน 5MB (ไฟล์ png, jpg, jpeg, webp) รูปนี้จะนำไปโชว์ที่หน้า Leaderboard ในโซนทำเนียบเกียรติยศเมื่อคุณติดอันดับ Top 3 ของสายอาชีพคุณ!
-                  </p>
+                  </div>
                 </div>
               </div>
 
+              {/* ── ฝั่งขวา: รูป Showcase + อัปโหลด ── */}
+              <div className="lg:col-span-5 xl:col-span-5 p-5 sm:p-6 lg:border-l border-t lg:border-t-0 border-slate-200 dark:border-slate-700/60">
+                <input type="hidden" name="character_showcase_url" value={showcaseUrl} />
+                <div className="flex flex-col h-full">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1">
+                    รูปภาพตัวละครเพื่อยืนแท่นทำเนียบเกียรติยศ {!isEligibleForShowcase && "🔒"}
+                  </label>
+                  
+                  {isEligibleForShowcase ? (
+                    <div className="space-y-3 flex-1 flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          ref={showcaseFileInputRef}
+                          disabled={isShowcaseUploading || isPending}
+                          onChange={handleShowcaseUpload}
+                          className="w-full text-xs text-slate-500 dark:text-slate-400
+                            file:mr-2 file:py-1.5 file:px-2.5
+                            file:rounded-md file:border
+                            file:border-slate-800 dark:file:border-slate-950
+                            file:text-xs file:font-bold
+                            file:bg-gradient-to-b file:from-slate-700 file:to-slate-900 file:text-white
+                            hover:file:opacity-95 file:cursor-pointer"
+                        />
+                        {showcaseUrl && (
+                          <button
+                            type="button"
+                            onClick={handleRemoveShowcase}
+                            style={{ textShadow: '0 1px 1px rgba(0, 0, 0, 0.4)' }}
+                            className="relative overflow-hidden text-xs font-bold text-red-100 hover:text-white bg-gradient-to-b from-rose-600 to-red-800 hover:from-rose-500 hover:to-red-700 active:translate-y-[1px] px-2.5 py-1.5 rounded border border-red-950 shadow-[0_1px_2px_rgba(0,0,0,0.3)] cursor-pointer shrink-0 transition-all duration-150"
+                          >
+                            ลบออก
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="remove_bg_toggle"
+                          type="checkbox"
+                          checked={removeBgAutomatic}
+                          onChange={(e) => setRemoveBgAutomatic(e.target.checked)}
+                          disabled={isShowcaseUploading || isPending}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 cursor-pointer"
+                        />
+                        <label htmlFor="remove_bg_toggle" className="text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer select-none">
+                          🔮 ลบพื้นหลังอัตโนมัติด้วย AI
+                        </label>
+                      </div>
+                      {showcaseUrl ? (
+                        <div className="flex-1 min-h-[120px] p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-center">
+                          <img src={showcaseUrl} alt="Character Showcase" className="max-h-[140px] w-auto object-contain rounded" onError={(e) => { (e.target as any).src = 'https://placehold.co/150x150?text=Invalid+Image'; }} />
+                        </div>
+                      ) : (
+                        <div className="flex-1 min-h-[120px] p-3 bg-slate-50/50 dark:bg-slate-900/40 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                          <p className="text-xs text-slate-400 dark:text-slate-500 text-center">ยังไม่มีรูปภาพ<br/>กดเลือกไฟล์เพื่ออัปโหลด</p>
+                        </div>
+                      )}
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-normal">
+                        * ขนาดไม่เกิน 5MB (png, jpg, jpeg, webp) รูปนี้จะโชว์ที่หน้า Leaderboard ในโซนทำเนียบเกียรติยศ
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 flex-1 flex flex-col">
+                      <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/50 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 text-xs font-medium leading-relaxed">
+                        🔒 สิทธิ์การอัปโหลดรูปภาพตัวละครยืนแท่นเกียรติยศ สงวนไว้สำหรับผู้เล่นที่เป็น Top 3 (Hall of Fame) ของกิลด์ ณ ขณะนั้นเท่านั้นครับ
+                      </div>
+                      {showcaseUrl ? (
+                        <div className="flex-1 min-h-[100px] p-2 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center gap-2">
+                          <img src={showcaseUrl} alt="Character Showcase" className="max-h-[100px] w-auto object-contain rounded opacity-75" />
+                          <button
+                            type="button"
+                            onClick={handleRemoveShowcase}
+                            className="text-[10px] font-bold text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-950/20 px-2 py-1 rounded-lg border border-red-200 dark:border-red-900/40 cursor-pointer"
+                          >
+                            ❌ ลบรูปภาพเดิมออก
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex-1 min-h-[100px] p-3 bg-slate-50/50 dark:bg-slate-900/40 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                          <p className="text-xs text-slate-400 dark:text-slate-500 text-center">ยังไม่มีรูปภาพ</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            {/* ── ปุ่มบันทึกข้อมูลตัวละคร (อยู่ล่างสุดของแถวนี้) ── */}
+            <div className="px-5 sm:px-6 py-4 border-t border-slate-200 dark:border-slate-700/60 bg-slate-50/50 dark:bg-slate-800/30">
+              <button
+                type="submit"
+                disabled={isPending || isShowcaseUploading}
+                style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)' }}
+                className="w-full sm:w-auto sm:min-w-[240px] rounded-md bg-gradient-to-b from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 active:translate-y-[1px] active:shadow-[inset_0_1px_3px_rgba(0,0,0,0.4)] text-white font-bold py-2.5 px-6 text-xs sm:text-sm shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.4)] border border-amber-800 transition-all duration-150 cursor-pointer disabled:opacity-50"
+              >
+                {isPending ? "กำลังบันทึกข้อมูล..." : "💾 บันทึกข้อมูลตัวละคร"}
+              </button>
             </div>
           </div>
+        </form>
 
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 glass-panel">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">คิวประมูล</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">จัดการจำนวนกล่องที่ต้องการรับจากการประมูล</p>
-            <button type="button" onClick={openReservationModal} disabled={isPending || isAiLoading || isShowcaseUploading} className="cursor-pointer w-full rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold transition hover:bg-slate-800 disabled:opacity-50">
-              ดูรายการจองคิว
-            </button>
-          </div>
-
-        </div>
-
-        <div className="lg:col-span-8 xl:col-span-9">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col h-full glass-panel">
-            <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-700">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/* ROW 2: ข้อมูลสเตตัสตัวละคร (แถวล่าง - เต็มความกว้าง)  */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        <form onSubmit={handleStatsSubmit}>
+          <div className="rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col glass-panel">
+            <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-200 dark:border-slate-700/60 bg-transparent">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white">ข้อมูลสเตตัสตัวละคร</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">กรอกข้อมูล หรืออัปโหลดรูปภาพสเตตัสด้วย AI</p>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">ข้อมูลสเตตัสตัวละคร</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">กรอกข้อมูล หรืออัปโหลดรูปภาพสเตตัสด้วย AI</p>
                 </div>
-                <div>
+                <div className="flex items-center gap-2">
                   <input type="file" accept="image/*" multiple className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
-                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isAiLoading || isPending} className="inline-flex items-center justify-center rounded-xl bg-slate-900 text-white px-4 py-2.5 text-sm font-semibold transition hover:bg-slate-800 disabled:opacity-50">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isAiLoading || isPending}
+                    style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)' }}
+                    className="relative overflow-hidden inline-flex items-center justify-center rounded-md bg-gradient-to-b from-slate-600 via-slate-700 to-slate-800 hover:from-slate-500 hover:to-slate-700 active:translate-y-[1px] active:shadow-[inset_0_1px_3px_rgba(0,0,0,0.4)] text-white px-4 py-2 text-xs sm:text-sm font-bold shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.2)] border border-slate-900 transition-all duration-150 cursor-pointer disabled:opacity-50"
+                  >
                     {isAiLoading ? (
                       <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24" fill="none">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
                       </svg>
-                    ) : "อัปโหลดสเตตัส"}
+                    ) : "อัปโหลดสเตตัส ด้วย AI"}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isPending || isAiLoading}
+                    style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)' }}
+                    className="relative overflow-hidden inline-flex items-center justify-center rounded-md bg-gradient-to-b from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 active:translate-y-[1px] active:shadow-[inset_0_1px_3px_rgba(0,0,0,0.4)] text-white px-4 py-2 text-xs sm:text-sm font-bold shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.3)] border border-emerald-900 transition-all duration-150 cursor-pointer disabled:opacity-50"
+                  >
+                    {isPending ? "กำลังบันทึก..." : "💾 บันทึกค่าสเตตัส"}
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="p-6 xl:p-8 flex-1 bg-white dark:bg-slate-900">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="p-5 sm:p-6 bg-transparent">
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-3">
                 <StatInput label="Max HP" name="hp" value={stats.hp} onChange={handleStatChange} />
                 <StatInput label="Max SP" name="sp" value={stats.sp} onChange={handleStatChange} />
                 <StatInput label="P.ATK" name="p_atk" value={stats.p_atk} onChange={handleStatChange} />
                 <StatInput label="M.ATK" name="m_atk" value={stats.m_atk} onChange={handleStatChange} />
-                
                 <StatInput label="P.DEF" name="p_def" value={stats.p_def} onChange={handleStatChange} />
                 <StatInput label="M.DEF" name="m_def" value={stats.m_def} onChange={handleStatChange} />
                 <StatInput label="Ignore P.DEF" name="ignore_pdef" value={stats.ignore_pdef} onChange={handleStatChange} />
                 <StatInput label="Ignore M.DEF" name="ignore_mdef" value={stats.ignore_mdef} onChange={handleStatChange} />
-                
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-3 mt-3">
                 <StatInput label="P.DMG (%)" name="p_dmg" value={stats.p_dmg} onChange={handleStatChange} />
                 <StatInput label="M.DMG (%)" name="m_dmg" value={stats.m_dmg} onChange={handleStatChange} />
                 <StatInput label="P.Reduc (%)" name="p_reduc" value={stats.p_reduc} onChange={handleStatChange} />
                 <StatInput label="M.Reduc (%)" name="m_reduc" value={stats.m_reduc} onChange={handleStatChange} />
-                
                 <StatInput label="PvP DMG" name="pvp_dmg" value={stats.pvp_dmg} onChange={handleStatChange} />
                 <StatInput label="PvP Reduc" name="pvp_reduc" value={stats.pvp_reduc} onChange={handleStatChange} />
                 <StatInput label="Cri" name="cri" value={stats.cri} onChange={handleStatChange} />
                 <StatInput label="Cri Dam (%)" name="cri_dmg" value={stats.cri_dmg} onChange={handleStatChange} />
               </div>
             </div>
-
-            <div className="p-6 xl:px-8 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-              <button type="submit" disabled={isPending || isAiLoading} className="w-full rounded-xl bg-emerald-600 py-4 text-base font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50">
-                {isPending ? "กำลังบันทึก..." : "บันทึกสเตตัส"}
-              </button>
-            </div>
           </div>
-        </div>
+        </form>
 
-      </form>
+      </div>
 
       {/* Modal จองคิว */}
       {reservationModalOpen && (

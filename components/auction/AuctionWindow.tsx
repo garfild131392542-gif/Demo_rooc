@@ -65,8 +65,8 @@ type AuctionWindowProps = {
   waitlistSlots?: AuctionSlot[];
   rawSlots?: AuctionSlot[];
   todayItems?: any[];
-  activeSubTab: "all" | AuctionItemType;
-  setActiveSubTab: (tab: "all" | AuctionItemType) => void;
+  activeSubTab: "all" | 'Album' | 'Puppet' | 'Feathers';
+  setActiveSubTab: (tab: "all" | 'Album' | 'Puppet' | 'Feathers') => void;
   currentPage: number;
   setCurrentPage: Dispatch<SetStateAction<number>>;
   totalPages: number;
@@ -465,15 +465,22 @@ export default function AuctionWindow({
       </div>
 
       <div className="flex flex-col flex-1">
-        <div className="flex-1 flex flex-col bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 border-t-0 rounded-b-2xl p-4 md:p-6 shadow-inner transition-colors mt-2.5 mx-2.5 mb-2.5 max-h-[calc(100vh-250px)] overflow-y-auto">
+        <div className="flex-1 flex flex-col bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 border-t-0 rounded-b-2xl p-4 md:p-6 shadow-inner transition-colors mt-2.5 mx-2.5 mb-2.5">
           {viewMode === "slots" ? (
             <>
               <div className="flex justify-center mb-6">
                 <div className="flex flex-wrap justify-center bg-slate-100 dark:bg-slate-800 p-1 rounded-full border border-slate-200 dark:border-slate-700 transition-colors">
                   {(
-                    ["all", "Album", "Puppet", "White", "RedBlack"] as const
+                    ["all", "Album", "Puppet", "Feathers"] as const
                   ).filter(tab => {
                     if (tab === "all") return true;
+                    if (tab === "Feathers") {
+                      const whiteSession = todayItems?.find((s: any) => s.item_name === 'White');
+                      const redBlackSession = todayItems?.find((s: any) => s.item_name === 'RedBlack');
+                      const whiteActive = whiteSession && whiteSession.status === 'active' && (whiteSession.total_quantity ?? 0) > 0;
+                      const redBlackActive = redBlackSession && redBlackSession.status === 'active' && (redBlackSession.total_quantity ?? 0) > 0;
+                      return whiteActive || redBlackActive;
+                    }
                     const session = todayItems?.find((s: any) => s.item_name === tab);
                     return session && session.status === 'active' && (session.total_quantity ?? 0) > 0;
                   }).map((tab) => (
@@ -550,35 +557,7 @@ export default function AuctionWindow({
                 </div>
               </div>
 
-              {/* Waitlist Section */}
-              {waitlistSlots && waitlistSlots.length > 0 && (
-                <div className="mt-8 border-t border-slate-200 dark:border-slate-700 pt-6">
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
-                    <span className="text-amber-500">⏳</span> คิวรอรอบถัดไป (Waitlist)
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {waitlistSlots.map((slot) => (
-                      <div
-                        key={slot.id}
-                        className="flex items-center justify-between p-4 rounded-2xl border border-dashed bg-slate-50/50 dark:bg-slate-800/50 border-amber-300 dark:border-amber-700/50"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-12 h-12 bg-linear-to-b ${slot.color} rounded-lg border border-slate-200 dark:border-slate-600 flex items-center justify-center relative shrink-0`}>
-                            <Image src={slot.icon} alt={slot.type} fill className="object-contain p-1.5" sizes="48px" />
-                          </div>
-                          <div>
-                            <div className="text-sm font-bold text-slate-800 dark:text-slate-100">{slot.assignedTo}</div>
-                            <div className="text-xs text-slate-400 font-semibold">{slot.uid}</div>
-                          </div>
-                        </div>
-                        <span className="text-xs px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 font-bold">
-                          Waitlist (คิวรอรอบถัดไป)
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+
             </>
           ) : viewMode === "queue" ? (
             <div className="flex-1 flex flex-col justify-start space-y-4">
@@ -705,11 +684,7 @@ export default function AuctionWindow({
                                   </div>
                                 </div>
                                 <div className="flex justify-center text-xs font-semibold">
-                                  {waitlistedCount > 0 ? (
-                                    <span className="text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-lg border border-amber-200 dark:border-amber-800">
-                                      คิวรอรอบถัดไป {waitlistedCount} อัน
-                                    </span>
-                                  ) : totalRequested - totalReceived > 0 ? (
+                                  {totalRequested - totalReceived > 0 ? (
                                     <span className="text-slate-500 dark:text-slate-400">
                                       กำลังรอ {totalRequested - totalReceived} อัน
                                     </span>
@@ -907,7 +882,7 @@ export default function AuctionWindow({
                )}
              </div>
           ) : (
-            <div className="flex-1 flex flex-col justify-start space-y-6">
+            <div className="flex-1 flex flex-col justify-start space-y-6 max-h-[calc(100vh-270px)] overflow-y-auto pr-1">
               <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
                 สรุปจัดสรรคิว (Queue Summary)
               </div>
@@ -915,6 +890,11 @@ export default function AuctionWindow({
                 const priorityOrder = ['Album', 'Puppet', 'White', 'RedBlack'] as const;
                 const activeTypes = activeSubTab === 'all'
                   ? priorityOrder.filter(type => {
+                      const session = todayItems?.find((s: any) => s.item_name === type);
+                      return session && session.status === 'active' && (session.total_quantity ?? 0) > 0;
+                    })
+                  : activeSubTab === 'Feathers'
+                  ? (['White', 'RedBlack'] as const).filter(type => {
                       const session = todayItems?.find((s: any) => s.item_name === type);
                       return session && session.status === 'active' && (session.total_quantity ?? 0) > 0;
                     })

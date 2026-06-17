@@ -14,7 +14,7 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
   const { isAdmin, todayItems, memberQueues, myProfile, history = [] } = data
   
   const [currentPage, setCurrentPage] = useState(1)
-  const [activeSubTab, setActiveSubTab] = useState<'all' | 'Album' | 'Puppet' | 'White' | 'RedBlack'>('all')
+  const [activeSubTab, setActiveSubTab] = useState<'all' | 'Album' | 'Puppet' | 'Feathers'>('all')
   const [isSaving, setIsSaving] = useState(false)
   // Debug flag to help trace slot generation in browser console when investigating UI issues
   const DEBUG_AUCTION = true
@@ -189,8 +189,13 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
 
     // ✨ Filter by activeSubTab (condense empty/non-matching slots)
     if (activeSubTab !== 'all') {
-      boardSlots = boardSlots.filter(s => s.type === activeSubTab)
-      waitlistSlots = waitlistSlots.filter(s => s.type === activeSubTab)
+      if (activeSubTab === 'Feathers') {
+        boardSlots = boardSlots.filter(s => s.type === 'White' || s.type === 'RedBlack')
+        waitlistSlots = waitlistSlots.filter(s => s.type === 'White' || s.type === 'RedBlack')
+      } else {
+        boardSlots = boardSlots.filter(s => s.type === activeSubTab)
+        waitlistSlots = waitlistSlots.filter(s => s.type === activeSubTab)
+      }
     }
 
     if (DEBUG_AUCTION && typeof window !== 'undefined') {

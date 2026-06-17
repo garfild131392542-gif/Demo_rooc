@@ -12,13 +12,23 @@ export default async function GuildStatusPage() {
     redirect('/login')
   }
 
-  // 2. ดึงข้อมูล Profile, Role และข้อมูลกิลด์ (เพิ่มคอลัมน์ discord_link, logo_url, primary_color, discord_webhook_url มาด้วย)
-  const { data: profile, error } = await supabase
+  // 2. ดึงข้อมูล Profile และ Role
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select(`
-      guild_id,
-      role,
-      guilds (
+    .select('guild_id, role')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (profileError) {
+    console.error('Fetch profile database error:', profileError.message)
+  }
+
+  // 3. ดึงข้อมูลกิลด์โดยตรงด้วย guild_id หลีกเลี่ยงปัญหา Embedding Relationship ซ้ำซ้อน
+  let guild = null
+  if (profile?.guild_id) {
+    const { data: guildData, error: guildError } = await supabase
+      .from('guilds')
+      .select(`
         id,
         name,
         guild_url,
@@ -29,20 +39,34 @@ export default async function GuildStatusPage() {
         logo_url,
         primary_color,
         discord_webhook_url,
+        hall_of_fame_gold_uid,
+        hall_of_fame_silver_uid,
+        hall_of_fame_bronze_uid,
         created_at
-      )
-    `)
-    .eq('id', user.id)
-    .maybeSingle() as any
+      `)
+      .eq('id', profile.guild_id)
+      .maybeSingle()
 
-  if (error) {
-    console.error('Fetch guild status database error:', error.message)
+    if (guildError) {
+      console.error('Fetch guild database error:', guildError.message)
+    } else {
+      guild = guildData
+    }
   }
-
-  const guild = Array.isArray(profile?.guilds) ? profile.guilds[0] : profile?.guilds
   
   // 🌟 เช็คสิทธิ์ว่าเป็นผู้ดูแลระบบ (Admin) หรือไม่
   const isAdmin = profile?.role === 'admin'
+
+  // 2.5 ดึงรายชื่อสมาชิกทั้งหมดในกิลด์นี้เพื่อส่งให้ dropdown ตัวเลือกทำเนียบเกียรติยศ
+  let guildMembers: any[] = []
+  if (guild) {
+    const { data: membersData } = await supabase
+      .from('profiles')
+      .select('id, display_name, job_name')
+      .eq('guild_id', guild.id)
+      .order('display_name', { ascending: true })
+    guildMembers = membersData || []
+  }
 
   // 3. กรณีที่ไม่พบข้อมูลกิลด์
   if (!guild) {
@@ -69,7 +93,7 @@ export default async function GuildStatusPage() {
   return (
     // 💡 เพิ่มพื้นหลัง dark:bg-slate-900
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 py-12 px-4 sm:px-6 lg:px-8 transition-colors">
-      <GuildStatusForm guild={guild} isAdmin={isAdmin} />
+      <GuildStatusForm guild={guild} isAdmin={isAdmin} members={guildMembers} />
     </div>
   )
 }

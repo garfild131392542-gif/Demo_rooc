@@ -8,7 +8,7 @@ interface GuildStatusFormProps {
   guild: {
     id: string;
     name: string;
-    guild_url: string;
+    guild_url: string | null;
     description: string | null;
     status: string | null;
     invite_code: string | null;
@@ -16,17 +16,24 @@ interface GuildStatusFormProps {
     logo_url?: string | null;
     primary_color?: string | null;
     discord_webhook_url?: string | null;
+    hall_of_fame_gold_uid?: string | null;
+    hall_of_fame_silver_uid?: string | null;
+    hall_of_fame_bronze_uid?: string | null;
   };
   isAdmin: boolean;
+  members?: { id: string; display_name: string | null; job_name: string | null }[];
 }
 
-export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps) {
+export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatusFormProps) {
   const [guildName, setGuildName] = useState(guild.name);
   const [description, setDescription] = useState(guild.description || "");
   const [discordLink, setDiscordLink] = useState(guild.discord_link || "");
   const [logoUrl, setLogoUrl] = useState(guild.logo_url || "");
   const [primaryColor, setPrimaryColor] = useState(guild.primary_color || "#3b82f6");
   const [discordWebhookUrl, setDiscordWebhookUrl] = useState(guild.discord_webhook_url || "");
+  const [hallOfFameGoldUid, setHallOfFameGoldUid] = useState(guild.hall_of_fame_gold_uid || "");
+  const [hallOfFameSilverUid, setHallOfFameSilverUid] = useState(guild.hall_of_fame_silver_uid || "");
+  const [hallOfFameBronzeUid, setHallOfFameBronzeUid] = useState(guild.hall_of_fame_bronze_uid || "");
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>(guild.logo_url || "");
@@ -100,6 +107,9 @@ export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps
       logoUrl: finalLogoUrl,
       primaryColor: primaryColor,
       discordWebhookUrl: discordWebhookUrl,
+      hallOfFameGoldUid: hallOfFameGoldUid || null,
+      hallOfFameSilverUid: hallOfFameSilverUid || null,
+      hallOfFameBronzeUid: hallOfFameBronzeUid || null,
     });
 
     if (result.success) {
@@ -265,6 +275,80 @@ export default function GuildStatusForm({ guild, isAdmin }: GuildStatusFormProps
             <p className="text-[10px] text-slate-400 mt-1">
               * ระบบจะใช้ส่งการแจ้งเตือนไปยังดิสคอร์ด เช่น เมื่อล้างคิว หรือแจกจ่ายไอเทม
             </p>
+          </div>
+        )}
+
+        {/* 🏆 ตั้งค่าทำเนียบเกียรติยศ (Hall of Fame) - เฉพาะแอดมินเห็น */}
+        {isAdmin && (
+          <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200/60 dark:border-slate-700 space-y-3">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+              🏆 ตั้งค่าทำเนียบเกียรติยศ (Hall of Fame)
+            </h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              ระบุรายชื่อผู้เล่นเพื่อขึ้นแท่นทำเนียบเกียรติยศประจำหน้าตารางจัดอันดับสมาชิก
+            </p>
+
+            <div className="space-y-3.5 pt-2">
+              <div>
+                <label htmlFor="gold_uid" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  🥇 อันดับที่ 1 (Gold / Center)
+                </label>
+                <select
+                  id="gold_uid"
+                  value={hallOfFameGoldUid}
+                  onChange={(e) => setHallOfFameGoldUid(e.target.value)}
+                  disabled={isLoading}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 text-sm cursor-pointer"
+                >
+                  <option value="">-- เลือกสมาชิก --</option>
+                  {members?.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.display_name} ({m.job_name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="silver_uid" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  🥈 อันดับที่ 2 (Silver / Left)
+                </label>
+                <select
+                  id="silver_uid"
+                  value={hallOfFameSilverUid}
+                  onChange={(e) => setHallOfFameSilverUid(e.target.value)}
+                  disabled={isLoading}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 text-sm cursor-pointer"
+                >
+                  <option value="">-- เลือกสมาชิก --</option>
+                  {members?.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.display_name} ({m.job_name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="bronze_uid" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  🥉 อันดับที่ 3 (Bronze / Right)
+                </label>
+                <select
+                  id="bronze_uid"
+                  value={hallOfFameBronzeUid}
+                  onChange={(e) => setHallOfFameBronzeUid(e.target.value)}
+                  disabled={isLoading}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 text-sm cursor-pointer"
+                >
+                  <option value="">-- เลือกสมาชิก --</option>
+                  {members?.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.display_name} ({m.job_name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
         )}
 

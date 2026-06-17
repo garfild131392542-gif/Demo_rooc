@@ -10,6 +10,9 @@ interface UpdateGuildData {
   logoUrl?: string
   primaryColor?: string
   discordWebhookUrl?: string
+  hallOfFameGoldUid?: string | null
+  hallOfFameSilverUid?: string | null
+  hallOfFameBronzeUid?: string | null
 }
 
 /**
@@ -55,6 +58,9 @@ export async function updateGuildAction(guildId: string, data: UpdateGuildData) 
         logo_url: data.logoUrl?.trim() || null,
         primary_color: data.primaryColor?.trim() || null,
         discord_webhook_url: data.discordWebhookUrl?.trim() || null,
+        hall_of_fame_gold_uid: data.hallOfFameGoldUid || null,
+        hall_of_fame_silver_uid: data.hallOfFameSilverUid || null,
+        hall_of_fame_bronze_uid: data.hallOfFameBronzeUid || null,
       })
       .eq('id', guildId)
 

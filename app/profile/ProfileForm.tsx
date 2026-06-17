@@ -75,6 +75,7 @@ export default function ProfileForm({
 
   const [showcaseUrl, setShowcaseUrl] = useState((initialProfile as any).character_showcase_url || "");
   const [isShowcaseUploading, setIsShowcaseUploading] = useState(false);
+  const [removeBgAutomatic, setRemoveBgAutomatic] = useState(true);
 
   useEffect(() => {
     return () => {
@@ -85,7 +86,7 @@ export default function ProfileForm({
   const loadingText = isAiLoading
     ? "กำลังอ่านภาพจาก AI..."
     : isShowcaseUploading
-      ? "กำลังอัปโหลดรูปตัวละคร..."
+      ? (removeBgAutomatic ? "🔮 AI กำลังลบพื้นหลัง..." : "กำลังอัปโหลดรูปตัวละคร...")
       : isPending
         ? "กำลังบันทึกข้อมูล..."
         : "";
@@ -253,6 +254,20 @@ export default function ProfileForm({
       setMessage(null);
 
       try {
+        let fileToUpload = file;
+        if (removeBgAutomatic) {
+          try {
+            // Dynamic import to support client-side only WASM/ONNX models
+            const { removeBackground } = await import("@imgly/background-removal");
+            const resultBlob = await removeBackground(file);
+            fileToUpload = new File([resultBlob], "showcase_image.png", { type: "image/png" });
+          } catch (bgError: any) {
+            console.error("Failed to remove background:", bgError);
+            setMessage({ type: "error", text: "⚠️ ไม่สามารถลบพื้นหลังด้วย AI ได้ ระบบจะอัปโหลดรูปภาพแบบปกติแทนครับ" });
+            fileToUpload = file;
+          }
+        }
+
         const supabase = createClient();
         
         // 3. หลีกเลี่ยงไฟล์ขยะพูนสะสม: ลบไฟล์เก่าออกก่อนถ้ามี
@@ -269,7 +284,7 @@ export default function ProfileForm({
         // 4. อัปโหลดรูปภาพลง Storage
         const { error: uploadError } = await supabase.storage
           .from("guild-logos")
-          .upload(filePath, file, { upsert: true });
+          .upload(filePath, fileToUpload, { upsert: true });
 
         if (uploadError) {
           throw new Error("อัปโหลดล้มเหลว: " + uploadError.message);
@@ -279,7 +294,10 @@ export default function ProfileForm({
           .from("guild-logos")
           .getPublicUrl(filePath);
 
-        setShowcaseUrl(publicUrl);
+        // Force browser update using cache-busting timestamp query parameter
+        const cacheBustedUrl = `${publicUrl}?t=${Date.now()}`;
+
+        setShowcaseUrl(cacheBustedUrl);
         setMessage({ type: "success", text: "อัปโหลดรูปภาพตัวละครสำเร็จ! กรุณากดปุ่ม 'บันทึกสเตตัส' ด้านล่างเพื่อบันทึกข้อมูลครับ" });
       } catch (err: any) {
         setMessage({ type: "error", text: err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อเพื่ออัปโหลด" });
@@ -464,7 +482,7 @@ export default function ProfileForm({
     <div className="relative w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       
       {/* Loading Overlay */}
-      {(isAiLoading || isPending) && (
+      {(isAiLoading || isPending || isShowcaseUploading) && (
         <div className="fixed inset-0 z-50 pointer-events-auto flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-2xl border border-white/20 bg-white/95 p-8 text-center shadow-2xl dark:bg-slate-900/95 dark:text-white">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-500/30">
@@ -475,7 +493,11 @@ export default function ProfileForm({
             </div>
             <p className="text-xl font-bold text-slate-900 dark:text-white">{loadingText}</p>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              {isAiLoading ? "กำลังประมวลผลสเตตัสจากภาพ โปรดรอสักครู่..." : "กำลังบันทึกข้อมูล โปรดรอจนกว่าจะเสร็จสิ้น"}
+              {isAiLoading 
+                ? "กำลังประมวลผลสเตตัสจากภาพ โปรดรอสักครู่..." 
+                : isShowcaseUploading
+                  ? (removeBgAutomatic ? "🔮 AI กำลังดาวน์โหลดโมเดลและประมวลผลลบพื้นหลัง (อาจใช้เวลาประมาณ 10-15 วินาทีในครั้งแรก)..." : "กำลังอัปโหลดรูปตัวละคร...")
+                  : "กำลังบันทึกข้อมูล โปรดรอจนกว่าจะเสร็จสิ้น"}
             </p>
           </div>
         </div>
@@ -584,6 +606,19 @@ export default function ProfileForm({
                         ลบออก
                       </button>
                     )}
+                  </div>
+                  <div className="flex items-center gap-2 py-1">
+                    <input
+                      id="remove_bg_toggle"
+                      type="checkbox"
+                      checked={removeBgAutomatic}
+                      onChange={(e) => setRemoveBgAutomatic(e.target.checked)}
+                      disabled={isShowcaseUploading || isPending}
+                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 cursor-pointer"
+                    />
+                    <label htmlFor="remove_bg_toggle" className="text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer select-none">
+                      🔮 ลบพื้นหลังอัตโนมัติด้วย AI (แนะนำเพื่อให้ตัวละครยืนแท่นสวยงาม)
+                    </label>
                   </div>
                   {showcaseUrl && (
                     <div className="p-2 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-center">

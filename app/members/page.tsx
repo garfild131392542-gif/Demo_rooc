@@ -32,6 +32,13 @@ export default async function MembersPage() {
     return <div className="p-8 text-red-500 text-center font-medium">เกิดข้อผิดพลาดในการโหลดตารางจัดอันดับ</div>
   }
 
+  // ดึงข้อมูลกิลด์เพื่อเอาค่าไอดี 3 คนที่ถูกเลือกจัดอันดับเกียรติยศ
+  const { data: guildData } = await supabase
+    .from('guilds')
+    .select('hall_of_fame_gold_uid, hall_of_fame_silver_uid, hall_of_fame_bronze_uid')
+    .eq('id', myGuildId)
+    .maybeSingle()
+
   return (
     <div className="max-w-[1800px] mx-auto px-4 py-8">
       <header className="mb-6">
@@ -41,7 +48,12 @@ export default async function MembersPage() {
         </p>
       </header>
       
-      <LeaderboardTable profiles={profiles || []} />
+      <LeaderboardTable 
+        profiles={profiles || []} 
+        hallOfFameGold={guildData?.hall_of_fame_gold_uid || null}
+        hallOfFameSilver={guildData?.hall_of_fame_silver_uid || null}
+        hallOfFameBronze={guildData?.hall_of_fame_bronze_uid || null}
+      />
     </div>
   )
 }

@@ -5,8 +5,8 @@ import { getJobIconUrl } from "@/components/helpers";
 
 type LeaderboardProfile = {
   id: string;
-  display_name: string | null ;
-  job_name: string | null ;
+  display_name: string | null;
+  job_name: string | null;
   pvp_reduc: number | null;
   pvp_dmg: number | null;
   p_def: number | null;
@@ -132,8 +132,14 @@ const SORT_OPTIONS = [
 
 export default function LeaderboardTable({
   profiles,
+  hallOfFameGold,
+  hallOfFameSilver,
+  hallOfFameBronze,
 }: {
   profiles: LeaderboardProfile[];
+  hallOfFameGold: string | null;
+  hallOfFameSilver: string | null;
+  hallOfFameBronze: string | null;
 }) {
   const [selectedJob, setSelectedJob] = useState<string>("All");
   const [sortBy, setSortBy] = useState<string>("default");
@@ -197,8 +203,8 @@ export default function LeaderboardTable({
     selectedJob === "All"
       ? sortedProfiles
       : sortedProfiles.filter(
-          (p) => (p.job_name || "").toLowerCase() === selectedJob.toLowerCase(),
-        );
+        (p) => (p.job_name || "").toLowerCase() === selectedJob.toLowerCase(),
+      );
 
   // สร้างฟังก์ชันตกแต่งอันดับ Top 3 แบบคลีนๆ
   const renderRank = (index: number) => {
@@ -230,17 +236,14 @@ export default function LeaderboardTable({
       : "";
   };
 
-  const rawJobProfiles = selectedJob === "All" 
-    ? profiles 
-    : profiles.filter(p => (p.job_name || "").toLowerCase() === selectedJob.toLowerCase());
-
-  const podiumProfiles = [...rawJobProfiles]
+  // Find manually selected members or fall back to overall top 3 players by PvP DMG
+  const overallTop3 = [...profiles]
     .sort((a, b) => (b.pvp_dmg || 0) - (a.pvp_dmg || 0))
     .slice(0, 3);
 
-  const rank1 = podiumProfiles[0] || null;
-  const rank2 = podiumProfiles[1] || null;
-  const rank3 = podiumProfiles[2] || null;
+  const rank1 = profiles.find((p) => p.id === hallOfFameGold) || overallTop3[0] || null;
+  const rank2 = profiles.find((p) => p.id === hallOfFameSilver) || overallTop3[1] || null;
+  const rank3 = profiles.find((p) => p.id === hallOfFameBronze) || overallTop3[2] || null;
 
   return (
     <div className="space-y-6">
@@ -254,9 +257,7 @@ export default function LeaderboardTable({
               <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">
                 ทำเนียบเกียรติยศ (Hall of Fame)
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                ผู้เล่นยอดเยี่ยมที่มีพลัง PvP DMG สูงสุด 3 อันดับแรก
-              </p>
+
             </div>
           </div>
           <div className="text-right">
@@ -269,37 +270,8 @@ export default function LeaderboardTable({
         {/* Job Sub-tabs Selector inside Hall of Fame */}
         <div className="w-full">
           <div className="flex items-center gap-2 overflow-x-auto pb-3 pt-1 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-850">
-            <button
-              onClick={() => setSelectedJob("All")}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
-                selectedJob === "All"
-                  ? "bg-guild-primary text-white border-guild-primary shadow-md shadow-guild-primary/20 scale-[1.03]"
-                  : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
-              }`}
-            >
-              🌟 ทุกอาชีพ
-            </button>
-            {JOB_OPTIONS.map((job) => {
-              const isSelected = selectedJob === job;
-              return (
-                <button
-                  key={job}
-                  onClick={() => setSelectedJob(job)}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
-                    isSelected
-                      ? "bg-guild-primary text-white border-guild-primary shadow-md shadow-guild-primary/20 scale-[1.03]"
-                      : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
-                  }`}
-                >
-                  <img
-                    src={getJobIconUrl(job)}
-                    alt={job}
-                    className="w-4 h-4 object-contain"
-                  />
-                  {job}
-                </button>
-              );
-            })}
+
+
           </div>
         </div>
 
@@ -464,7 +436,7 @@ export default function LeaderboardTable({
                 <th className="px-6 py-4 font-medium whitespace-nowrap text-center">
                   Class
                 </th>
-                 <th
+                <th
                   className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("hp")}`}
                 >
                   HP
@@ -659,8 +631,8 @@ export default function LeaderboardTable({
                   >
                     {profile.cri_dmg ?? 0}
                   </td>
-                  
-                  
+
+
                 </tr>
               ))}
 

@@ -22,15 +22,35 @@ export default async function HistoryPage() {
     return <div className="p-8 text-red-500">ไม่พบข้อมูลโปรไฟล์ผู้ใช้</div>
   }
 
-  // 2. ดึงประวัติการจองคิวทั้งหมดของตนเอง
-  const { data: userQueues, error: queueError } = await supabase
-    .from('auction_queues')
-    .select('*')
-    .eq('user_id', userId)
-    .order('queue_timestamp', { ascending: false })
+  // 2. ดึงประวัติการจองคิวทั้งหมดของทุกคนในกิลด์ (เพื่อแสดงผลรวมของทุกคนในกิลด์)
+  let userQueues: any[] = []
+  const memberMap = new Map<string, { display_name: string; uid_game: string }>()
 
-  if (queueError) {
-    console.error('Fetch user queues error:', queueError.message)
+  if (profile.guild_id) {
+    const { data: guildQueues, error: queueError } = await supabase
+      .from('auction_queues')
+      .select('*')
+      .eq('guild_id', profile.guild_id)
+      .order('queue_timestamp', { ascending: false })
+
+    if (queueError) {
+      console.error('Fetch guild queues error:', queueError.message)
+    } else {
+      userQueues = guildQueues || []
+    }
+
+    // ดึงโปรไฟล์ทั้งหมดในกิลด์เพื่อนำมาจับคู่ชื่อและไอดีเกม
+    const { data: guildMembers } = await supabase
+      .from('profiles')
+      .select('id, display_name, uid_game')
+      .eq('guild_id', profile.guild_id)
+
+    guildMembers?.forEach((m: any) => {
+      memberMap.set(m.id, {
+        display_name: m.display_name || m.uid_game || 'ไม่ทราบชื่อ',
+        uid_game: m.uid_game || ''
+      })
+    })
   }
 
   // 3. ดึงคิววันนี้และเซสชันวันนี้ของกิลด์เพื่อใช้คำนวณตำแหน่ง (Page/Slot) และ waitlist
@@ -123,8 +143,11 @@ export default async function HistoryPage() {
   const groups: Record<string, any> = {}
 
   processedQueues.forEach((q: any) => {
-    const key = `${q.queue_timestamp}_${q.item_name}_${q.calculated_status}`
+    // 💡 จัดกลุ่มตาม user_id, queue_timestamp, item_name, และ calculated_status ป้องกันการปนกันของสมาชิกคนละคน
+    const key = `${q.user_id}_${q.queue_timestamp}_${q.item_name}_${q.calculated_status}`
     const pos = queuePositions.get(q.id)
+    const userMeta = memberMap.get(q.user_id)
+    const displayName = userMeta?.display_name || 'ไม่ทราบชื่อ'
 
     if (!groups[key]) {
       groups[key] = {
@@ -135,7 +158,7 @@ export default async function HistoryPage() {
         received_qty: 0,
         slot_numbers: [] as number[],
         positions: [] as { page: number; slot: number }[],
-        display_name: profile.display_name || profile.uid_game || 'ไม่ทราบชื่อ',
+        display_name: displayName,
       }
     }
 

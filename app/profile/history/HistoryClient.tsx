@@ -209,10 +209,8 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
               <tr>
                 <th className="px-6 py-3.5 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">ผู้จอง (Member)</th>
                 <th className="px-6 py-3.5 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">ชื่อไอเทม</th>
-                <th className="px-6 py-3.5 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">ลำดับคิว (Slot No.)</th>
                 <th className="px-6 py-3.5 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">จำนวนที่จอง</th>
                 <th className="px-6 py-3.5 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">ได้รับ</th>
-                <th className="px-6 py-3.5 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">ตำแหน่งบนบอร์ด</th>
                 <th className="px-6 py-3.5 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">วันเวลาที่ต่อคิว</th>
                 <th className="px-6 py-3.5 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">สถานะ</th>
               </tr>
@@ -227,17 +225,11 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800 dark:text-slate-200">
                       {item.item_name}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-bold text-slate-500 dark:text-slate-400">
-                      {item.slot_range}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-semibold text-slate-600 dark:text-slate-400">
                       {item.requested_qty} ชิ้น
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-green-600 dark:text-green-400">
                       {item.received_qty} ชิ้น
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-700 dark:text-slate-300">
-                      {item.position_text}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
                       {formatDate(item.queue_timestamp)}
@@ -249,7 +241,7 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={6} className="text-center py-12 text-sm text-slate-500 dark:text-slate-400">
                     - ไม่มีรายการประวัติการจองที่สอดคล้องกับตัวกรอง -
                   </td>
                 </tr>
@@ -268,8 +260,8 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <span className="text-xs font-mono font-bold text-slate-400 dark:text-slate-500 block">
-                      คิวที่ {item.slot_range} ({item.display_name})
+                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 block">
+                      ผู้จอง: {item.display_name}
                     </span>
                     <span className="text-md font-bold text-slate-900 dark:text-white">
                       {item.item_name}
@@ -289,8 +281,7 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center text-[11px] text-slate-400">
-                  <span>ตำแหน่ง: {item.position_text}</span>
+                <div className="flex justify-end items-center text-[11px] text-slate-400">
                   <span>จองเมื่อ: {formatDate(item.queue_timestamp)}</span>
                 </div>
               </div>

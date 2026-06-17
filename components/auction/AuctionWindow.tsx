@@ -465,7 +465,7 @@ export default function AuctionWindow({
       </div>
 
       <div className="flex flex-col flex-1">
-        <div className="flex-1 flex flex-col bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 border-t-0 rounded-b-2xl p-4 md:p-6 shadow-inner transition-colors mt-2.5 mx-2.5 mb-2.5">
+        <div className="flex-1 flex flex-col bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 border-t-0 rounded-b-2xl p-4 md:p-6 shadow-inner transition-colors mt-2.5 mx-2.5 mb-2.5 max-h-[calc(100vh-250px)] overflow-y-auto">
           {viewMode === "slots" ? (
             <>
               <div className="flex justify-center mb-6">

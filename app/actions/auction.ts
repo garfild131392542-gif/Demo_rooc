@@ -159,13 +159,12 @@ export async function joinAuctionQueues(items: { itemType: ItemType; qty: number
     const inserts: any[] = []
 
     for (const { itemType, qty } of items) {
-      // หา slot_number สูงสุด
+      // หา slot_number สูงสุด (รวมทุกสถานะรวมทั้ง canceled เพื่อไม่ให้ชน unique constraint)
       const { data: existingSlots } = await supabase
         .from('auction_queues')
         .select('slot_number' as any)
         .eq('user_id', session.profile.id)
         .eq('item_name', itemType)
-        .in('status', ['waiting', 'partial', 'completed'])
         .order('slot_number' as any, { ascending: false })
         .limit(1)
 
@@ -441,13 +440,12 @@ export async function syncUserAuctionQueues(items: { itemType: ItemType; qty: nu
     const today = new Date().toISOString().split('T')[0]
 
     for (const { itemType, qty } of items) {
-      // 1. ดึงคิวทั้งหมดของไอเทมชิ้นนี้เพื่อหาค่า slot_number สูงสุด และหาคิวที่ยังค้างอยู่
+      // 1. ดึงคิวทั้งหมดของไอเทมชิ้นนี้ (รวมทุกสถานะเพื่อคำนวณ max slot_number อย่างถูกต้อง)
       const { data } = await supabase
         .from('auction_queues')
         .select('id, status, slot_number, queue_timestamp, updated_at')
         .eq('user_id', session.profile.id)
         .eq('item_name', itemType)
-        .in('status', ['waiting', 'partial', 'completed'])
 
       // บังคับให้ TypeScript มองข้าม SelectQueryError ไปก่อนชั่วคราว
       const existingQueues = data as any[] || []
@@ -459,6 +457,7 @@ export async function syncUserAuctionQueues(items: { itemType: ItemType; qty: nu
       // - คิวที่รออยู่ (waiting) ไม่ว่าจะจองวันไหน (ทบยอด)
       // - คิวที่สำเร็จ/แจกบางส่วนแล้ว (completed/partial) ของวันนี้เท่านั้น
       const activeQueues = existingQueues.filter(q => {
+        if (q.status !== 'waiting' && q.status !== 'partial' && q.status !== 'completed') return false;
         if (q.status === 'waiting') return true;
         const queueDate = q.updated_at ? q.updated_at.split('T')[0] : (q.queue_timestamp ? q.queue_timestamp.split('T')[0] : '');
         return queueDate === today;
@@ -706,13 +705,12 @@ export async function syncMemberAuctionQueue(userId: string, itemType: string, q
     const supabase = await createClient()
     const today = new Date().toISOString().split('T')[0]
 
-    // 1. ดึงคิวทั้งหมดของ สมาชิกคนนี้ สำหรับไอเทมชิ้นนี้ (ไม่กรองวันที่เพื่อไม่ให้ชน unique constraint)
+    // 1. ดึงคิวทั้งหมดของ สมาชิกคนนี้ สำหรับไอเทมชิ้นนี้ (รวมทุกสถานะไม่กรองเพื่อไม่ให้ชน unique constraint)
     const { data: rawQueues } = await supabase
       .from('auction_queues')
       .select('id, status, slot_number, queue_timestamp, guild_id, updated_at')
       .eq('user_id', userId) 
       .eq('item_name', itemType)
-      .in('status', ['waiting', 'partial', 'completed'])
 
     const queues = (rawQueues as any[]) || []
 
@@ -723,6 +721,7 @@ export async function syncMemberAuctionQueue(userId: string, itemType: string, q
     // - คิวที่รออยู่ (waiting) ไม่ว่าจะจองวันไหน (ทบยอด)
     // - คิวที่สำเร็จ/แจกบางส่วนแล้ว (completed/partial) ของวันนี้เท่านั้น
     const activeQueues = queues.filter(q => {
+      if (q.status !== 'waiting' && q.status !== 'partial' && q.status !== 'completed') return false;
       if (q.status === 'waiting') return true;
       const queueDate = q.updated_at ? q.updated_at.split('T')[0] : (q.queue_timestamp ? q.queue_timestamp.split('T')[0] : '');
       return queueDate === today;

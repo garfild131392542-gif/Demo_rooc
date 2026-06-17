@@ -16,9 +16,8 @@ export async function POST(req: Request) {
       throw new Error("API Key ไม่ได้ตั้งค่าไว้");
     }
 
-    // สุ่มเลือกคีย์มา 1 ตัวจาก Array
-    const randomKey = apiKeys[Math.floor(Math.random() * apiKeys.length)];
-    const genAI = new GoogleGenerativeAI(randomKey);
+    // สุ่มลำดับ API Key เพื่อหลีกเลี่ยงคีย์ที่พังหรือจำกัดโควตา
+    const shuffledKeys = [...apiKeys].sort(() => Math.random() - 0.5);
 
     // สร้าง System Prompt โทน NPC ผู้ช่วยประจำกิลด์
     const systemInstruction = `
@@ -101,16 +100,33 @@ export async function POST(req: Request) {
       3. หากเป็นคำถามที่ไม่อยู่ในคู่มือ ไม่มีใน Context หรืออยู่นอกเหนือจากขอบเขตของเกม Ragnarok และระบบกิลด์ ให้กล่าวขออภัยอย่างสุภาพ เช่น "ขออภัยท่านนักผจญภัย ข้อมูลนี้ไม่อยู่ในบันทึกของกิลด์ ข้าพเจ้าสามารถช่วยเหลือท่านได้เฉพาะเรื่องระบบภายในกิลด์เท่านั้น"
     `;
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3.5-flash", // แนะนำให้ใช้ 1.5-flash สำหรับความเร็วและบริบทที่แม่นยำ
-      systemInstruction: systemInstruction,
-    });
+    let lastError: any = null;
+    let answerText = "";
+    let success = false;
 
-    // ยิงคำถามไปหา AI
-    const result = await model.generateContent(question);
-    const text = result.response.text();
+    for (const apiKey of shuffledKeys) {
+      try {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({
+          model: "gemini-2.5-flash", // ใช้ gemini-2.5-flash ที่เสถียรและรวดเร็ว
+          systemInstruction: systemInstruction,
+        });
 
-    return Response.json({ answer: text });
+        const result = await model.generateContent(question);
+        answerText = result.response.text();
+        success = true;
+        break; // หากสำเร็จ ให้หยุดการวนลูป
+      } catch (err: any) {
+        console.error(`Error with key starting with ${apiKey.substring(0, 8)}... :`, err.message || err);
+        lastError = err;
+      }
+    }
+
+    if (!success) {
+      throw lastError || new Error("ไม่มี API Key ใดทำงานได้");
+    }
+
+    return Response.json({ answer: answerText });
 
   } catch (error: any) {
     console.error("Guild Assistant AI Error:", error);

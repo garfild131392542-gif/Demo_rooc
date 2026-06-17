@@ -18,18 +18,8 @@ export async function extractStatsFromImage(
       throw new Error("API Key ไม่ได้ตั้งค่าไว้");
     }
 
-    // 💡 สุ่มเลือกคีย์มา 1 ตัวจาก Array
-    const randomKey = apiKeys[Math.floor(Math.random() * apiKeys.length)];
-
-    const genAI = new GoogleGenerativeAI(randomKey);
-
-    // 💡 เพิ่ม generationConfig เพื่อบังคับให้ AI ตอบกลับมาเป็น JSON 100% ไม่มีข้อความอื่นปน
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3.1-flash-lite", // แนะนำให้ใช้ flash-latest เพราะอ่านข้อมูลได้เร็วและรองรับ JSON ได้ดีมาก
-      generationConfig: {
-        responseMimeType: "application/json",
-      },
-    });
+    // 💡 สุ่มลำดับ API Key เพื่อหลีกเลี่ยงคีย์ที่พังหรือโควตาเต็ม
+    const shuffledKeys = [...apiKeys].sort(() => Math.random() - 0.5);
 
     const prompt = `
       ดูรูปภาพหน้าจอเกม Ragnarok นี้ 
@@ -79,17 +69,42 @@ export async function extractStatsFromImage(
 
     const base64Data = base64Image.split(",")[1];
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          data: base64Data,
-          mimeType: mimeType,
-        },
-      },
-    ]);
+    let lastError: any = null;
+    let text = "";
+    let success = false;
 
-    const text = result.response.text();
+    for (const apiKey of shuffledKeys) {
+      try {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({
+          model: "gemini-2.5-flash", // ใช้ gemini-2.5-flash ที่มีความเสถียรและแม่นยำสูง
+          generationConfig: {
+            responseMimeType: "application/json",
+          },
+        });
+
+        const result = await model.generateContent([
+          prompt,
+          {
+            inlineData: {
+              data: base64Data,
+              mimeType: mimeType,
+            },
+          },
+        ]);
+
+        text = result.response.text();
+        success = true;
+        break; // สำเร็จแล้วออกจากลูป
+      } catch (err: any) {
+        console.error(`Error extracting stats with key starting with ${apiKey.substring(0, 8)}... :`, err.message || err);
+        lastError = err;
+      }
+    }
+
+    if (!success) {
+      throw lastError || new Error("ไม่มี API Key ใดทำงานได้");
+    }
 
     // 💡 ปริ้นดูผลลัพธ์ดิบๆ จาก AI ใน Terminal ของ VS Code เผื่อเช็คเวลามีปัญหา
     console.log("Raw AI Response:", text);

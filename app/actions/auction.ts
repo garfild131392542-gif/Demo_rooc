@@ -797,81 +797,15 @@ export async function clearQueueByItemType(itemType: ItemType) {
       .eq('id', session.profile.guild_id)
       .maybeSingle() as any
 
-    // 1. ดึงข้อมูลเซสชันวันนี้เพื่อหา total_quantity และ personal_limit
-    const { data: todaySession, error: sessionError } = await supabase
-      .from('auction_sessions')
-      .select('total_quantity, personal_limit')
-      .eq('guild_id', session.profile.guild_id)
-      .eq('item_name', itemType)
-      .eq('session_date', today)
-      .eq('status', 'active')
-      .maybeSingle()
-
-    if (sessionError) throw sessionError
-    const totalQuantity = todaySession?.total_quantity ?? 0
-    const personalLimit = todaySession?.personal_limit ?? 0
-
-    // 2. ดึงคิวทั้งหมดของวันนี้ (รอ, สำเร็จ, บางส่วน)
-    const { data: rawQueues, error: queueError } = await supabase
+    // ล้างคิวทั้งหมดของประเภทไอเทมนี้ (ทั้งรอจัดสรร, ได้รับบางส่วน, และเสร็จสิ้นแล้ว)
+    const { error: deleteError, count } = await supabase
       .from('auction_queues')
-      .select('id, user_id, status, queue_timestamp, slot_number')
+      .delete({ count: 'exact' })
       .eq('guild_id', session.profile.guild_id)
       .eq('item_name', itemType)
       .in('status', ['waiting', 'partial', 'completed'])
 
-    if (queueError) throw queueError
-
-    // 3. กรองและคำนวณคิว waitlisted ตามลอจิกเดียวกันกับบอร์ด
-    const userTotalSlotsMap = new Map<string, number>()
-    ;(rawQueues || []).forEach((q: any) => {
-      const key = q.user_id
-      userTotalSlotsMap.set(key, (userTotalSlotsMap.get(key) ?? 0) + 1)
-    })
-
-    let shownCountPerUser = new Map<string, number>()
-    const qualifiedQueues = (rawQueues || []).filter((q: any) => {
-      const alreadyShown = shownCountPerUser.get(q.user_id) ?? 0
-      const shouldShow = alreadyShown < personalLimit
-      if (shouldShow) {
-        shownCountPerUser.set(q.user_id, alreadyShown + 1)
-      }
-      return shouldShow
-    })
-
-    // เรียงตามเวลาและลำดับคิว
-    qualifiedQueues.sort((a: any, b: any) => {
-      const timeA = a.queue_timestamp || ''
-      const timeB = b.queue_timestamp || ''
-      if (timeA !== timeB) return timeA.localeCompare(timeB)
-
-      const slotA = a.slot_number ?? 0
-      const slotB = b.slot_number ?? 0
-      if (slotA !== slotB) return slotA - slotB
-
-      return (a.id || '').localeCompare(b.id || '')
-    })
-
-    // คิวที่อยู่เกิน totalQuantity คือ waitlist
-    const waitlistedIds = qualifiedQueues
-      .slice(totalQuantity)
-      .map((q: any) => q.id)
-
-    // คิวที่แจกเสร็จแล้ว (status = 'completed')
-    const completedIds = (rawQueues || [])
-      .filter((q: any) => q.status === 'completed')
-      .map((q: any) => q.id)
-
-    // รวมรายการที่ต้องลบ (hard delete)
-    const idsToDelete = Array.from(new Set([...waitlistedIds, ...completedIds]))
-
-    if (idsToDelete.length > 0) {
-      const { error: deleteError } = await supabase
-        .from('auction_queues')
-        .delete()
-        .in('id', idsToDelete)
-
-      if (deleteError) throw deleteError
-    }
+    if (deleteError) throw deleteError
 
     // ส่งการแจ้งเตือน Discord Webhook เคลียร์คิว/เริ่มรอบใหม่
     if (guildData?.discord_webhook_url) {
@@ -891,7 +825,7 @@ export async function clearQueueByItemType(itemType: ItemType) {
     revalidatePath('/auction')
     revalidatePath('/profile')
 
-    return { success: true, count: idsToDelete.length }
+    return { success: true, count: count || 0 }
   } catch (err: any) {
     return { success: false, error: err.message }
   }

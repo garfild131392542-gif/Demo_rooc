@@ -77,3 +77,85 @@ input[type="number"] {
 @theme inline {
   --color-guild-primary: var(--guild-primary);
 }
+
+/* Game Character Idle Bobbing & Breathing Animation */
+@keyframes game-idle {
+  0%, 100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  50% {
+    transform: translateY(-6px) scale(0.98, 1.02); /* Bob up slightly and stretch vertically */
+  }
+}
+
+.animate-game-idle {
+  animation: game-idle 3s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+/* Podium Aura Pulse Animations */
+@keyframes aura-pulse {
+  0%, 100% {
+    transform: scale(0.9);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.75;
+  }
+}
+
+.animate-aura-gold {
+  animation: aura-pulse 3s ease-in-out infinite;
+}
+
+.animate-aura-silver {
+  animation: aura-pulse 3.5s ease-in-out infinite;
+}
+
+.animate-aura-bronze {
+  animation: aura-pulse 4s ease-in-out infinite;
+}
+
+/* Floating Particle Animations for Podium Standout */
+@keyframes particle-float-1 {
+  0% {
+    transform: translateY(10px) translateX(0) scale(0);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-90px) translateX(-15px) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@keyframes particle-float-2 {
+  0% {
+    transform: translateY(20px) translateX(0) scale(0);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-110px) translateX(20px) scale(0.8);
+    opacity: 0;
+  }
+}
+
+.animate-particle-1 {
+  animation: particle-float-1 3.5s ease-in-out infinite;
+}
+
+.animate-particle-2 {
+  animation: particle-float-2 4.5s ease-in-out infinite;
+  animation-delay: 1.2s;
+}
+
+.animate-particle-3 {
+  animation: particle-float-1 4s ease-in-out infinite;
+  animation-delay: 2.2s;
+}

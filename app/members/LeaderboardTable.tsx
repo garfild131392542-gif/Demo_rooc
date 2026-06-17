@@ -51,12 +51,36 @@ const PodiumSlot = ({
   return (
     <div className="flex flex-col items-center flex-1 max-w-[200px] sm:max-w-[240px] transition-all duration-300 hover:-translate-y-1">
       {/* Character Image container */}
-      <div className="relative w-full aspect-[2/3] max-h-[200px] sm:max-h-[260px] flex items-end justify-center mb-1 group">
+      <div className="relative w-full aspect-[2/3] max-h-[200px] sm:max-h-[260px] flex items-end justify-center mb-1 group overflow-visible">
+        {/* Glow Aura behind character */}
+        {profile?.character_showcase_url && (
+          <div className={`absolute w-32 h-32 sm:w-44 sm:h-44 rounded-full filter blur-xl opacity-75 mix-blend-screen pointer-events-none z-0 ${
+            rank === 1 ? 'bg-amber-400/25 dark:bg-yellow-500/20 animate-aura-gold' :
+            rank === 2 ? 'bg-slate-300/20 dark:bg-slate-400/15 animate-aura-silver' :
+            'bg-orange-400/20 dark:bg-amber-600/15 animate-aura-bronze'
+          }`} />
+        )}
+
+        {/* Floating Particles Sparkles */}
+        {profile?.character_showcase_url && (
+          <>
+            <span className={`absolute text-xs animate-particle-1 left-[15%] bottom-[25%] pointer-events-none z-0 ${
+              rank === 1 ? 'text-yellow-300' : rank === 2 ? 'text-blue-300' : 'text-orange-300'
+            }`}>✨</span>
+            <span className={`absolute text-sm animate-particle-2 right-[20%] bottom-[35%] pointer-events-none z-0 ${
+              rank === 1 ? 'text-yellow-200' : rank === 2 ? 'text-indigo-200' : 'text-amber-200'
+            }`}>✦</span>
+            <span className={`absolute text-[10px] animate-particle-3 left-[35%] bottom-[15%] pointer-events-none z-0 ${
+              rank === 1 ? 'text-yellow-400' : rank === 2 ? 'text-sky-400' : 'text-orange-400'
+            }`}>★</span>
+          </>
+        )}
+
         {profile?.character_showcase_url ? (
           <img
             src={profile.character_showcase_url}
             alt={profile.display_name || ""}
-            className="h-full w-auto object-contain z-10 transition-transform duration-300 group-hover:scale-105 select-none"
+            className="h-full w-auto object-contain z-10 transition-transform duration-300 group-hover:scale-105 select-none animate-game-idle"
             onError={(e) => {
               (e.target as any).src = profile.job_name ? getJobIconUrl(profile.job_name) : '/icons/jobs/default.png';
             }}

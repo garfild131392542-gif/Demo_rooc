@@ -235,30 +235,6 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
           </div>
         )}
 
-        {/* 5. โทนสีหลักกิลด์ (Primary Theme Color) - เฉพาะแอดมินเห็น */}
-        {isAdmin && (
-          <div>
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">สีหลักของกิลด์ (Theme Color)</label>
-            <div className="flex gap-3">
-              <input
-                type="color"
-                disabled={isLoading}
-                value={primaryColor}
-                onChange={(e) => setPrimaryColor(e.target.value)}
-                className="h-10 w-16 cursor-pointer rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 p-1"
-              />
-              <input
-                type="text"
-                pattern="^#[0-9a-fA-F]{6}$"
-                disabled={isLoading}
-                value={primaryColor}
-                onChange={(e) => setPrimaryColor(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 text-sm font-mono"
-                placeholder="#3b82f6"
-              />
-            </div>
-          </div>
-        )}
 
         {/* 6. Discord Webhook URL - เฉพาะแอดมินเห็น */}
         {isAdmin && (

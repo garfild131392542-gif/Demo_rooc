@@ -126,7 +126,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
 
     return (
         <>
-            <nav className="sticky top-0 z-[100] bg-guild-primary/95 dark:bg-gray-900/95 backdrop-blur-md text-white shadow-lg transition-colors border-b border-white/10">
+            <nav className="sticky top-0 z-[100] bg-blue-500/90 dark:bg-gray-900/90 backdrop-blur-md text-white shadow-lg transition-colors border-b border-white/10">
                 <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
                     <div className="flex justify-between h-16 sm:h-18">
 

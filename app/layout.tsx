@@ -33,25 +33,7 @@ export default async function RootLayout({
   const session = await getSession();
   let primaryColor = "#3b82f6"; // Default Blue
 
-  if (session) {
-    const sessionAny = session as any;
-    const userId = sessionAny.user?.id ?? sessionAny.id;
-    try {
-      const supabase = await createClient();
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("guilds(primary_color)")
-        .eq("id", userId)
-        .maybeSingle() as any;
-
-      const guild = Array.isArray(profile?.guilds) ? profile.guilds[0] : profile?.guilds;
-      if (guild?.primary_color) {
-        primaryColor = guild.primary_color;
-      }
-    } catch (err) {
-      console.error("Error fetching guild primary color in layout:", err);
-    }
-  }
+  // Default theme color is fixed to blue (#3b82f6) as dynamic guild styling is disabled.
 
   return (
     <html

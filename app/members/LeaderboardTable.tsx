@@ -77,14 +77,24 @@ const PodiumSlot = ({
         )}
 
         {profile?.character_showcase_url ? (
-          <img
-            src={profile.character_showcase_url}
-            alt={profile.display_name || ""}
-            className="h-full w-auto object-contain z-10 transition-transform duration-300 group-hover:scale-105 select-none animate-game-idle"
-            onError={(e) => {
-              (e.target as any).src = profile.job_name ? getJobIconUrl(profile.job_name) : '/icons/jobs/default.png';
-            }}
-          />
+          <>
+            {/* Majestic Gold Wings for Rank 1 */}
+            {rank === 1 && (
+              <img
+                src="/wings-gold.png"
+                alt="Gold Wings"
+                className="absolute w-[320px] sm:w-[380px] md:w-[420px] max-w-[220%] h-auto bottom-[15%] left-1/2 -translate-x-1/2 pointer-events-none z-0 opacity-95 animate-game-wings select-none"
+              />
+            )}
+            <img
+              src={profile.character_showcase_url}
+              alt={profile.display_name || ""}
+              className="h-full w-auto object-contain z-10 transition-transform duration-300 group-hover:scale-105 select-none animate-game-idle"
+              onError={(e) => {
+                (e.target as any).src = profile.job_name ? getJobIconUrl(profile.job_name) : '/icons/jobs/default.png';
+              }}
+            />
+          </>
         ) : (
           /* Placeholder character/silhouette with large job icon */
           <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100/10 dark:bg-slate-800/10 rounded-2xl border border-dashed border-slate-300/20 dark:border-slate-700/25 relative overflow-hidden p-4">
@@ -306,7 +316,7 @@ export default function LeaderboardTable({
 
 
         {/* The Podiums View */}
-        <div className="flex items-end justify-center gap-2 sm:gap-6 pt-16 pb-4 max-w-2xl mx-auto border-b border-slate-100 dark:border-slate-800/60">
+        <div className="flex items-end justify-center gap-4 sm:gap-12 lg:gap-20 pt-16 pb-4 max-w-4xl mx-auto border-b border-slate-100 dark:border-slate-800/60">
           {/* Rank 2 (Left) */}
           <PodiumSlot
             profile={rank2}

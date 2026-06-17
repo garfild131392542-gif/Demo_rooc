@@ -158,4 +158,20 @@ input[type="number"] {
 .animate-particle-3 {
   animation: particle-float-1 4s ease-in-out infinite;
   animation-delay: 2.2s;
-}
+}
+
+/* Wings Fluttering Animation */
+@keyframes game-wings {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.04, 0.98) rotate(1.5deg);
+  }
+}
+
+.animate-game-wings {
+  animation: game-wings 4s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+

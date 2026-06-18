@@ -302,3 +302,72 @@ export async function setupProfileAction(formData: ProfileSetupFormData) {
 export async function createProfileSetupAction(formData: ProfileSetupFormData) {
   return setupProfileAction(formData);
 }
+
+// ==========================================
+// 3. จัดการเชื่อมต่อ Discord Account
+// ==========================================
+export async function generateDiscordLinkCodeAction() {
+  try {
+    const session = await getSession();
+    if (!session) return { success: false, error: "กรุณาเข้าสู่ระบบก่อน" };
+    
+    const supabase = await createClient();
+    const currentUserId = (session as any).user?.id ?? (session as any).id;
+
+    // สร้างรหัสสุ่ม 6 หลัก
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // หมดอายุใน 15 นาที
+
+    const { error } = await (supabase as any)
+      .from("profiles")
+      .update({
+        discord_link_code: code,
+        discord_link_expires: expiresAt,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", currentUserId);
+
+    if (error) {
+      console.error("Failed to update link code:", error);
+      return { success: false, error: "เกิดข้อผิดพลาดในการสร้างโค้ดเชื่อมต่อ: " + error.message };
+    }
+
+    revalidatePath("/profile");
+    return { success: true, code, expiresAt };
+  } catch (error: any) {
+    console.error("generateDiscordLinkCodeAction error:", error);
+    return { success: false, error: "เกิดข้อผิดพลาดที่ไม่คาดคิด" };
+  }
+}
+
+export async function unlinkDiscordAction() {
+  try {
+    const session = await getSession();
+    if (!session) return { success: false, error: "กรุณาเข้าสู่ระบบก่อน" };
+    
+    const supabase = await createClient();
+    const currentUserId = (session as any).user?.id ?? (session as any).id;
+
+    const { error } = await (supabase as any)
+      .from("profiles")
+      .update({
+        discord_user_id: null,
+        discord_username: null,
+        discord_link_code: null,
+        discord_link_expires: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", currentUserId);
+
+    if (error) {
+      console.error("Failed to unlink Discord:", error);
+      return { success: false, error: "เกิดข้อผิดพลาดในการยกเลิกการเชื่อมต่อ: " + error.message };
+    }
+
+    revalidatePath("/profile");
+    return { success: true };
+  } catch (error: any) {
+    console.error("unlinkDiscordAction error:", error);
+    return { success: false, error: "เกิดข้อผิดพลาดที่ไม่คาดคิด" };
+  }
+}

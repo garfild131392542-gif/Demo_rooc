@@ -42,6 +42,9 @@ export default async function GuildStatusPage() {
         hall_of_fame_gold_uid,
         hall_of_fame_silver_uid,
         hall_of_fame_bronze_uid,
+        discord_class_channel_id,
+        discord_name_channel_id,
+        discord_reserve_channel_id,
         created_at
       `)
       .eq('id', profile.guild_id)

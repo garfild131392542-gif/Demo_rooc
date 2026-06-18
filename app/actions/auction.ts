@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSession } from './auth'
 import { revalidatePath } from 'next/cache'
-import { sendDiscordNotification } from '@/lib/discord'
+import { sendDiscordChannelMessage } from '@/lib/discord'
 
 export type ItemType = 'Album' | 'Puppet' | 'White' | 'RedBlack'
 
@@ -328,7 +328,7 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
     // ดึงข้อมูลกิลด์และ webhook
     const { data: guildData } = await supabase
       .from('guilds')
-      .select('discord_webhook_url, name')
+      .select('discord_reserve_channel_id, name')
       .eq('id', session.profile.guild_id)
       .maybeSingle() as any
 
@@ -394,12 +394,12 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
         }
     }
 
-    // ส่งการแจ้งเตือน Discord Webhook
-    if (guildData?.discord_webhook_url) {
+    // ส่งการแจ้งเตือนบอท Discord ไปยังห้องจองไอเทม
+    if (guildData?.discord_reserve_channel_id) {
       const recipientName = queue.profiles?.display_name || queue.profiles?.uid_game || 'สมาชิกกิลด์';
       const itemName = queue.item_name;
       const qty = 1; // standard qty distributed is 1
-      await sendDiscordNotification(guildData.discord_webhook_url, {
+      await sendDiscordChannelMessage(guildData.discord_reserve_channel_id, {
         embeds: [
           {
             title: "🎉 แจกจ่ายไอเทมสำเร็จ (Item Distributed)",
@@ -790,10 +790,10 @@ export async function clearQueueByItemType(itemType: ItemType) {
     const supabase = await createClient()
     const today = new Date().toISOString().split('T')[0]
 
-    // ดึงข้อมูลกิลด์และ webhook URL
+    // ดึงข้อมูลกิลด์และห้องจองไอเทม Discord
     const { data: guildData } = await supabase
       .from('guilds')
-      .select('discord_webhook_url, name')
+      .select('discord_reserve_channel_id, name')
       .eq('id', session.profile.guild_id)
       .maybeSingle() as any
 
@@ -807,9 +807,9 @@ export async function clearQueueByItemType(itemType: ItemType) {
 
     if (deleteError) throw deleteError
 
-    // ส่งการแจ้งเตือน Discord Webhook เคลียร์คิว/เริ่มรอบใหม่
-    if (guildData?.discord_webhook_url) {
-      await sendDiscordNotification(guildData.discord_webhook_url, {
+    // ส่งการแจ้งเตือนบอท Discord ไปยังห้องจองไอเทม เคลียร์คิว/เริ่มรอบใหม่
+    if (guildData?.discord_reserve_channel_id) {
+      await sendDiscordChannelMessage(guildData.discord_reserve_channel_id, {
         embeds: [
           {
             title: "📢 ล้างคิวสำเร็จ / เริ่มรอบใหม่ (Queue Reset)",

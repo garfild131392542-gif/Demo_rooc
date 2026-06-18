@@ -9,10 +9,12 @@ interface UpdateGuildData {
   discordLink: string
   logoUrl?: string
   primaryColor?: string
-  discordWebhookUrl?: string
   hallOfFameGoldUid?: string | null
   hallOfFameSilverUid?: string | null
   hallOfFameBronzeUid?: string | null
+  discordClassChannelId?: string | null
+  discordNameChannelId?: string | null
+  discordReserveChannelId?: string | null
 }
 
 /**
@@ -57,10 +59,12 @@ export async function updateGuildAction(guildId: string, data: UpdateGuildData) 
         discord_link: data.discordLink.trim() || null,
         logo_url: data.logoUrl?.trim() || null,
         primary_color: data.primaryColor?.trim() || null,
-        discord_webhook_url: data.discordWebhookUrl?.trim() || null,
         hall_of_fame_gold_uid: data.hallOfFameGoldUid || null,
         hall_of_fame_silver_uid: data.hallOfFameSilverUid || null,
         hall_of_fame_bronze_uid: data.hallOfFameBronzeUid || null,
+        discord_class_channel_id: data.discordClassChannelId?.trim() || null,
+        discord_name_channel_id: data.discordNameChannelId?.trim() || null,
+        discord_reserve_channel_id: data.discordReserveChannelId?.trim() || null,
       })
       .eq('id', guildId)
 

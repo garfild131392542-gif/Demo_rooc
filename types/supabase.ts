@@ -251,6 +251,9 @@ export type Database = {
           status: string | null
           trial_ends_at: string | null
           updated_at: string | null
+          discord_class_channel_id: string | null
+          discord_name_channel_id: string | null
+          discord_reserve_channel_id: string | null
         }
         Insert: {
           contact_email?: string | null
@@ -271,6 +274,9 @@ export type Database = {
           status?: string | null
           trial_ends_at?: string | null
           updated_at?: string | null
+          discord_class_channel_id?: string | null
+          discord_name_channel_id?: string | null
+          discord_reserve_channel_id?: string | null
         }
         Update: {
           contact_email?: string | null
@@ -291,6 +297,9 @@ export type Database = {
           status?: string | null
           trial_ends_at?: string | null
           updated_at?: string | null
+          discord_class_channel_id?: string | null
+          discord_name_channel_id?: string | null
+          discord_reserve_channel_id?: string | null
         }
         Relationships: []
       }
@@ -326,6 +335,10 @@ export type Database = {
           sp: number | null
           uid_game: string | null
           updated_at: string | null
+          discord_user_id: string | null
+          discord_username: string | null
+          discord_link_code: string | null
+          discord_link_expires: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -358,6 +371,10 @@ export type Database = {
           sp?: number | null
           uid_game?: string | null
           updated_at?: string | null
+          discord_user_id?: string | null
+          discord_username?: string | null
+          discord_link_code?: string | null
+          discord_link_expires?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -390,6 +407,10 @@ export type Database = {
           sp?: number | null
           uid_game?: string | null
           updated_at?: string | null
+          discord_user_id?: string | null
+          discord_username?: string | null
+          discord_link_code?: string | null
+          discord_link_expires?: string | null
         }
         Relationships: [
           {

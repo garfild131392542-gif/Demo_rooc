@@ -19,6 +19,9 @@ interface GuildStatusFormProps {
     hall_of_fame_gold_uid?: string | null;
     hall_of_fame_silver_uid?: string | null;
     hall_of_fame_bronze_uid?: string | null;
+    discord_class_channel_id?: string | null;
+    discord_name_channel_id?: string | null;
+    discord_reserve_channel_id?: string | null;
   };
   isAdmin: boolean;
   members?: { id: string; display_name: string | null; job_name: string | null }[];
@@ -30,10 +33,12 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
   const [discordLink, setDiscordLink] = useState(guild.discord_link || "");
   const [logoUrl, setLogoUrl] = useState(guild.logo_url || "");
   const [primaryColor, setPrimaryColor] = useState(guild.primary_color || "#3b82f6");
-  const [discordWebhookUrl, setDiscordWebhookUrl] = useState(guild.discord_webhook_url || "");
   const [hallOfFameGoldUid, setHallOfFameGoldUid] = useState(guild.hall_of_fame_gold_uid || "");
   const [hallOfFameSilverUid, setHallOfFameSilverUid] = useState(guild.hall_of_fame_silver_uid || "");
   const [hallOfFameBronzeUid, setHallOfFameBronzeUid] = useState(guild.hall_of_fame_bronze_uid || "");
+  const [discordClassChannelId, setDiscordClassChannelId] = useState(guild.discord_class_channel_id || "");
+  const [discordNameChannelId, setDiscordNameChannelId] = useState(guild.discord_name_channel_id || "");
+  const [discordReserveChannelId, setDiscordReserveChannelId] = useState(guild.discord_reserve_channel_id || "");
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>(guild.logo_url || "");
@@ -147,10 +152,12 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
       discordLink: discordLink,
       logoUrl: finalLogoUrl,
       primaryColor: primaryColor,
-      discordWebhookUrl: discordWebhookUrl,
       hallOfFameGoldUid: hallOfFameGoldUid || null,
       hallOfFameSilverUid: hallOfFameSilverUid || null,
       hallOfFameBronzeUid: hallOfFameBronzeUid || null,
+      discordClassChannelId: discordClassChannelId || null,
+      discordNameChannelId: discordNameChannelId || null,
+      discordReserveChannelId: discordReserveChannelId || null,
     });
 
     if (result.success) {
@@ -299,21 +306,64 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
         )}
 
 
-        {/* 6. Discord Webhook URL - เฉพาะแอดมินเห็น */}
+
+
+        {/* Discord Bot Channel Settings - เฉพาะแอดมินเห็น */}
         {isAdmin && (
-          <div>
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Discord Webhook URL (สำหรับแจ้งเตือนระบบ)</label>
-            <input
-              type="password"
-              disabled={isLoading}
-              value={discordWebhookUrl}
-              onChange={(e) => setDiscordWebhookUrl(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2.5 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-600 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-sm font-mono dark:placeholder-slate-400"
-              placeholder="https://discord.com/api/webhooks/xxxxxx"
-            />
-            <p className="text-[10px] text-slate-400 mt-1">
-              * ระบบจะใช้ส่งการแจ้งเตือนไปยังดิสคอร์ด เช่น เมื่อล้างคิว หรือแจกจ่ายไอเทม
+          <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200/60 dark:border-slate-700 space-y-3">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+              🤖 ตั้งค่าห้องบอท Discord (Discord Bot Channels)
+            </h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              ระบุไอดีห้องของดิสคอร์ด (Channel ID) สำหรับการอัพเดทข้อมูล
             </p>
+
+            <div className="space-y-3 pt-2">
+              <div>
+                <label htmlFor="discord_class_channel_id" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  ห้องเปลี่ยนอาชีพ (Class Channel ID)
+                </label>
+                <input
+                  id="discord_class_channel_id"
+                  type="text"
+                  disabled={isLoading}
+                  value={discordClassChannelId}
+                  onChange={(e) => setDiscordClassChannelId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 text-sm font-mono"
+                  placeholder="เช่น 112233445566778899"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="discord_name_channel_id" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  ห้องเปลี่ยนชื่อ (Name Channel ID)
+                </label>
+                <input
+                  id="discord_name_channel_id"
+                  type="text"
+                  disabled={isLoading}
+                  value={discordNameChannelId}
+                  onChange={(e) => setDiscordNameChannelId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 text-sm font-mono"
+                  placeholder="เช่น 112233445566778899"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="discord_reserve_channel_id" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  ห้องจองไอเทม (Reserve Channel ID)
+                </label>
+                <input
+                  id="discord_reserve_channel_id"
+                  type="text"
+                  disabled={isLoading}
+                  value={discordReserveChannelId}
+                  onChange={(e) => setDiscordReserveChannelId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 text-sm font-mono"
+                  placeholder="เช่น 112233445566778899"
+                />
+              </div>
+            </div>
           </div>
         )}
 

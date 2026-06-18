@@ -4,7 +4,7 @@ import { useState, useTransition, useRef, useEffect } from "react";
 import Image from "next/image";
 import MemberForm from "@/components/auction/MemberForm";
 import Link from 'next/link';
-import { updateCharacterInfoAction, updateCharacterStatsAction } from "@/app/actions/profile";
+import { updateCharacterInfoAction, updateCharacterStatsAction, generateDiscordLinkCodeAction, unlinkDiscordAction } from "@/app/actions/profile";
 import { extractStatsFromImage } from "@/app/actions/ai";
 import { toggleMemberLeave } from "@/app/actions/admin";
 // ✨ เปลี่ยนมารับ syncUserAuctionQueues และเอา joinAuctionQueues ออก
@@ -70,6 +70,14 @@ export default function ProfileForm({
     type: "success" | "error" | "info";
     text: string;
   } | null>(null);
+
+  const [discordUser, setDiscordUser] = useState<{ id: string | null; username: string | null }>({
+    id: (initialProfile as any).discord_user_id || null,
+    username: (initialProfile as any).discord_username || null
+  });
+  const [discordCode, setDiscordCode] = useState<string | null>(null);
+  const [discordCodeExpires, setDiscordCodeExpires] = useState<string | null>(null);
+  const [isDiscordActionPending, setIsDiscordActionPending] = useState(false);
 
   const alertTimerRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -462,6 +470,46 @@ export default function ProfileForm({
     }
   };
 
+  const handleGenerateLinkCode = async () => {
+    setIsDiscordActionPending(true);
+    setMessage(null);
+    try {
+      const result = await generateDiscordLinkCodeAction();
+      if (result.success && result.code) {
+        setDiscordCode(result.code);
+        setDiscordCodeExpires(result.expiresAt || null);
+        setMessage({ type: "success", text: "สร้างโค้ดเชื่อมต่อ Discord สำเร็จ กรุณานำโค้ดไปใส่ใน Discord" });
+      } else {
+        setMessage({ type: "error", text: result.error || "ไม่สามารถสร้างโค้ดได้" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "ระบบผิดพลาด กรุณาลองใหม่อีกครั้ง" });
+    } finally {
+      setIsDiscordActionPending(false);
+    }
+  };
+
+  const handleUnlinkDiscord = async () => {
+    if (!confirm("คุณแน่ใจหรือไม่ที่จะยกเลิกการเชื่อมต่อ Discord กับตัวละครนี้?")) return;
+    setIsDiscordActionPending(true);
+    setMessage(null);
+    try {
+      const result = await unlinkDiscordAction();
+      if (result.success) {
+        setDiscordUser({ id: null, username: null });
+        setDiscordCode(null);
+        setDiscordCodeExpires(null);
+        setMessage({ type: "success", text: "ยกเลิกการเชื่อมต่อ Discord สำเร็จ" });
+      } else {
+        setMessage({ type: "error", text: result.error || "ไม่สามารถยกเลิกการเชื่อมต่อได้" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "ระบบผิดพลาด กรุณาลองใหม่อีกครั้ง" });
+    } finally {
+      setIsDiscordActionPending(false);
+    }
+  };
+
   const handleInfoSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -631,6 +679,81 @@ export default function ProfileForm({
                       </button>
                     </div>
                   </div>
+                </div>
+
+                {/* เชื่อมต่อ Discord */}
+                <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3 uppercase tracking-wider flex items-center gap-2">
+                    <svg className="w-5 h-5 text-indigo-500" fill="currentColor" viewBox="0 0 127.14 96.36">
+                      <path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,53.18,6.83,77.19,77.19,0,0,0,49.88,0,105.15,105.15,0,0,0,19.44,8.07C3.66,31.58-1.86,54.65,1,77.53A105.73,105.73,0,0,0,32,96.36a77.7,77.7,0,0,0,6.63-10.85,68.43,68.43,0,0,1-10.5-5c.88-.65,1.72-1.34,2.51-2a75.58,75.58,0,0,0,73,0c.79.71,1.63,1.4,2.5,2a68.42,68.42,0,0,1-10.5,5A77.7,77.7,0,0,0,102.3,85.5a105.73,105.73,0,0,0,31-18.83C130.66,50.22,124.63,27.34,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.83,46,53.83,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.07,46,96.07,53,91,65.69,84.69,65.69Z"/>
+                    </svg>
+                    <span>การเชื่อมต่อ Discord</span>
+                  </h3>
+                  
+                  {discordUser.id ? (
+                    <div className="bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm glass-panel">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs text-emerald-800 dark:text-emerald-300 font-bold">เชื่อมต่อบัญชีสำเร็จ</p>
+                          <p className="text-sm text-slate-800 dark:text-slate-100 font-semibold font-mono mt-0.5">
+                            {discordUser.username ? `@${discordUser.username}` : `ID: ${discordUser.id}`}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleUnlinkDiscord}
+                        disabled={isDiscordActionPending}
+                        className="px-4 py-2 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-900/50 active:translate-y-[1px] transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        ยกเลิกการเชื่อมต่อ
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-50/70 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm glass-panel space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+                            เชื่อมต่อบัญชีดิสคอร์ดของคุณเพื่อใช้งานคำสั่งเปลี่ยนสายอาชีพ เปลี่ยนชื่อ หรือจองคิวไอเทมผ่าน Discord ได้ทันที
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleGenerateLinkCode}
+                          disabled={isDiscordActionPending}
+                          style={{ textShadow: '0 1px 1px rgba(0, 0, 0, 0.2)' }}
+                          className="whitespace-nowrap px-4 py-2.5 bg-gradient-to-b from-indigo-500 via-indigo-600 to-indigo-700 hover:from-indigo-400 hover:to-indigo-600 active:translate-y-[1px] text-white text-xs font-bold rounded-lg border border-indigo-950 shadow-md transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {discordCode ? "🔄 สร้างรหัสใหม่" : "🔗 เชื่อมต่อ Discord"}
+                        </button>
+                      </div>
+
+                      {discordCode && (
+                        <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40 rounded-lg p-3.5 space-y-2">
+                          <p className="text-xs font-bold text-indigo-800 dark:text-indigo-300">รหัสยืนยันตัวตนของคุณ:</p>
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                            <span className="text-2xl font-black font-mono tracking-widest text-indigo-700 dark:text-indigo-400 bg-white dark:bg-slate-950 px-3.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900/70 shadow-inner w-fit">
+                              {discordCode}
+                            </span>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                              <p>นำรหัสนี้ไปพิมพ์ในดิสคอร์ดห้องใดก็ได้ หรือส่งข้อความหาบอทโดยตรง:</p>
+                              <code className="mt-1 block bg-slate-100 dark:bg-slate-950 px-2 py-1 rounded text-slate-800 dark:text-slate-200 font-mono text-[10px] font-bold border border-slate-200 dark:border-slate-800/80 w-fit">
+                                !link {discordCode}
+                              </code>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-1">
+                            ⚠️ รหัสนี้จะหมดอายุภายใน 15 นาที
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

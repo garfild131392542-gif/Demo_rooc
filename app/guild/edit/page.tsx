@@ -38,7 +38,6 @@ export default async function GuildStatusPage() {
         discord_link,
         logo_url,
         primary_color,
-        discord_webhook_url,
         hall_of_fame_gold_uid,
         hall_of_fame_silver_uid,
         hall_of_fame_bronze_uid,

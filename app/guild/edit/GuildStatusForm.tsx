@@ -15,7 +15,6 @@ interface GuildStatusFormProps {
     discord_link: string | null;
     logo_url?: string | null;
     primary_color?: string | null;
-    discord_webhook_url?: string | null;
     hall_of_fame_gold_uid?: string | null;
     hall_of_fame_silver_uid?: string | null;
     hall_of_fame_bronze_uid?: string | null;

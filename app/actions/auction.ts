@@ -11,7 +11,7 @@ const ITEM_NAMES: Record<ItemType, string> = {
   Album: 'สมุดการ์ด',
   Puppet: 'เศษการ์ดบอส',
   White: 'ขนขาว',
-  RedBlack: 'ขนดำ/แดง'
+  RedBlack: 'ขนดำแดง'
 }
 
 // 1. แอดมินบันทึกของรางวัลรายวัน

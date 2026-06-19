@@ -253,6 +253,7 @@ export type Database = {
           discord_class_channel_id: string | null
           discord_name_channel_id: string | null
           discord_reserve_channel_id: string | null
+          discord_leave_channel_id: string | null
         }
         Insert: {
           contact_email?: string | null
@@ -275,6 +276,7 @@ export type Database = {
           discord_class_channel_id?: string | null
           discord_name_channel_id?: string | null
           discord_reserve_channel_id?: string | null
+          discord_leave_channel_id?: string | null
         }
         Update: {
           contact_email?: string | null
@@ -297,6 +299,7 @@ export type Database = {
           discord_class_channel_id?: string | null
           discord_name_channel_id?: string | null
           discord_reserve_channel_id?: string | null
+          discord_leave_channel_id?: string | null
         }
         Relationships: []
       }

@@ -91,6 +91,12 @@ export type Guild = {
   hall_of_fame_silver_uid?: string | null;
   hall_of_fame_bronze_uid?: string | null;
   
+  // Discord Bot Integration
+  discord_class_channel_id?: string | null;
+  discord_name_channel_id?: string | null;
+  discord_reserve_channel_id?: string | null;
+  discord_leave_channel_id?: string | null;
+  
   // Timestamps
   created_at?: string; // ISO 8601
   updated_at?: string; // ISO 8601 (auto-updated)

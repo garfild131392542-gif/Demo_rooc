@@ -44,6 +44,7 @@ export default async function GuildStatusPage() {
         discord_class_channel_id,
         discord_name_channel_id,
         discord_reserve_channel_id,
+        discord_leave_channel_id,
         created_at
       `)
       .eq('id', profile.guild_id)
@@ -64,7 +65,7 @@ export default async function GuildStatusPage() {
   if (guild) {
     const { data: membersData } = await supabase
       .from('profiles')
-      .select('id, display_name, job_name')
+      .select('id, display_name, job_name, character_showcase_url')
       .eq('guild_id', guild.id)
       .order('display_name', { ascending: true })
     guildMembers = membersData || []

@@ -107,7 +107,7 @@ export default async function HomePage() {
 
       <header className="mb-8 mx-10">
         <h1 className="text-3xl font-bold">จัดทีมลงกิจกรรม</h1>
-        <p className="text-lg text-gray-500 dark:text-gray-400 mt-2">
+        <p className="text-lg text-slate-800 dark:text-slate-200 font-medium mt-2">
           {isAdmin
             ? 'ลากและวางสมาชิก เพื่อจัดปาร์ตี้'
             : 'ดูรายชื่อสมาชิกและปาร์ตี้'}

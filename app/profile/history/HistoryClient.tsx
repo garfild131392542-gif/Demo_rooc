@@ -4,6 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeftIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
+const getItemDisplayName = (name: string): string => {
+  const lower = name.toLowerCase();
+  if (lower === 'album') return 'สมุดการ์ด';
+  if (lower === 'puppet') return 'เศษการ์ดบอส';
+  if (lower === 'white') return 'ขนขาว';
+  if (lower === 'redblack' || lower === 'red_black') return 'ขนดำแดง';
+  return name;
+};
+
 interface QueueHistoryItem {
   id: string;
   item_name: string;
@@ -18,6 +27,9 @@ interface QueueHistoryItem {
 
 interface RawQueueItem {
   id: string;
+  user_id: string;
+  display_name: string;
+  item_name: string;
   requested_qty: number;
   received_qty: number;
   calculated_status: string;
@@ -87,7 +99,10 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
 
   // กรองตามคำค้นหาและแท็บสถานะที่เลือก
   const filteredQueues = initialQueues.filter((q) => {
-    const matchesSearch = q.item_name.toLowerCase().includes(searchTerm.toLowerCase());
+    const displayNameOfItem = getItemDisplayName(q.item_name);
+    const matchesSearch = 
+      q.item_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      displayNameOfItem.toLowerCase().includes(searchTerm.toLowerCase());
 
     if (activeTab === "all") return matchesSearch;
     if (activeTab === "waiting") {
@@ -102,17 +117,60 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
     return matchesSearch;
   });
 
-  // คำนวณสรุปสถิติจริง (นับจากจำนวนไอเทม rawQueues)
-  const totalCount = rawQueues.reduce((sum, q) => sum + q.requested_qty, 0);
-  const waitingCount = rawQueues
+  // กรองข้อมูลดิบตามคำค้นหา เพื่อนำมาคำนวณสรุปสถิติของไอเทมนั้นๆ
+  const filteredRaw = rawQueues.filter((q) => {
+    const displayNameOfItem = getItemDisplayName(q.item_name);
+    return (
+      q.item_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      displayNameOfItem.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
+
+  // คำนวณสรุปสถิติจริง (นับจากจำนวนไอเทม filteredRaw)
+  const totalCount = filteredRaw.reduce((sum, q) => sum + q.requested_qty, 0);
+  const waitingCount = filteredRaw
     .filter((q) => q.calculated_status === "waiting" || q.calculated_status === "waitlist" || q.calculated_status === "partial")
     .reduce((sum, q) => sum + q.requested_qty, 0);
-  const completedCount = rawQueues
+  const completedCount = filteredRaw
     .filter((q) => q.calculated_status === "completed")
     .reduce((sum, q) => sum + (q.received_qty || 0), 0);
-  const canceledCount = rawQueues
+  const canceledCount = filteredRaw
     .filter((q) => q.calculated_status === "canceled")
     .reduce((sum, q) => sum + q.requested_qty, 0);
+
+  // คำนวณจำนวนคนที่จองในแต่ละสถานะ (ผู้จองที่ไม่ซ้ำกันด้วยชื่อแสดงผล)
+  const totalUsersCount = new Set(filteredRaw.map((q) => q.display_name)).size;
+  const waitingUsersCount = new Set(
+    filteredRaw
+      .filter((q) => q.calculated_status === "waiting" || q.calculated_status === "waitlist" || q.calculated_status === "partial")
+      .map((q) => q.display_name)
+  ).size;
+  const completedUsersCount = new Set(
+    filteredRaw
+      .filter((q) => q.calculated_status === "completed")
+      .map((q) => q.display_name)
+  ).size;
+  const canceledUsersCount = new Set(
+    filteredRaw
+      .filter((q) => q.calculated_status === "canceled")
+      .map((q) => q.display_name)
+  ).size;
+
+  // คำนวณหาจำนวนผู้จองที่ไม่ซ้ำกันสำหรับแต่ละไอเทม (ด้วยชื่อแสดงผล)
+  const itemBookersCount: Record<string, number> = {};
+  const itemBookersSet: Record<string, Set<string>> = {};
+
+  rawQueues.forEach((q) => {
+    const displayNameOfItem = getItemDisplayName(q.item_name);
+    if (!itemBookersSet[displayNameOfItem]) {
+      itemBookersSet[displayNameOfItem] = new Set<string>();
+    }
+    itemBookersSet[displayNameOfItem].add(q.display_name);
+  });
+
+  Object.keys(itemBookersSet).forEach((itemName) => {
+    itemBookersCount[itemName] = itemBookersSet[itemName].size;
+  });
 
   return (
     <div className="max-w-6xl w-full mx-auto space-y-4 flex flex-col flex-1 min-h-0">
@@ -145,18 +203,22 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-5 shadow-sm text-center glass-panel">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">จำนวนจองสะสม</p>
           <p className="text-3xl font-extrabold text-slate-800 dark:text-white">{totalCount} ชิ้น</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">({totalUsersCount} คน)</p>
         </div>
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-5 shadow-sm text-center glass-panel">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">กำลังรอจัดสรร</p>
           <p className="text-3xl font-extrabold text-blue-600 dark:text-blue-400">{waitingCount} ชิ้น</p>
+          <p className="text-xs text-blue-500/80 dark:text-blue-400/80 mt-1 font-semibold">({waitingUsersCount} คน)</p>
         </div>
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-5 shadow-sm text-center glass-panel">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">ได้รับสำเร็จแล้ว</p>
           <p className="text-3xl font-extrabold text-green-600 dark:text-green-400">{completedCount} ชิ้น</p>
+          <p className="text-xs text-green-500/80 dark:text-green-400/80 mt-1 font-semibold">({completedUsersCount} คน)</p>
         </div>
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-5 shadow-sm text-center glass-panel">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">ยกเลิกแล้ว</p>
           <p className="text-3xl font-extrabold text-slate-500 dark:text-slate-400">{canceledCount} ชิ้น</p>
+          <p className="text-xs text-slate-500/80 dark:text-slate-400/80 mt-1 font-semibold">({canceledUsersCount} คน)</p>
         </div>
       </div>
 
@@ -223,7 +285,10 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
                       {item.display_name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800 dark:text-slate-200">
-                      {item.item_name}
+                      <div>{getItemDisplayName(item.item_name)}</div>
+                      <div className="text-[11px] text-slate-400 dark:text-slate-500 font-normal mt-0.5">
+                        ผู้จองทั้งหมด: {itemBookersCount[getItemDisplayName(item.item_name)] || 0} คน
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-semibold text-slate-600 dark:text-slate-400">
                       {item.requested_qty} ชิ้น
@@ -263,9 +328,14 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
                     <span className="text-xs font-bold text-slate-400 dark:text-slate-500 block">
                       ผู้จอง: {item.display_name}
                     </span>
-                    <span className="text-md font-bold text-slate-900 dark:text-white">
-                      {item.item_name}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-md font-bold text-slate-900 dark:text-white">
+                        {getItemDisplayName(item.item_name)}
+                      </span>
+                      <span className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold">
+                        ผู้จองทั้งหมด: {itemBookersCount[getItemDisplayName(item.item_name)] || 0} คน
+                      </span>
+                    </div>
                   </div>
                   {getStatusBadge(item.calculated_status)}
                 </div>

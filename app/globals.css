@@ -29,7 +29,7 @@ body {
   
   /* Bg-throne.png background cover with light overlay to keep text readable */
   background-image: 
-    linear-gradient(to bottom, rgba(248, 250, 252, 0.4) 0%, rgba(248, 250, 252, 0.4) 100%),
+    linear-gradient(to bottom, rgba(248, 250, 252, 0.72) 0%, rgba(248, 250, 252, 0.72) 100%),
     url('/Bg-throne.png') !important;
   background-size: cover !important;
   background-position: center !important;
@@ -40,7 +40,7 @@ body {
 .dark body {
   /* Dark overlay for dark mode readability */
   background-image: 
-    linear-gradient(to bottom, rgba(11, 15, 25, 0.78) 0%, rgba(11, 15, 25, 0.78) 100%),
+    linear-gradient(to bottom, rgba(11, 15, 25, 0.86) 0%, rgba(11, 15, 25, 0.86) 100%),
     url('/Bg-throne.png') !important;
 }
 
@@ -173,5 +173,25 @@ input[type="number"] {
 .animate-game-wings {
   animation: game-wings 4s ease-in-out infinite;
   transform-origin: bottom center;
+}
+
+/* Ticker scrolling marquee animation */
+@keyframes ticker-marquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-ticker-marquee {
+  display: flex;
+  width: max-content;
+  animation: ticker-marquee 30s linear infinite;
+}
+
+.animate-ticker-marquee:hover {
+  animation-play-state: paused;
 }
 

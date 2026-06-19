@@ -104,7 +104,11 @@ export async function middleware(request: NextRequest) {
             const now = new Date()
 
             if (now > trialEndsAt) {
-              return NextResponse.redirect(new URL('/billing', request.url))
+              // จำกัดการเข้าใช้งานเฉพาะในส่วนการประมูลเมื่อหมดอายุ
+              const isAuctionRoute = pathname.startsWith('/auction') || pathname.startsWith('/profile/history')
+              if (isAuctionRoute) {
+                return NextResponse.redirect(new URL('/billing', request.url))
+              }
             }
           }
         } catch (trialError) {

@@ -189,8 +189,8 @@ client.on('messageCreate', async (message) => {
     // Query guilds to see if this channelId is registered under any guild settings
     const { data: guild, error: guildFetchError } = await supabase
       .from('guilds')
-      .select('id, name, discord_class_channel_id, discord_name_channel_id, discord_reserve_channel_id')
-      .or(`discord_class_channel_id.eq.${channelId},discord_name_channel_id.eq.${channelId},discord_reserve_channel_id.eq.${channelId}`)
+      .select('id, name, discord_class_channel_id, discord_name_channel_id, discord_reserve_channel_id, discord_leave_channel_id')
+      .or(`discord_class_channel_id.eq.${channelId},discord_name_channel_id.eq.${channelId},discord_reserve_channel_id.eq.${channelId},discord_leave_channel_id.eq.${channelId}`)
       .maybeSingle();
 
     if (guildFetchError) {
@@ -204,7 +204,7 @@ client.on('messageCreate', async (message) => {
     // Check link status of the message sender
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, display_name, job_name, guild_id')
+      .select('id, display_name, job_name, guild_id, is_on_leave')
       .eq('discord_user_id', message.author.id)
       .maybeSingle();
 
@@ -365,6 +365,55 @@ client.on('messageCreate', async (message) => {
       }
 
       return message.reply(`✅ จองคิวสำเร็จ! \nสมาชิก: **${profile.display_name}** \nไอเทม: **${itemLabel}** จำนวน: **${qty}** ชิ้น (รวมจองไอเทมนี้ทั้งหมด ${currentCount + qty}/10 ชิ้น) 📦`);
+    }
+
+    // 4. LEAVE CHANNEL ACTION
+    if (channelId === guild.discord_leave_channel_id) {
+      const lowerContent = content.toLowerCase();
+      let newLeaveStatus = null;
+      let statusText = "";
+
+      if (lowerContent.includes("ยกเลิก") || lowerContent.includes("ปกติ") || lowerContent.includes("กลับมา") || lowerContent.includes("ยกเลิกลา")) {
+        newLeaveStatus = false;
+        statusText = "ปกติ (พร้อมเข้าร่วมวอร์)";
+      } else if (lowerContent.includes("ลา") || lowerContent.includes("ลากิจ") || lowerContent.includes("ขอลากิจ")) {
+        newLeaveStatus = true;
+        statusText = "ลากิจกรรม (กรอบสีแดงในระบบ)";
+      }
+
+      if (newLeaveStatus === null) {
+        return message.reply("❓ ไม่เข้าใจความประสงค์ครับ \n* หากต้องการแจ้งลา: พิมพ์ `ลา`, `ลากิจ` หรือ `ขอลากิจ` \n* หากต้องการยกเลิกการลา: พิมพ์ `ยกเลิกลา` หรือ `ยกเลิก` ครับ");
+      }
+
+      if (profile.is_on_leave === newLeaveStatus) {
+        return message.reply(`ℹ️ สถานะของคุณเป็น **${statusText}** อยู่แล้วครับ`);
+      }
+
+      // Update Leave Status in DB
+      const updateData = {
+        is_on_leave: newLeaveStatus,
+        updated_at: new Date().toISOString()
+      };
+      if (newLeaveStatus === true) {
+        updateData.party_id = null;
+        updateData.slot_index = null;
+      }
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', profile.id);
+
+      if (updateError) {
+        console.error('[Bot] Failed to update leave status:', updateError);
+        return message.reply('❌ เกิดข้อผิดพลาดในการบันทึกสถานะการลา กรุณาลองใหม่อีกครั้ง');
+      }
+
+      if (newLeaveStatus === true) {
+        return message.reply(`✅ แจ้งลากิจกรรมสำเร็จ! \nสมาชิก: **${profile.display_name}** ได้รับการปรับสถานะเป็น **ลากิจกรรม** เรียบร้อยครับ (ระบบจะนำชื่อออกจากปาร์ตี้กิจกรรมชั่วคราว) 🛌`);
+      } else {
+        return message.reply(`✅ ยกเลิกการลากิจกรรมสำเร็จ! \nสมาชิก: **${profile.display_name}** ได้รับการปรับสถานะเป็น **ปกติ** พร้อมจัดปาร์ตี้ร่วมกิจกรรมแล้วครับ ⚔️`);
+      }
     }
 
   } catch (error) {

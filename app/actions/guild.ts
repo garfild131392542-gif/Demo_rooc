@@ -15,6 +15,7 @@ interface UpdateGuildData {
   discordClassChannelId?: string | null
   discordNameChannelId?: string | null
   discordReserveChannelId?: string | null
+  discordLeaveChannelId?: string | null
 }
 
 /**
@@ -65,6 +66,7 @@ export async function updateGuildAction(guildId: string, data: UpdateGuildData) 
         discord_class_channel_id: data.discordClassChannelId?.trim() || null,
         discord_name_channel_id: data.discordNameChannelId?.trim() || null,
         discord_reserve_channel_id: data.discordReserveChannelId?.trim() || null,
+        discord_leave_channel_id: data.discordLeaveChannelId?.trim() || null,
       })
       .eq('id', guildId)
 

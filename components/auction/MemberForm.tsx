@@ -20,9 +20,9 @@ export default function MemberForm({
 }: MemberFormProps) {
   const itemTypes = [
     { key: 'Album', label: 'สมุดการ์ด' },
-    { key: 'Puppet', label : 'เศษการ์ดบอสปลอม' },
-    { key: 'White', label: 'ขนนกขาว' },
-    { key: 'RedBlack', label: 'ขนนกดำ/แดง' },
+    { key: 'Puppet', label : 'เศษการ์ดบอส' },
+    { key: 'White', label: 'ขนขาว' },
+    { key: 'RedBlack', label: 'ขนดำแดง' },
   ] as const
 
   const handleQtyFocus = (key: AuctionItemType) => {

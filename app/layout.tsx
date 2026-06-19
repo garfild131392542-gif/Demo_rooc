@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 
 // 1. Import ตัวน้อง Poring เข้ามา (เปลี่ยนพาธให้ตรงกับที่คุณเซฟไฟล์ไว้นะครับ)
 import PoringAssistant from "@/components/PoringAssistant";
+import UpdateTicker from "@/components/UpdateTicker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -58,6 +59,7 @@ export default async function RootLayout({
         />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Navbar />
+          {session && <UpdateTicker />}
           <main className="flex-1">
             {children}
           </main>

@@ -133,9 +133,12 @@ export default async function HistoryPage() {
     if (q.status === 'waiting' && waitlistQueueIds.has(q.id)) {
       finalStatus = 'waitlist'
     }
+    const userMeta = memberMap.get(q.user_id)
+    const displayName = userMeta?.display_name || 'ไม่ทราบชื่อ'
     return {
       ...q,
-      calculated_status: finalStatus
+      calculated_status: finalStatus,
+      display_name: displayName
     }
   })
 

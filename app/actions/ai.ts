@@ -1,6 +1,6 @@
 "use server";
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 export async function extractStatsFromImage(
   base64Image: string,
@@ -22,17 +22,17 @@ export async function extractStatsFromImage(
     const shuffledKeys = [...apiKeys].sort(() => Math.random() - 0.5);
 
     const prompt = `
-      ดูรูปภาพหน้าจอเกม Ragnarok นี้ 
-      ภารกิจของคุณคือการดึงตัวเลขสเตตัส 16 ค่าออกมาดังนี้:
+      ดูรูปภาพหน้าจอเกม Ragnarok Origin Classic (ROOC) นี้อย่างละเอียด 
+      ภารกิจของคุณคือการดึงตัวเลขสเตตัส 16 ค่าออกมาให้ถูกต้องและแม่นยำที่สุด:
 
       1. P.ATK (จำนวนเต็ม)
       2. M.ATK (จำนวนเต็ม)
       3. P.DEF (จำนวนเต็ม)
       4. M.DEF (จำนวนเต็ม)
-      5. P.DMG Bonus (ตัวเลขทศนิยม ฝั่งที่มีเครื่องหมาย %)
-      6. M.DMG Bonus (ตัวเลขทศนิยม ฝั่งที่มีเครื่องหมาย %)
-      7. P.DMG Reduction (ตัวเลขทศนิยม ฝั่งที่มีเครื่องหมาย %)
-      8. M.DMG Reduction (ตัวเลขทศนิยม ฝั่งที่มีเครื่องหมาย %)
+      5. P.DMG Bonus (ตัวเลขทศนิยม เช่น 35.83% ให้ดึงเฉพาะ 35.83)
+      6. M.DMG Bonus (ตัวเลขทศนิยม เช่น 35.83% ให้ดึงเฉพาะ 35.83)
+      7. P.DMG Reduction (ตัวเลขทศนิยม เช่น 35.83% ให้ดึงเฉพาะ 35.83)
+      8. M.DMG Reduction (ตัวเลขทศนิยม เช่น 35.83% ให้ดึงเฉพาะ 35.83)
       9. PVP DMG Bonus (จำนวนเต็ม)
       10. PVP DMG Reduction หรือค่าที่อยู่บรรทัดสุดท้ายอยู่ซ้ายมือของค่า PVP DMG Bonus (จำนวนเต็ม)
       11. HP (จำนวนเต็ม)
@@ -40,31 +40,12 @@ export async function extractStatsFromImage(
       13. Ignore P.DEF (จำนวนเต็ม)
       14. Ignore M.DEF (จำนวนเต็ม)
       15. Cri (จำนวนเต็ม) (ค่าอัตราคริติคอลในรูป)
-      16. Cri Dam หรือ Critical DMG (ตัวเลขทศนิยม ฝั่งที่มีเครื่องหมาย %) (ค่าความเสียหายคริติคอลในรูป)
+      16. Cri Dam หรือ Critical DMG (ตัวเลขทศนิยม เช่น 150.2% ให้ดึงเฉพาะ 150.2)
       
-      คำแนะนำสำคัญระดับสูง (อ่านให้ละเอียด):
-      - สำหรับค่าที่ 5 ถึง 8 และข้อ 16: ให้ดึงเฉพาะตัวเลขฝั่งที่เป็นเปอร์เซ็นต์ (%) มาตอบ โดยไม่ต้องใส่เครื่องหมาย % (เช่น ในรูปคือ 35.83% ให้ตอบ 35.83)
-      - สำหรับข้อ 10 (PvP DMG Reduction): เนื่องจากข้อความชื่อในเกมอาจจะยาวและเลื่อนวิ่งไปมาจนชื่อแหว่ง (เช่น เหลือแค่ 'Reduction', 'PVP DMG...' ,'P DMG Reduction' ,หรืออ่านชื่อไม่ออก) ให้คุณแก้ปัญหาโดย **หาตัวเลขจำนวนเต็มที่อยู่คู่กับ PVP DMG Bonus เสมอ** แล้วดึงค่านั้นมาตอบได้เลย
-      
-      ตอบกลับมาเป็น JSON ตามโครงสร้างด้านล่างนี้เท่านั้น ห้ามมีข้อความอื่นปน:
-      {
-        "p_atk": 0,
-        "m_atk": 0,
-        "p_def": 0,
-        "m_def": 0,
-        "p_dmg": 0.0,
-        "m_dmg": 0.0,
-        "p_reduc": 0.0,
-        "m_reduc": 0.0,
-        "pvp_dmg": 0,
-        "pvp_reduc": 0,
-        "hp": 0,
-        "sp": 0,
-        "ignore_pdef": 0,
-        "ignore_mdef": 0,
-        "cri": 0,
-        "cri_dmg": 0.0
-      }
+      คำแนะนำในการอ่านค่าเพื่อความแม่นยำสูงสุด:
+      - รูปภาพอาจถูกย่อขนาดมา แต่ตัวเลขจะยังคงคมชัด ให้เพ่งเล็งตัวเลขตรงกับชื่อแอตทริบิวต์นั้นๆ
+      - ห้ามใส่เครื่องหมาย % หรือตัวอักษรใดๆ ปนในตัวเลข
+      - หากสเตตัสใดหาไม่เจอหรืออ่านไม่ได้จริงๆ ให้ระบุเป็น 0 ห้ามเว้นว่าง
     `;
 
     const base64Data = base64Image.split(",")[1];
@@ -73,49 +54,87 @@ export async function extractStatsFromImage(
     let text = "";
     let success = false;
 
+    // ระบบจะลองรันโมเดลที่เสถียรที่สุดก่อน (gemini-2.5-flash) และหากไม่ได้จะใช้ gemini-flash-latest เป็นตัวสำรอง
+    const modelsToTry = ["gemini-2.5-flash", "gemini-flash-latest"];
+
     for (const apiKey of shuffledKeys) {
-      try {
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({
-          model: "gemini-2.5-flash", // ใช้ gemini-2.5-flash ที่มีความเสถียรและแม่นยำสูง
-          generationConfig: {
-            responseMimeType: "application/json",
-          },
-        });
+      let keyFailedCritically = false;
 
-        const result = await model.generateContent([
-          prompt,
-          {
-            inlineData: {
-              data: base64Data,
-              mimeType: mimeType,
+      for (const modelName of modelsToTry) {
+        if (keyFailedCritically) break;
+
+        try {
+          const genAI = new GoogleGenerativeAI(apiKey);
+          const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: SchemaType.OBJECT,
+                properties: {
+                  p_atk: { type: SchemaType.INTEGER, description: "P.ATK" },
+                  m_atk: { type: SchemaType.INTEGER, description: "M.ATK" },
+                  p_def: { type: SchemaType.INTEGER, description: "P.DEF" },
+                  m_def: { type: SchemaType.INTEGER, description: "M.DEF" },
+                  p_dmg: { type: SchemaType.NUMBER, description: "P.DMG Bonus" },
+                  m_dmg: { type: SchemaType.NUMBER, description: "M.DMG Bonus" },
+                  p_reduc: { type: SchemaType.NUMBER, description: "P.DMG Reduction" },
+                  m_reduc: { type: SchemaType.NUMBER, description: "M.DMG Reduction" },
+                  pvp_dmg: { type: SchemaType.INTEGER, description: "PVP DMG Bonus" },
+                  pvp_reduc: { type: SchemaType.INTEGER, description: "PVP DMG Reduction" },
+                  hp: { type: SchemaType.INTEGER, description: "HP" },
+                  sp: { type: SchemaType.INTEGER, description: "SP" },
+                  ignore_pdef: { type: SchemaType.INTEGER, description: "Ignore P.DEF" },
+                  ignore_mdef: { type: SchemaType.INTEGER, description: "Ignore M.DEF" },
+                  cri: { type: SchemaType.INTEGER, description: "Cri" },
+                  cri_dmg: { type: SchemaType.NUMBER, description: "Cri Dam" }
+                },
+                required: [
+                  "p_atk", "m_atk", "p_def", "m_def", "p_dmg", "m_dmg", "p_reduc", "m_reduc",
+                  "pvp_dmg", "pvp_reduc", "hp", "sp", "ignore_pdef", "ignore_mdef", "cri", "cri_dmg"
+                ]
+              }
             },
-          },
-        ]);
+          });
 
-        text = result.response.text();
-        success = true;
-        break; // สำเร็จแล้วออกจากลูป
-      } catch (err: any) {
-        console.error(`Error extracting stats with key starting with ${apiKey.substring(0, 8)}... :`, err.message || err);
-        lastError = err;
+          const result = await model.generateContent([
+            prompt,
+            {
+              inlineData: {
+                data: base64Data,
+                mimeType: mimeType,
+              },
+            },
+          ]);
+
+          text = result.response.text();
+          success = true;
+          break; // Exit model loop on success
+        } catch (err: any) {
+          console.error(`Error with key starting with ${apiKey.substring(0, 8)}... using ${modelName}:`, err.message || err);
+          lastError = err;
+
+          // Check if key is critically failed (like Forbidden 403 or Invalid API key)
+          const errMsg = (err.message || "").toLowerCase();
+          if (errMsg.includes("forbidden") || errMsg.includes("api key not valid") || errMsg.includes("denied access")) {
+            keyFailedCritically = true; // Skip other models for this key
+          }
+        }
+      }
+
+      if (success) {
+        break; // Exit key loop on success
       }
     }
 
     if (!success) {
-      throw lastError || new Error("ไม่มี API Key ใดทำงานได้");
+      throw lastError || new Error("ไม่มี API Key หรือโมเดลใดทำงานได้");
     }
 
     // 💡 ปริ้นดูผลลัพธ์ดิบๆ จาก AI ใน Terminal ของ VS Code เผื่อเช็คเวลามีปัญหา
     console.log("Raw AI Response:", text);
 
-    const cleanedText = text
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
-
-    // ข้อมูลจะเป็น JSON แน่นอน จึงแปลงได้เลย
-    const stats = JSON.parse(cleanedText);
+    const stats = JSON.parse(text.trim());
 
     return { success: true, data: stats };
   } catch (error: any) {

@@ -57,6 +57,56 @@ const StatInput = ({
   );
 };
 
+const compressImage = (file: File, maxWidth = 1200, maxHeight = 1200): Promise<{ base64: string; type: string }> => {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") {
+      resolve({ base64: "", type: file.type });
+      return;
+    }
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = document.createElement("img");
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const base64 = canvas.toDataURL("image/jpeg", 0.8);
+          resolve({ base64, type: "image/jpeg" });
+        } else {
+          resolve({ base64: reader.result as string, type: file.type });
+        }
+      };
+      img.onerror = () => {
+        resolve({ base64: reader.result as string, type: file.type });
+      };
+    };
+    reader.onerror = () => {
+      resolve({ base64: "", type: file.type });
+    };
+  });
+};
+
 export default function ProfileForm({
   initialProfile,
   isEligibleForShowcase = false,
@@ -385,16 +435,7 @@ export default function ProfileForm({
 
     try {
       const base64Images = await Promise.all(
-        filesToProcess.map(
-          (file) =>
-            new Promise<{ base64: string; type: string }>((resolve) => {
-              const reader = new FileReader();
-              reader.readAsDataURL(file);
-              reader.onload = () => {
-                resolve({ base64: reader.result as string, type: file.type });
-              };
-            }),
-        ),
+        filesToProcess.map((file) => compressImage(file)),
       );
 
       const results = await Promise.all(

@@ -609,7 +609,42 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
 
         {/* TAB 2: DISCORD BOT CONFIG */}
         {activeTab === "discord" && (
-          <div className="space-y-4 animate-in fade-in duration-200 bg-slate-50 dark:bg-slate-900/30 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
+          <div className="space-y-4 animate-in fade-in duration-200">
+
+            {/* Bot Invite Card */}
+            <div className="relative overflow-hidden rounded-2xl border border-[#5865F2]/40 bg-gradient-to-br from-[#5865F2]/10 via-[#5865F2]/5 to-transparent dark:from-[#5865F2]/20 dark:via-[#5865F2]/10 dark:to-transparent p-5 shadow-md">
+              <div className="flex items-start gap-4">
+                {/* Discord Bot Icon */}
+                <div className="shrink-0 flex items-center justify-center w-12 h-12 rounded-2xl bg-[#5865F2] shadow-lg shadow-[#5865F2]/30">
+                  <svg className="w-7 h-7 fill-white" viewBox="0 0 127.14 96.36">
+                    <path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,52.88,6.83,77.19,77.19,0,0,0,49.58,0,105.15,105.15,0,0,0,19.14,8.07C-3.83,42.06-2.57,75.48,8.23,95.63a105.89,105.89,0,0,0,32.22,16.29,78.29,78.29,0,0,0,6.79-11,68.6,68.6,0,0,1-10.7-5.12c.9-.66,1.8-1.34,2.65-2a75.58,75.58,0,0,0,76,0c.85.71,1.75,1.39,2.65,2a68.6,68.6,0,0,1-10.7,5.12,78.29,78.29,0,0,0,6.79,11,105.89,105.89,0,0,0,32.22-16.29C130.66,75.48,131.72,42.06,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.88,46,53.88,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.12,46,96.12,53,91,65.69,84.69,65.69Z"/>
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white mb-0.5">
+                    เชิญบอทเข้าเซิร์ฟเวอร์ Discord
+                  </h3>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium leading-relaxed mb-3">
+                    บอทต้องอยู่ในเซิร์ฟเวอร์ก่อน จึงจะสามารถส่งแจ้งเตือนไปยังห้องด้านล่างได้
+                  </p>
+                  <a
+                    href="https://discord.com/oauth2/authorize?client_id=1517039373097369610&permissions=134220800&integration_type=0&scope=bot+applications.commands"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#5865F2] hover:bg-[#4752C4] active:scale-95 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-[#5865F2]/25 whitespace-nowrap"
+                  >
+                    <svg className="w-4 h-4 fill-white shrink-0" viewBox="0 0 127.14 96.36">
+                      <path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,52.88,6.83,77.19,77.19,0,0,0,49.58,0,105.15,105.15,0,0,0,19.14,8.07C-3.83,42.06-2.57,75.48,8.23,95.63a105.89,105.89,0,0,0,32.22,16.29,78.29,78.29,0,0,0,6.79-11,68.6,68.6,0,0,1-10.7-5.12c.9-.66,1.8-1.34,2.65-2a75.58,75.58,0,0,0,76,0c.85.71,1.75,1.39,2.65,2a68.6,68.6,0,0,1-10.7,5.12,78.29,78.29,0,0,0,6.79,11,105.89,105.89,0,0,0,32.22-16.29C130.66,75.48,131.72,42.06,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.88,46,53.88,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.12,46,96.12,53,91,65.69,84.69,65.69Z"/>
+                    </svg>
+                    เชิญบอทเข้าเซิร์ฟเวอร์
+                    <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Channel Config Card */}
+            <div className="bg-slate-50 dark:bg-slate-900/30 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
             <div>
               <h3 className="text-sm font-extrabold text-slate-900 dark:text-slate-200 mb-1">
                 🤖 เชื่อมต่อห้องบอท Discord (Discord Bot Channels)
@@ -679,6 +714,7 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
                   placeholder="เช่น 1717393064400912494"
                 />
               </div>
+            </div>
             </div>
           </div>
         )}
@@ -762,6 +798,29 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
         {/* TAB 4: INVITE & URLS */}
         {activeTab === "invite" && (
           <div className="space-y-4 animate-in fade-in duration-200">
+
+            {/* Bot Invite Banner */}
+            <div className="flex items-center gap-3 rounded-2xl border border-[#5865F2]/30 bg-gradient-to-r from-[#5865F2]/10 to-[#5865F2]/5 dark:from-[#5865F2]/20 dark:to-[#5865F2]/10 px-4 py-3.5">
+              <div className="shrink-0 flex items-center justify-center w-9 h-9 rounded-xl bg-[#5865F2] shadow-md shadow-[#5865F2]/30">
+                <svg className="w-5 h-5 fill-white" viewBox="0 0 127.14 96.36">
+                  <path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,52.88,6.83,77.19,77.19,0,0,0,49.58,0,105.15,105.15,0,0,0,19.14,8.07C-3.83,42.06-2.57,75.48,8.23,95.63a105.89,105.89,0,0,0,32.22,16.29,78.29,78.29,0,0,0,6.79-11,68.6,68.6,0,0,1-10.7-5.12c.9-.66,1.8-1.34,2.65-2a75.58,75.58,0,0,0,76,0c.85.71,1.75,1.39,2.65,2a68.6,68.6,0,0,1-10.7,5.12,78.29,78.29,0,0,0,6.79,11,105.89,105.89,0,0,0,32.22-16.29C130.66,75.48,131.72,42.06,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.88,46,53.88,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.12,46,96.12,53,91,65.69,84.69,65.69Z"/>
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-slate-900 dark:text-white">เชิญบอทเข้าเซิร์ฟเวอร์ Discord</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">บอทต้องอยู่ในเซิร์ฟเวอร์ก่อน จึงจะส่งแจ้งเตือนได้</p>
+              </div>
+              <a
+                href="https://discord.com/oauth2/authorize?client_id=1517039373097369610&permissions=134220800&integration_type=0&scope=bot+applications.commands"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#5865F2] hover:bg-[#4752C4] active:scale-95 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-[#5865F2]/20"
+              >
+                เชิญบอท
+                <svg className="w-3 h-3 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+              </a>
+            </div>
+
             <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 relative shadow-inner">
               <div className="absolute top-4 right-4 text-slate-400 dark:text-slate-500">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>

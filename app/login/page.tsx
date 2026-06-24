@@ -90,6 +90,8 @@ export default function LoginPage() {
         return
       }
 
+      // ตั้ง flag ว่าเพิ่งล็อกอินสำเร็จ → ให้ AnnouncementModal รู้ว่าต้องเด้ง
+      sessionStorage.setItem('just-logged-in', '1')
       await router.push('/')
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดที่ไม่รู้จัก โปรดลองอีกครั้ง')

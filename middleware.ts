@@ -35,8 +35,27 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Get the user securely
-  const { data: { user } } = await supabase.auth.getUser()
+  // Get the user securely — handle expired/invalid refresh tokens gracefully
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  // ถ้า Refresh Token หมดอายุหรือถูก revoke ให้ sign out และ redirect ไป login ทันที
+  // แทนที่จะ log error ซ้ำๆ ทุก request
+  if (authError && (
+    authError.message?.includes('refresh_token_not_found') ||
+    authError.message?.includes('Invalid Refresh Token') ||
+    (authError as any).code === 'refresh_token_not_found'
+  )) {
+    await supabase.auth.signOut()
+    const loginUrl = new URL('/login', request.url)
+    const response = NextResponse.redirect(loginUrl)
+    // ลบ cookie session ที่เสียออกทั้งหมด
+    request.cookies.getAll().forEach(cookie => {
+      if (cookie.name.startsWith('sb-')) {
+        response.cookies.delete(cookie.name)
+      }
+    })
+    return response
+  }
 
   // 1. If authenticated, prevent access to login/register routes and redirect to home
   if (user && (pathname === '/login' || pathname === '/register')) {

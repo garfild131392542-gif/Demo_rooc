@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 // 1. Import ตัวน้อง Poring เข้ามา (เปลี่ยนพาธให้ตรงกับที่คุณเซฟไฟล์ไว้นะครับ)
 import PoringAssistant from "@/components/PoringAssistant";
 import UpdateTicker from "@/components/UpdateTicker";
+import AnnouncementModal from "@/components/AnnouncementModal";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -66,6 +67,9 @@ export default async function RootLayout({
 
           {/* 2. วางน้อง Poring ไว้ตรงนี้ครับ น้องจะลอยตามไปทุกๆ หน้า */}
           <PoringAssistant />
+
+          {/* 3. Announcement Modal — เด้งวันละ 1 ครั้ง แจ้งเตือนอัปเดต */}
+          <AnnouncementModal />
 
         </ThemeProvider>
       </body>

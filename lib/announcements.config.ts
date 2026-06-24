@@ -52,7 +52,7 @@ export type Announcement = {
 // ✏️ แก้ไขตรงนี้เพื่ออัปเดตประกาศ
 // ============================================================
 export const CURRENT_ANNOUNCEMENT: Announcement = {
-  id: '2026-06-24-v2',      // ← เปลี่ยนทุกครั้งที่มีประกาศใหม่
+  id: '2026-06-24-v3',      // ← เปลี่ยนทุกครั้งที่มีประกาศใหม่
   title: '📢 อัปเดตระบบล่าสุด',
   subtitle: 'มีการปรับปรุงและเพิ่มฟีเจอร์ใหม่ กรุณาอ่านรายละเอียดด้านล่าง',
   items: [
@@ -62,18 +62,6 @@ export const CURRENT_ANNOUNCEMENT: Announcement = {
       detail: 'สามารถเชิญบอทเข้าเซิร์ฟเวอร์ Discord และตั้งค่า Channel ID ได้จากหน้า "ตั้งค่าบอท" ใน Guild Settings — ดูวิดีโอสอนตั้งค่าด้านล่างได้เลย',
       color: 'blue',
       youtubeUrl: 'https://youtu.be/Lo3N6FFQD0M?si=fV3CLspigDaLTUxa',
-    },
-    {
-      icon: '💰',
-      label: 'ปรับราคาแพ็กเกจ',
-      detail: 'ราคาใหม่ 259 บาท / 30 วัน ใช้ฟีเจอร์ทุกอย่างได้เต็มรูปแบบ',
-      color: 'green',
-    },
-    {
-      icon: '🔒',
-      label: 'แก้ไขระบบ Session',
-      detail: 'ปรับปรุงการจัดการ Token ให้เสถียรขึ้น ลดการเกิด Error ขณะใช้งาน',
-      color: 'yellow',
     },
   ],
   footer: 'ขอบคุณที่ใช้งานระบบครับ 🙏',

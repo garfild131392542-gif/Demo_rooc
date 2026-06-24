@@ -238,9 +238,9 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
             </div>
 
             {/* Discord Connection */}
-            <div>
-              <h3 className="text-xs font-bold text-slate-550 dark:text-slate-400 uppercase tracking-widest mb-2.5">ช่องทาง Discord ของกิลด์</h3>
-              {discordLink ? (
+            {discordLink && (
+              <div>
+                <h3 className="text-xs font-bold text-slate-550 dark:text-slate-400 uppercase tracking-widest mb-2.5">ช่องทาง Discord ของกิลด์</h3>
                 <a 
                   href={discordLink} 
                   target="_blank" 
@@ -252,12 +252,8 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
                   </svg>
                   เข้าร่วม Discord ของกิลด์
                 </a>
-              ) : (
-                <div className="w-full text-center py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-650 dark:text-slate-400 font-bold text-xs">
-                  ยังไม่ได้เชื่อมโยงลิงก์ Discord
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Invite details */}

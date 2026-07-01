@@ -610,9 +610,21 @@ export default function AuctionWindow({
                   {(() => {
                     const groupMap = new Map<string, typeof memberQueues>();
                     const groupOrder: string[] = [];
-                    const waitlistQueueIds = new Set(waitlistSlots?.map(s => s.queueId) || []);
+                    const qualifiedQueueIds = new Set(rawSlots?.map(s => s.queueId).filter(Boolean) || []);
+                    const waitlistQueueIds = new Set(waitlistSlots?.map(s => s.queueId).filter(Boolean) || []);
 
-                    memberQueues.forEach((queue) => {
+                    const filteredMemberQueues = (memberQueues || []).filter((queue) => {
+                      if (queue.status === 'waiting') {
+                        const session = todayItems?.find((s: any) => s.item_name === queue.item_type);
+                        const hasActiveSession = session && session.status === 'active' && (session.total_quantity ?? 0) > 0;
+                        if (hasActiveSession) {
+                          return qualifiedQueueIds.has(queue.id);
+                        }
+                      }
+                      return true;
+                    });
+
+                    filteredMemberQueues.forEach((queue) => {
                       const tsWithoutMs = queue.queue_timestamp
                         ? queue.queue_timestamp.replace(/\.\d{3}/, '')
                         : 'no-ts';
@@ -635,7 +647,12 @@ export default function AuctionWindow({
                         (sum, q) => sum + q.received_qty,
                         0,
                       );
-                      const waitlistedCount = groupQueues.filter(q => waitlistQueueIds.has(q.id)).length;
+                      const activeWaitingCount = groupQueues.filter(
+                        (q) => q.status === 'waiting' && !waitlistQueueIds.has(q.id)
+                      ).length;
+                      const waitlistedCount = groupQueues.filter(
+                        (q) => q.status === 'waiting' && waitlistQueueIds.has(q.id)
+                      ).length;
                       const formattedTime = firstQueue.queue_timestamp
                         ? new Date(firstQueue.queue_timestamp).toLocaleString(
                             "th-TH",
@@ -684,11 +701,17 @@ export default function AuctionWindow({
                                   </div>
                                 </div>
                                 <div className="flex justify-center text-xs font-semibold">
-                                  {totalRequested - totalReceived > 0 ? (
-                                    <span className="text-slate-500 dark:text-slate-400">
-                                      กำลังรอ {totalRequested - totalReceived} อัน
+                                  {activeWaitingCount > 0 && (
+                                    <span className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg border border-blue-200 dark:border-blue-800">
+                                      รอจัดสรร {activeWaitingCount} อัน
                                     </span>
-                                  ) : (
+                                  )}
+                                  {waitlistedCount > 0 && (
+                                    <span className="text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-lg border border-amber-200 dark:border-amber-800 animate-pulse">
+                                      รอรอบถัดไป {waitlistedCount} อัน
+                                    </span>
+                                  )}
+                                  {totalRequested - totalReceived === 0 && (
                                     <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800">
                                       สำเร็จ
                                     </span>

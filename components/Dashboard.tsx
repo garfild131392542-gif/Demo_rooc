@@ -25,6 +25,7 @@ export type Profile = {
   email?: string | null;
   display_name: string;
   job_name: string;
+  cp?: number | null;
   
   // Stats
   pvp_reduc: number;

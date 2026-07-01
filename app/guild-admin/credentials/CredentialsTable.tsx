@@ -13,6 +13,7 @@ type ManagementItem = {
   display_name: string
   job_name: string
   role: string
+  cp: number
   pvp_reduc: number
   pvp_dmg: number
   p_def: number
@@ -121,7 +122,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
         const maxVal = STAT_LIMITS[key];
         if (numVal > maxVal) {
           const labels: Record<string, string> = {
-            hp: "Max HP", sp: "Max SP", p_atk: "P.ATK", m_atk: "M.ATK",
+            cp: "CP", hp: "Max HP", sp: "Max SP", p_atk: "P.ATK", m_atk: "M.ATK",
             p_def: "P.DEF", m_def: "M.DEF", ignore_pdef: "Ignore P.DEF", ignore_mdef: "Ignore M.DEF",
             p_dmg: "P.DMG (%)", m_dmg: "M.DMG (%)", p_reduc: "P.Reduc (%)", m_reduc: "M.Reduc (%)",
             pvp_dmg: "PvP DMG", pvp_reduc: "PvP Reduc", cri: "Cri", cri_dmg: "Cri Dam (%)"
@@ -155,7 +156,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
         const maxVal = STAT_LIMITS[key];
         if (numVal > maxVal) {
           const labels: Record<string, string> = {
-            hp: "Max HP", sp: "Max SP", p_atk: "P.ATK", m_atk: "M.ATK",
+            cp: "CP", hp: "Max HP", sp: "Max SP", p_atk: "P.ATK", m_atk: "M.ATK",
             p_def: "P.DEF", m_def: "M.DEF", ignore_pdef: "Ignore P.DEF", ignore_mdef: "Ignore M.DEF",
             p_dmg: "P.DMG (%)", m_dmg: "M.DMG (%)", p_reduc: "P.Reduc (%)", m_reduc: "M.Reduc (%)",
             pvp_dmg: "PvP DMG", pvp_reduc: "PvP Reduc", cri: "Cri", cri_dmg: "Cri Dam (%)"
@@ -255,6 +256,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       "UID (เกม)": item.uid_game || "-",
       "ชื่อตัวละคร": item.display_name || "-",
       "อาชีพ": item.job_name || "-",
+      "CP": item.cp || 0,
       "ระดับสิทธิ์": item.role === 'admin' ? 'ผู้ดูแลระบบ' : 'สมาชิก',
       "HP": item.hp || 0,
       "SP": item.sp || 0,
@@ -467,6 +469,10 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                       <option value="admin">Admin</option>
                     </select>
                   </div>
+                  <div className="sm:col-span-2 lg:col-span-2">
+                    <label className="block text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">CP (ค่าพลังตัวละคร)</label>
+                    <input name="cp" type="number" defaultValue={0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-amber-500 focus:border-amber-500 font-bold text-amber-600 dark:text-amber-400" />
+                  </div>
                   {/* Stats Inputs */}
 
                   {/* คู่ HP และ SP */}
@@ -574,6 +580,10 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                       <option value="member">Member</option>
                       <option value="admin">Admin</option>
                     </select>
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-2">
+                    <label className="block text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">CP (ค่าพลังตัวละคร)</label>
+                    <input name="cp" type="number" defaultValue={editingMember.cp ?? 0} className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-amber-500 focus:border-amber-500 font-bold text-amber-600 dark:text-amber-400" />
                   </div>
                   {/* Stats Inputs */}
 

@@ -87,11 +87,12 @@ export async function extractStatsFromImage(
                   ignore_pdef: { type: SchemaType.INTEGER, description: "Ignore P.DEF" },
                   ignore_mdef: { type: SchemaType.INTEGER, description: "Ignore M.DEF" },
                   cri: { type: SchemaType.INTEGER, description: "Cri" },
-                  cri_dmg: { type: SchemaType.NUMBER, description: "Cri Dam" }
+                  cri_dmg: { type: SchemaType.NUMBER, description: "Cri Dam" },
+                  cp: { type: SchemaType.INTEGER, description: "CP (Character Power)" }
                 },
                 required: [
                   "p_atk", "m_atk", "p_def", "m_def", "p_dmg", "m_dmg", "p_reduc", "m_reduc",
-                  "pvp_dmg", "pvp_reduc", "hp", "sp", "ignore_pdef", "ignore_mdef", "cri", "cri_dmg"
+                  "pvp_dmg", "pvp_reduc", "hp", "sp", "ignore_pdef", "ignore_mdef", "cri", "cri_dmg", "cp"
                 ]
               }
             },

@@ -175,6 +175,12 @@ export default function MemberCard({
                 {profile.display_name}
               </p>
 
+              {profile.cp !== undefined && profile.cp !== null && (
+                <div className="mt-1 text-[10px] text-amber-500 dark:text-amber-400 font-extrabold bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 shadow-sm select-none">
+                  CP: {profile.cp.toLocaleString()}
+                </div>
+              )}
+
               {/* 💡 เปลี่ยนขนาดจาก text-[10px] เป็น text-xs และเพิ่มระยะห่างบรรทัด (gap-y-2) */}
               <div className="w-full mt-2 text-xs grid grid-cols-2 gap-x-2 gap-y-2 text-center border-t border-gray-700 pt-2">
                 <div>

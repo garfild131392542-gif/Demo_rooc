@@ -23,7 +23,7 @@ export default async function MembersPage() {
   // 🌟 2. ดึงข้อมูลโปรไฟล์ล็อกเฉพาะคนที่มี guild_id ตรงกับเราเท่านั้น ป้องกัน Data Leak
   const { data: profiles, error } = await supabase
     .from('profiles')
-    .select('id, display_name, job_name, pvp_reduc, pvp_dmg, p_def, m_def, p_atk, m_atk, p_dmg, m_dmg, p_reduc, m_reduc, hp, sp, ignore_pdef, ignore_mdef, cri, cri_dmg, character_showcase_url')
+    .select('id, cp, display_name, job_name, pvp_reduc, pvp_dmg, p_def, m_def, p_atk, m_atk, p_dmg, m_dmg, p_reduc, m_reduc, hp, sp, ignore_pdef, ignore_mdef, cri, cri_dmg, character_showcase_url')
     .eq('guild_id', myGuildId) // 🔐 กั้นสิทธิ์คัดกรองข้ามกิลด์เด็ดขาด
     .order('pvp_dmg', { ascending: false })
 

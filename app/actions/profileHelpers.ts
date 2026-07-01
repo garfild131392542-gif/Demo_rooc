@@ -1,6 +1,7 @@
 export type ProfileUpdatePayload = {
   display_name: string;
   job_name: string;
+  cp: number;
   pvp_reduc: number;
   pvp_dmg: number;
   p_def: number;
@@ -42,6 +43,7 @@ export const buildProfileUpdatePayload = (formData: FormData): ProfileUpdatePayl
   return {
     display_name: normalizeString(formData.get("display_name")),
     job_name: normalizeString(formData.get("job_name")),
+    cp: parseIntegerField(formData.get("cp")),
     pvp_reduc: parseIntegerField(formData.get("pvp_reduc")),
     pvp_dmg: parseIntegerField(formData.get("pvp_dmg")),
     p_def: parseIntegerField(formData.get("p_def")),

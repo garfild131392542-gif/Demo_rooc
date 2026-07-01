@@ -7,6 +7,7 @@ type LeaderboardProfile = {
   id: string;
   display_name: string | null;
   job_name: string | null;
+  cp: number | null;
   pvp_reduc: number | null;
   pvp_dmg: number | null;
   p_def: number | null;
@@ -140,7 +141,11 @@ const PodiumSlot = ({
               {profile ? profile.job_name : "ว่าง"}
             </p>
           </div>
-
+          {profile?.cp !== undefined && profile?.cp !== null && (
+            <div className="inline-flex mt-1 text-[10px] text-amber-500 dark:text-amber-400 font-extrabold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 shadow-sm select-none">
+              CP: {profile.cp.toLocaleString()}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -149,6 +154,7 @@ const PodiumSlot = ({
 
 const SORT_OPTIONS = [
   { label: "ค่าเริ่มต้น (เรียงตามอาชีพ)", value: "default" },
+  { label: "CP", value: "cp" },
   { label: "HP", value: "hp" },
   { label: "SP", value: "sp" },
   { label: "P.ATK", value: "p_atk" },
@@ -178,6 +184,7 @@ export default function LeaderboardTable({
   hallOfFameSilver: string | null;
   hallOfFameBronze: string | null;
 }) {
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
   const [selectedJob, setSelectedJob] = useState<string>("All");
   const [sortBy, setSortBy] = useState<string>("default");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
@@ -341,8 +348,33 @@ export default function LeaderboardTable({
       </div>
 
       {/* --- Toolbar มินิมอล --- */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl shadow-sm glass-panel">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl shadow-sm glass-panel w-full">
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          {/* View Toggle */}
+          <div className="flex bg-slate-100 dark:bg-slate-850 p-1 rounded-lg border border-slate-200 dark:border-slate-700/60 select-none shrink-0">
+            <button
+              onClick={() => setViewMode("card")}
+              type="button"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all duration-150 cursor-pointer ${
+                viewMode === "card"
+                  ? "bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-750 dark:hover:text-slate-200"
+              }`}
+            >
+              🎴 การ์ด
+            </button>
+            <button
+              onClick={() => setViewMode("table")}
+              type="button"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all duration-150 cursor-pointer ${
+                viewMode === "table"
+                  ? "bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-750 dark:hover:text-slate-200"
+              }`}
+            >
+              📋 ตาราง
+            </button>
+          </div>
           {/* ตัวกรองอาชีพแบบเรียบๆ */}
           <div className="relative">
             <select
@@ -451,249 +483,371 @@ export default function LeaderboardTable({
         </button>
       </div>
 
-      {/* --- ตารางดีไซน์ใหม่ ไร้ขอบกลาง --- */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden glass-panel">
-        <div className="max-h-[500px] overflow-auto scroll-smooth pb-2">
-          <table className="min-w-full text-sm text-left">
-            <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
-              <tr>
-                <th className="px-6 py-4 font-medium whitespace-nowrap">
-                  Rank
-                </th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap">
-                  Player
-                </th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap text-center">
-                  Class
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("hp")}`}
-                >
-                  HP
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("sp")}`}
-                >
-                  SP
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("p_atk")}`}
-                >
-                  P.ATK
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("m_atk")}`}
-                >
-                  M.ATK
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("p_def")}`}
-                >
-                  P.DEF
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("m_def")}`}
-                >
-                  M.DEF
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("p_dmg")}`}
-                >
-                  P.DMG(%)
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("m_dmg")}`}
-                >
-                  M.DMG(%)
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("ignore_pdef")}`}
-                >
-                  Ign. P.DEF
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("ignore_mdef")}`}
-                >
-                  Ign. M.DEF
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("p_reduc")}`}
-                >
-                  P.Reduc(%)
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("m_reduc")}`}
-                >
-                  M.Reduc(%)
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("pvp_dmg")}`}
-                >
-                  PvP DMG
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("pvp_reduc")}`}
-                >
-                  PvP Reduc
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("cri")}`}
-                >
-                  Cri
-                </th>
-                <th
-                  className={`px-6 py-4 font-medium whitespace-nowrap ${getHighlightClass("cri_dmg")}`}
-                >
-                  Cri Dam(%)
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
-              {filteredProfiles.map((profile, index) => (
-                <tr
-                  key={profile.id}
-                  className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
-                >
-                  {/* แสดงอันดับ */}
-                  <td className="px-6 py-3 whitespace-nowrap">
-                    {renderRank(index)}
-                  </td>
+      {viewMode === "card" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {filteredProfiles.map((profile, index) => {
+            const jobIcon = getJobIconUrl(profile.job_name);
+            const isTop3 = index < 3;
+            const rankBadgeColor =
+              index === 0 ? "bg-gradient-to-r from-yellow-500 to-amber-500 ring-2 ring-yellow-400 text-white" :
+              index === 1 ? "bg-gradient-to-r from-slate-400 to-slate-505 ring-2 ring-slate-300 text-white" :
+              index === 2 ? "bg-gradient-to-r from-amber-700 to-amber-800 ring-2 ring-amber-600 text-white" :
+              "bg-slate-105 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60";
 
-                  {/* ชื่อตัวละคร */}
-                  <td className="px-6 py-3 whitespace-nowrap font-medium text-slate-900 dark:text-slate-100">
-                    {profile.display_name}
-                  </td>
+            return (
+              <div
+                key={profile.id}
+                className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 overflow-hidden group flex flex-col h-full"
+              >
+                {/* Rank Decorative Line */}
+                <div className={`h-1.5 w-full ${
+                  index === 0 ? "bg-amber-400" :
+                  index === 1 ? "bg-slate-400" :
+                  index === 2 ? "bg-amber-700" :
+                  "bg-slate-200 dark:bg-slate-800"
+                }`} />
 
-                  {/* อาชีพ */}
-                  <td className="px-6 py-3 whitespace-nowrap text-center">
-                    {profile.job_name ? (
-                      <div className="flex justify-center items-center">
+                {/* Rank Badge */}
+                <div className={`absolute top-4 left-4 font-black text-[10px] px-2.5 py-1 rounded-full z-10 ${rankBadgeColor}`}>
+                  #{index + 1}
+                </div>
+
+                {/* Character Showcase / Job Silhouette */}
+                <div className="relative w-full aspect-[4/3] bg-slate-50 dark:bg-slate-950/20 flex items-end justify-center overflow-hidden pt-6 shrink-0">
+                  {profile.character_showcase_url ? (
+                    <img
+                      src={profile.character_showcase_url}
+                      alt={profile.display_name || ''}
+                      className="h-full w-auto object-contain z-10 transition-transform duration-500 group-hover:scale-105 select-none"
+                      onError={(e) => {
+                        (e.target as any).src = jobIcon || '/icons/jobs/default.png';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center p-4">
+                      {jobIcon ? (
                         <img
-                          src={getJobIconUrl(profile.job_name)}
-                          alt={profile.job_name}
-                          className="w-7 h-7 object-contain opacity-90 hover:opacity-100 transition-opacity"
-                          title={profile.job_name}
+                          src={jobIcon}
+                          alt={profile.job_name || ''}
+                          className="w-14 h-14 object-contain opacity-25 dark:opacity-15 group-hover:scale-110 transition-all duration-500"
                         />
-                      </div>
-                    ) : (
-                      <span className="text-slate-400">-</span>
-                    )}
-                  </td>
-
-                  {/* ข้อมูล Status (ใช้ font-mono เพื่อให้ตัวเลขตรงกันเหมือนตาราง Data) */}
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("hp")}`}
-                  >
-                    {profile.hp ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("sp")}`}
-                  >
-                    {profile.sp ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("p_atk")}`}
-                  >
-                    {profile.p_atk ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("m_atk")}`}
-                  >
-                    {profile.m_atk ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("p_def")}`}
-                  >
-                    {profile.p_def ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("m_def")}`}
-                  >
-                    {profile.m_def ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("p_dmg")}`}
-                  >
-                    {profile.p_dmg ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("m_dmg")}`}
-                  >
-                    {profile.m_dmg ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("ignore_pdef")}`}
-                  >
-                    {profile.ignore_pdef ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("ignore_mdef")}`}
-                  >
-                    {profile.ignore_mdef ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("p_reduc")}`}
-                  >
-                    {profile.p_reduc ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("m_reduc")}`}
-                  >
-                    {profile.m_reduc ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("pvp_dmg")}`}
-                  >
-                    {profile.pvp_dmg ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("pvp_reduc")}`}
-                  >
-                    {profile.pvp_reduc ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("cri")}`}
-                  >
-                    {profile.cri ?? 0}
-                  </td>
-                  <td
-                    className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("cri_dmg")}`}
-                  >
-                    {profile.cri_dmg ?? 0}
-                  </td>
-
-
-                </tr>
-              ))}
-
-              {/* กรณีไม่มีข้อมูล */}
-              {filteredProfiles.length === 0 && (
-                <tr>
-                  <td colSpan={19} className="px-6 py-16 text-center">
-                    <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
-                      <svg
-                        className="w-10 h-10 mb-3 stroke-current"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="1.5"
-                          d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                        />
-                      </svg>
-                      <p className="text-sm font-medium">
-                        ไม่พบข้อมูลสมาชิกในอาชีพนี้
-                      </p>
+                      ) : (
+                        <span className="text-3xl opacity-10">👤</span>
+                      )}
                     </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                  )}
+                  {index === 0 && (
+                    <div className="absolute w-28 h-28 rounded-full filter blur-xl opacity-35 bg-amber-400/30 z-0 bottom-[-15px] pointer-events-none" />
+                  )}
+                </div>
+
+                {/* Card Body */}
+                <div className="p-4 flex-1 flex flex-col justify-between">
+                  {/* Name and class */}
+                  <div className="text-center mb-3">
+                    <h3 className="font-bold text-slate-900 dark:text-white truncate text-sm sm:text-base">
+                      {profile.display_name}
+                    </h3>
+                    <div className="flex items-center justify-center gap-1 mt-0.5">
+                      {jobIcon && (
+                        <img
+                          src={jobIcon}
+                          alt={profile.job_name || ''}
+                          className="w-3.5 h-3.5 object-contain"
+                        />
+                      )}
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                        {profile.job_name || 'ไม่ทราบสายอาชีพ'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* CP Highlight */}
+                  <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 dark:from-amber-500/10 dark:to-amber-500/10 border border-amber-500/20 rounded-xl py-1.5 px-3 flex items-center justify-between mb-3 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
+                    <span className="text-xs font-black text-amber-600 dark:text-amber-400">CP</span>
+                    <span className="text-sm font-black font-mono text-amber-500 dark:text-amber-400">
+                      {profile.cp ? profile.cp.toLocaleString() : 0}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {filteredProfiles.length === 0 && (
+            <div className="col-span-full py-16 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
+              <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+                <svg
+                  className="w-10 h-10 mb-3 stroke-current"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.5"
+                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                  />
+                </svg>
+                <p className="text-sm font-medium">ไม่พบข้อมูลสมาชิกในอาชีพนี้</p>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      ) : (
+        /* --- ตารางดีไซน์ใหม่ ไร้ขอบกลาง --- */
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden glass-panel">
+          <div className="max-h-[520px] overflow-auto scroll-smooth pb-2">
+            <table className="min-w-full text-sm text-left">
+              <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 backdrop-blur-sm">
+                <tr>
+                  <th className="px-6 py-4 font-bold whitespace-nowrap">
+                    Rank
+                  </th>
+                  <th className="px-6 py-4 font-bold whitespace-nowrap">
+                    Player
+                  </th>
+                  <th className="px-6 py-4 font-bold whitespace-nowrap text-center">
+                    Class
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("cp")}`}
+                  >
+                    CP
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("hp")}`}
+                  >
+                    HP
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("sp")}`}
+                  >
+                    SP
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("p_atk")}`}
+                  >
+                    P.ATK
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("m_atk")}`}
+                  >
+                    M.ATK
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("p_def")}`}
+                  >
+                    P.DEF
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("m_def")}`}
+                  >
+                    M.DEF
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("p_dmg")}`}
+                  >
+                    P.DMG(%)
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("m_dmg")}`}
+                  >
+                    M.DMG(%)
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("ignore_pdef")}`}
+                  >
+                    Ign. P.DEF
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("ignore_mdef")}`}
+                  >
+                    Ign. M.DEF
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("p_reduc")}`}
+                  >
+                    P.Reduc(%)
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("m_reduc")}`}
+                  >
+                    M.Reduc(%)
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("pvp_dmg")}`}
+                  >
+                    PvP DMG
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("pvp_reduc")}`}
+                  >
+                    PvP Reduc
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("cri")}`}
+                  >
+                    Cri
+                  </th>
+                  <th
+                    className={`px-6 py-4 font-bold whitespace-nowrap ${getHighlightClass("cri_dmg")}`}
+                  >
+                    Cri Dam(%)
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
+                {filteredProfiles.map((profile, index) => (
+                  <tr
+                    key={profile.id}
+                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors"
+                  >
+                    {/* แสดงอันดับ */}
+                    <td className="px-6 py-3 whitespace-nowrap">
+                      {renderRank(index)}
+                    </td>
+
+                    {/* ชื่อตัวละคร */}
+                    <td className="px-6 py-3 whitespace-nowrap font-bold text-slate-900 dark:text-slate-100">
+                      {profile.display_name}
+                    </td>
+
+                    {/* อาชีพ */}
+                    <td className="px-6 py-3 whitespace-nowrap text-center">
+                      {profile.job_name ? (
+                        <div className="flex justify-center items-center">
+                          <img
+                            src={getJobIconUrl(profile.job_name)}
+                            alt={profile.job_name}
+                            className="w-7 h-7 object-contain opacity-90 hover:opacity-100 transition-opacity"
+                            title={profile.job_name}
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
+                    </td>
+
+                    {/* CP */}
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] font-black text-amber-500 dark:text-amber-400 ${getHighlightClass("cp")}`}
+                    >
+                      {profile.cp ? profile.cp.toLocaleString() : 0}
+                    </td>
+
+                    {/* ข้อมูล Status (ใช้ font-mono เพื่อให้ตัวเลขตรงกันเหมือนตาราง Data) */}
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("hp")}`}
+                    >
+                      {profile.hp ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("sp")}`}
+                    >
+                      {profile.sp ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("p_atk")}`}
+                    >
+                      {profile.p_atk ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("m_atk")}`}
+                    >
+                      {profile.m_atk ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("p_def")}`}
+                    >
+                      {profile.p_def ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("m_def")}`}
+                    >
+                      {profile.m_def ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("p_dmg")}`}
+                    >
+                      {profile.p_dmg ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("m_dmg")}`}
+                    >
+                      {profile.m_dmg ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("ignore_pdef")}`}
+                    >
+                      {profile.ignore_pdef ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("ignore_mdef")}`}
+                    >
+                      {profile.ignore_mdef ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("p_reduc")}`}
+                    >
+                      {profile.p_reduc ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("m_reduc")}`}
+                    >
+                      {profile.m_reduc ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("pvp_dmg")}`}
+                    >
+                      {profile.pvp_dmg ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("pvp_reduc")}`}
+                    >
+                      {profile.pvp_reduc ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("cri")}`}
+                    >
+                      {profile.cri ?? 0}
+                    </td>
+                    <td
+                      className={`px-6 py-3 whitespace-nowrap font-mono text-[13px] ${getHighlightClass("cri_dmg")}`}
+                    >
+                      {profile.cri_dmg ?? 0}
+                    </td>
+                  </tr>
+                ))}
+
+                {/* กรณีไม่มีข้อมูล */}
+                {filteredProfiles.length === 0 && (
+                  <tr>
+                    <td colSpan={20} className="px-6 py-16 text-center">
+                      <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+                        <svg
+                          className="w-10 h-10 mb-3 stroke-current"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="1.5"
+                            d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                          />
+                        </svg>
+                        <p className="text-sm font-medium">
+                          ไม่พบข้อมูลสมาชิกในอาชีพนี้
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -37,9 +37,16 @@ const StatInput = ({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void 
 }) => {
   const maxVal = STAT_LIMITS[name as keyof typeof STAT_LIMITS];
+  const isCp = name === "cp";
   return (
-    <div className="bg-slate-50/70 dark:bg-slate-900/60 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm glass-panel flex flex-col justify-between min-h-[85px] transition-colors">
-      <label htmlFor={name} className="block text-[11px] font-bold tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 uppercase font-sans">
+    <div className={`p-3 rounded-lg border shadow-sm glass-panel flex flex-col justify-between min-h-[85px] transition-colors ${
+      isCp 
+        ? "bg-amber-500/5 dark:bg-amber-500/5 border-amber-500/30" 
+        : "bg-slate-50/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800"
+    }`}>
+      <label htmlFor={name} className={`block text-[11px] font-bold tracking-wider mb-1.5 uppercase font-sans ${
+        isCp ? "text-amber-600 dark:text-amber-400" : "text-slate-500 dark:text-slate-400"
+      }`}>
         {label}
       </label>
       <input
@@ -51,7 +58,11 @@ const StatInput = ({
         max={maxVal}
         value={value}
         onChange={onChange}
-        className="block w-full rounded-md border border-slate-300 dark:border-slate-700 py-1.5 px-2.5 text-slate-950 dark:text-white bg-white dark:bg-slate-950 ring-0 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 text-xs sm:text-sm font-semibold font-mono"
+        className={`block w-full rounded-md border py-1.5 px-2.5 bg-white dark:bg-slate-950 ring-0 text-xs sm:text-sm font-black font-mono ${
+          isCp 
+            ? "text-amber-600 dark:text-amber-400 border-amber-500/30 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20" 
+            : "text-slate-950 dark:text-white border-slate-300 dark:border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
+        }`}
       />
     </div>
   );
@@ -275,6 +286,7 @@ export default function ProfileForm({
   const [isOnLeave, setIsOnLeave] = useState(!!initialProfile.is_on_leave);
 
   const [stats, setStats] = useState({
+    cp: initialProfile.cp ? String(initialProfile.cp) : "",
     p_atk: initialProfile.p_atk ? String(initialProfile.p_atk) : "",
     m_atk: initialProfile.m_atk ? String(initialProfile.m_atk) : "",
     p_def: initialProfile.p_def ? String(initialProfile.p_def) : "",
@@ -294,12 +306,6 @@ export default function ProfileForm({
   });
 
   const handleShowcaseUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isEligibleForShowcase) {
-      setMessage({ type: "error", text: "🔒 ขออภัย สิทธิ์การระบุรูปภาพตัวละครสงวนไว้เฉพาะสำหรับผู้ที่ติดอันดับ Top 3 ทำเนียบเกียรติยศของกิลด์เท่านั้นครับ" });
-      if (showcaseFileInputRef.current) showcaseFileInputRef.current.value = "";
-      return;
-    }
-
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
 
@@ -475,6 +481,7 @@ export default function ProfileForm({
           value !== undefined && value !== null && value !== 0 ? String(value) : currentValue || "";
 
         setStats({
+          cp: toStringStat((mergedData as any).cp, stats.cp),
           p_atk: toStringStat(mergedData.p_atk, stats.p_atk),
           m_atk: toStringStat(mergedData.m_atk, stats.m_atk),
           p_def: toStringStat(mergedData.p_def, stats.p_def),
@@ -803,86 +810,62 @@ export default function ProfileForm({
                 <input type="hidden" name="character_showcase_url" value={showcaseUrl} />
                 <div className="flex flex-col h-full">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1">
-                    รูปภาพตัวละครเพื่อยืนแท่นทำเนียบเกียรติยศ {!isEligibleForShowcase && "🔒"}
+                    รูปภาพสเตตัส / ตัวละคร
                   </label>
                   
-                  {isEligibleForShowcase ? (
-                    <div className="space-y-3 flex-1 flex flex-col">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          ref={showcaseFileInputRef}
-                          disabled={isShowcaseUploading || isPending}
-                          onChange={handleShowcaseUpload}
-                          className="w-full text-xs text-slate-500 dark:text-slate-400
-                            file:mr-2 file:py-1.5 file:px-2.5
-                            file:rounded-md file:border
-                            file:border-slate-800 dark:file:border-slate-950
-                            file:text-xs file:font-bold
-                            file:bg-gradient-to-b file:from-slate-700 file:to-slate-900 file:text-white
-                            hover:file:opacity-95 file:cursor-pointer"
-                        />
-                        {showcaseUrl && (
-                          <button
-                            type="button"
-                            onClick={handleRemoveShowcase}
-                            style={{ textShadow: '0 1px 1px rgba(0, 0, 0, 0.4)' }}
-                            className="relative overflow-hidden text-xs font-bold text-red-100 hover:text-white bg-gradient-to-b from-rose-600 to-red-800 hover:from-rose-500 hover:to-red-700 active:translate-y-[1px] px-2.5 py-1.5 rounded border border-red-950 shadow-[0_1px_2px_rgba(0,0,0,0.3)] cursor-pointer shrink-0 transition-all duration-150"
-                          >
-                            ลบออก
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          id="remove_bg_toggle"
-                          type="checkbox"
-                          checked={removeBgAutomatic}
-                          onChange={(e) => setRemoveBgAutomatic(e.target.checked)}
-                          disabled={isShowcaseUploading || isPending}
-                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 cursor-pointer"
-                        />
-                        <label htmlFor="remove_bg_toggle" className="text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer select-none">
-                          🔮 ลบพื้นหลังอัตโนมัติด้วย AI
-                        </label>
-                      </div>
-                      {showcaseUrl ? (
-                        <div className="flex-1 min-h-[120px] p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-center">
-                          <img src={showcaseUrl} alt="Character Showcase" className="max-h-[140px] w-auto object-contain rounded" onError={(e) => { (e.target as any).src = 'https://placehold.co/150x150?text=Invalid+Image'; }} />
-                        </div>
-                      ) : (
-                        <div className="flex-1 min-h-[120px] p-3 bg-slate-50/50 dark:bg-slate-900/40 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center">
-                          <p className="text-xs text-slate-400 dark:text-slate-500 text-center">ยังไม่มีรูปภาพ<br/>กดเลือกไฟล์เพื่ออัปโหลด</p>
-                        </div>
-                      )}
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-normal">
-                        * ขนาดไม่เกิน 5MB (png, jpg, jpeg, webp) รูปนี้จะโชว์ที่หน้า Leaderboard ในโซนทำเนียบเกียรติยศ
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 flex-1 flex flex-col">
-                      <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/50 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 text-xs font-medium leading-relaxed">
-                        🔒 สิทธิ์การอัปโหลดรูปภาพตัวละครยืนแท่นเกียรติยศ สงวนไว้สำหรับผู้เล่นที่เป็น Top 3 (Hall of Fame) ของกิลด์ ณ ขณะนั้นเท่านั้นครับ
-                      </div>
-                      {showcaseUrl ? (
-                        <div className="flex-1 min-h-[100px] p-2 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center gap-2">
-                          <img src={showcaseUrl} alt="Character Showcase" className="max-h-[100px] w-auto object-contain rounded opacity-75" />
-                          <button
-                            type="button"
-                            onClick={handleRemoveShowcase}
-                            className="text-[10px] font-bold text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-950/20 px-2 py-1 rounded-lg border border-red-200 dark:border-red-900/40 cursor-pointer"
-                          >
-                            ❌ ลบรูปภาพเดิมออก
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex-1 min-h-[100px] p-3 bg-slate-50/50 dark:bg-slate-900/40 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center">
-                          <p className="text-xs text-slate-400 dark:text-slate-500 text-center">ยังไม่มีรูปภาพ</p>
-                        </div>
+                  <div className="space-y-3 flex-1 flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={showcaseFileInputRef}
+                        disabled={isShowcaseUploading || isPending}
+                        onChange={handleShowcaseUpload}
+                        className="w-full text-xs text-slate-500 dark:text-slate-400
+                          file:mr-2 file:py-1.5 file:px-2.5
+                          file:rounded-md file:border
+                          file:border-slate-800 dark:file:border-slate-950
+                          file:text-xs file:font-bold
+                          file:bg-gradient-to-b file:from-slate-700 file:to-slate-900 file:text-white
+                          hover:file:opacity-95 file:cursor-pointer"
+                      />
+                      {showcaseUrl && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveShowcase}
+                          style={{ textShadow: '0 1px 1px rgba(0, 0, 0, 0.4)' }}
+                          className="relative overflow-hidden text-xs font-bold text-red-100 hover:text-white bg-gradient-to-b from-rose-600 to-red-800 hover:from-rose-500 hover:to-red-700 active:translate-y-[1px] px-2.5 py-1.5 rounded border border-red-950 shadow-[0_1px_2px_rgba(0,0,0,0.3)] cursor-pointer shrink-0 transition-all duration-150"
+                        >
+                          ลบออก
+                        </button>
                       )}
                     </div>
-                  )}
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="remove_bg_toggle"
+                        type="checkbox"
+                        checked={removeBgAutomatic}
+                        onChange={(e) => setRemoveBgAutomatic(e.target.checked)}
+                        disabled={isShowcaseUploading || isPending}
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 cursor-pointer"
+                      />
+                      <label htmlFor="remove_bg_toggle" className="text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer select-none">
+                        🔮 ลบพื้นหลังอัตโนมัติด้วย AI
+                      </label>
+                    </div>
+                    {showcaseUrl ? (
+                      <div className="flex-1 min-h-[120px] p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-center">
+                        <img src={showcaseUrl} alt="Character Showcase" className="max-h-[140px] w-auto object-contain rounded" onError={(e) => { (e.target as any).src = 'https://placehold.co/150x150?text=Invalid+Image'; }} />
+                      </div>
+                    ) : (
+                      <div className="flex-1 min-h-[120px] p-3 bg-slate-50/50 dark:bg-slate-900/40 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                        <p className="text-xs text-slate-400 dark:text-slate-500 text-center">ยังไม่มีรูปภาพ<br/>กดเลือกไฟล์เพื่ออัปโหลด</p>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-normal">
+                      * ขนาดไม่เกิน 5MB (png, jpg, jpeg, webp) รูปนี้จะโชว์ที่การ์ดตัวละครและในทำเนียบเกียรติยศ
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -940,7 +923,8 @@ export default function ProfileForm({
             </div>
 
             <div className="p-5 sm:p-6 bg-transparent">
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-5 lg:grid-cols-9 gap-3">
+                <StatInput label="CP" name="cp" value={stats.cp} onChange={handleStatChange} />
                 <StatInput label="Max HP" name="hp" value={stats.hp} onChange={handleStatChange} />
                 <StatInput label="Max SP" name="sp" value={stats.sp} onChange={handleStatChange} />
                 <StatInput label="P.ATK" name="p_atk" value={stats.p_atk} onChange={handleStatChange} />

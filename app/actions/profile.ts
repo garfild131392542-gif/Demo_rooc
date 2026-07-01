@@ -8,6 +8,7 @@ import { buildProfileUpdatePayload, normalizeString, parseIntegerField, parseFlo
 import { STAT_LIMITS } from "@/lib/stat-limits";
 
 const STAT_LABELS: Record<string, string> = {
+  cp: "CP",
   hp: "Max HP",
   sp: "Max SP",
   p_atk: "P.ATK",
@@ -72,33 +73,10 @@ export async function updateCharacterInfoAction(formData: FormData) {
     return { success: false, error: "ไม่พบข้อมูลโปรไฟล์ของคุณในระบบ" };
   }
 
-  // 2. ป้องกันผู้เล่นทั่วไปอัปโหลดรูปเกียรติยศ (อนุญาตกรณีลบรูปออกเป็นค่าว่าง หรือยังคงใช้รูปเดิม)
+  // 2. ตรวจสอบกิลด์เบื้องต้น
   if (character_showcase_url && character_showcase_url !== currentProfile.character_showcase_url) {
     if (!currentProfile.guild_id) {
       return { success: false, error: "คุณต้องเป็นสมาชิกกิลด์ก่อนจึงจะใช้งานฟีเจอร์นี้ได้" };
-    }
-
-    // ดึงข้อมูลกิลด์เพื่อเช็คสิทธิ์ทำเนียบเกียรติยศ
-    const { data: guild } = await (supabase as any)
-      .from("guilds")
-      .select("hall_of_fame_gold_uid, hall_of_fame_silver_uid, hall_of_fame_bronze_uid")
-      .eq("id", currentProfile.guild_id)
-      .maybeSingle();
-
-    if (!guild) {
-      return { success: false, error: "ไม่พบข้อมูลกิลด์ของคุณ" };
-    }
-
-    const isSelected = 
-      currentUserId === guild.hall_of_fame_gold_uid ||
-      currentUserId === guild.hall_of_fame_silver_uid ||
-      currentUserId === guild.hall_of_fame_bronze_uid;
-
-    if (!isSelected) {
-      return { 
-        success: false, 
-        error: "🔒 ขออภัย สิทธิ์การระบุรูปภาพตัวละครสงวนไว้เฉพาะสำหรับผู้ที่ติดอันดับ Top 3 ทำเนียบเกียรติยศของกิลด์เท่านั้นครับ" 
-      };
     }
   }
 
@@ -130,6 +108,7 @@ export async function updateCharacterStatsAction(formData: FormData) {
   const currentUserId = (session as any).user?.id ?? (session as any).id;
 
   const payload = {
+    cp: parseIntegerField(formData.get("cp")),
     pvp_reduc: parseIntegerField(formData.get("pvp_reduc")),
     pvp_dmg: parseIntegerField(formData.get("pvp_dmg")),
     p_def: parseIntegerField(formData.get("p_def")),
@@ -262,6 +241,7 @@ export async function setupProfileAction(formData: ProfileSetupFormData) {
             display_name: finalDisplayName,
             uid_game: secureUidGame, // 🌟 ใช้ค่าที่สกัดมาเช่นกัน
             job_name: finalJobName,
+            cp: 0,
             p_atk: 0,
             m_atk: 0,
             p_def: 0,

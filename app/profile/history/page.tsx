@@ -79,6 +79,7 @@ export default async function HistoryPage() {
 
   // คำนวณหาคิวที่เป็น waitlist และตำแหน่ง (Page/Slot) ในวันนี้
   const waitlistQueueIds = new Set<string>()
+  const qualifiedQueueIds = new Set<string>()
   const queuePositions = new Map<string, { page: number; slot: number }>()
 
   if (todaySessions.length > 0 && todayQueues.length > 0) {
@@ -96,6 +97,7 @@ export default async function HistoryPage() {
         const shouldShow = alreadyShown < personalLimit
         if (shouldShow) {
           shownCountPerUser.set(q.user_id, alreadyShown + 1)
+          qualifiedQueueIds.add(q.id)
         }
         return shouldShow
       })
@@ -128,19 +130,29 @@ export default async function HistoryPage() {
   }
 
   // จัดกลุ่มและคำนวณสถานะ
-  const processedQueues = (userQueues || []).map((q: any) => {
-    let finalStatus = q.status
-    if (q.status === 'waiting' && waitlistQueueIds.has(q.id)) {
-      finalStatus = 'waitlist'
-    }
-    const userMeta = memberMap.get(q.user_id)
-    const displayName = userMeta?.display_name || 'ไม่ทราบชื่อ'
-    return {
-      ...q,
-      calculated_status: finalStatus,
-      display_name: displayName
-    }
-  })
+  const processedQueues = (userQueues || [])
+    .filter((q: any) => {
+      if (q.status === 'waiting') {
+        const hasSession = todaySessions.some((s: any) => s.item_name === q.item_name)
+        if (hasSession) {
+          return qualifiedQueueIds.has(q.id)
+        }
+      }
+      return true
+    })
+    .map((q: any) => {
+      let finalStatus = q.status
+      if (q.status === 'waiting' && waitlistQueueIds.has(q.id)) {
+        finalStatus = 'waitlist'
+      }
+      const userMeta = memberMap.get(q.user_id)
+      const displayName = userMeta?.display_name || 'ไม่ทราบชื่อ'
+      return {
+        ...q,
+        calculated_status: finalStatus,
+        display_name: displayName
+      }
+    })
 
   // จัดกลุ่มจองตามเวลา, ไอเทม และสถานะ (ดึงเป็นผลรวมตามช่วงเวลาของการจอง)
   const groups: Record<string, any> = {}

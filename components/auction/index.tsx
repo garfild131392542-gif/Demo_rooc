@@ -82,19 +82,19 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
       // ✨ Count total slots per user for this item type
       const userTotalSlotsMap = new Map<string, number>()
       ;(queuesByType[type] || []).forEach((q: any) => {
-        const key = q.uid_game
+        const key = q.user_id
         userTotalSlotsMap.set(key, (userTotalSlotsMap.get(key) ?? 0) + 1)
       })
       
       // ✨ Filter by personal_limit: only show slots if user's total doesn't exceed limit
       let shownCountPerUser = new Map<string, number>() // Track how many we've shown per user
       const qualifiedQueues = (queuesByType[type] || []).filter((q: any) => {
-        const totalSlots = userTotalSlotsMap.get(q.uid_game) ?? 0
-        const alreadyShown = shownCountPerUser.get(q.uid_game) ?? 0
+        const totalSlots = userTotalSlotsMap.get(q.user_id) ?? 0
+        const alreadyShown = shownCountPerUser.get(q.user_id) ?? 0
         const shouldShow = alreadyShown < personalLimit
         
         if (shouldShow) {
-          shownCountPerUser.set(q.uid_game, alreadyShown + 1)
+          shownCountPerUser.set(q.user_id, alreadyShown + 1)
         }
         
         return shouldShow
@@ -141,6 +141,7 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
             ...itemConfig,
             assignedTo: q.display_name,
             uid: q.uid_game,
+            userId: q.user_id,
             queueId: q.id,
             requestedQty: q.requested_qty,
             receivedQty: q.received_qty,

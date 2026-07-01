@@ -309,6 +309,7 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           guild_id: string | null
+          cp: number | null
           hp: number | null
           id: string
           ignore_mdef: number | null
@@ -345,6 +346,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           guild_id?: string | null
+          cp?: number | null
           hp?: number | null
           id?: string
           ignore_mdef?: number | null
@@ -381,6 +383,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           guild_id?: string | null
+          cp?: number | null
           hp?: number | null
           id?: string
           ignore_mdef?: number | null

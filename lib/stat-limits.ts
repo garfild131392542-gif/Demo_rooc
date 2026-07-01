@@ -3,6 +3,7 @@
  * Tailored for Ragnarok Origin stats ranges.
  */
 export const STAT_LIMITS = {
+  cp: 9999999,         // Max CP: 9,999,999
   hp: 999999,          // Max HP: 9,999,999
   sp: 20000,           // Max SP: 200,000
   p_atk: 20000,        // Max P.ATK: 200,000

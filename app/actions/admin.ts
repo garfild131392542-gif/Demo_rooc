@@ -73,6 +73,7 @@ export async function createMember(formData: FormData) {
     const job_name = formData.get("job_name") as string;
     const role = formData.get("role") as "admin" | "member";
 
+    const cp = parseInt(formData.get("cp") as string) || 0;
     const pvp_reduc = parseInt(formData.get("pvp_reduc") as string) || 0;
     const pvp_dmg = parseInt(formData.get("pvp_dmg") as string) || 0;
     const p_def = parseInt(formData.get("p_def") as string) || 0;
@@ -92,9 +93,9 @@ export async function createMember(formData: FormData) {
     const cri_dmg = parseFloat(formData.get("cri_dmg") as string) || 0;
 
     // ตรวจสอบลิมิตของสเตตัสป้องกันการป้อนค่าปลอม (เช่น 999999)
-    const statsObj = { hp, sp, p_atk, m_atk, p_def, m_def, p_dmg, m_dmg, p_reduc, m_reduc, pvp_dmg, pvp_reduc, ignore_pdef, ignore_mdef, cri, cri_dmg };
+    const statsObj = { cp, hp, sp, p_atk, m_atk, p_def, m_def, p_dmg, m_dmg, p_reduc, m_reduc, pvp_dmg, pvp_reduc, ignore_pdef, ignore_mdef, cri, cri_dmg };
     const statLabels: Record<string, string> = {
-      hp: "Max HP", sp: "Max SP", p_atk: "P.ATK", m_atk: "M.ATK",
+      cp: "CP", hp: "Max HP", sp: "Max SP", p_atk: "P.ATK", m_atk: "M.ATK",
       p_def: "P.DEF", m_def: "M.DEF", ignore_pdef: "Ignore P.DEF", ignore_mdef: "Ignore M.DEF",
       p_dmg: "P.DMG (%)", m_dmg: "M.DMG (%)", p_reduc: "P.Reduc (%)", m_reduc: "M.Reduc (%)",
       pvp_dmg: "PvP DMG", pvp_reduc: "PvP Reduc", cri: "Cri", cri_dmg: "Cri Dam (%)"
@@ -116,6 +117,7 @@ export async function createMember(formData: FormData) {
         display_name,
         job_name,
         role,
+        cp,
         p_atk,
         m_atk,
         p_def,
@@ -165,6 +167,7 @@ export async function updateMember(id: string, formData: FormData) {
     const job_name = formData.get("job_name") as string;
     const role = formData.get("role") as "admin" | "member";
 
+    const cp = parseInt(formData.get("cp") as string) || 0;
     const pvp_reduc = parseInt(formData.get("pvp_reduc") as string) || 0;
     const pvp_dmg = parseInt(formData.get("pvp_dmg") as string) || 0;
     const p_def = parseInt(formData.get("p_def") as string) || 0;
@@ -183,10 +186,9 @@ export async function updateMember(id: string, formData: FormData) {
     const cri = parseInt(formData.get("cri") as string) || 0;
     const cri_dmg = parseFloat(formData.get("cri_dmg") as string) || 0;
 
-    // ตรวจสอบลิมิตของสเตตัสป้องกันการป้อนค่าปลอม (เช่น 999999)
-    const statsObj = { hp, sp, p_atk, m_atk, p_def, m_def, p_dmg, m_dmg, p_reduc, m_reduc, pvp_dmg, pvp_reduc, ignore_pdef, ignore_mdef, cri, cri_dmg };
+    const statsObj = { cp, hp, sp, p_atk, m_atk, p_def, m_def, p_dmg, m_dmg, p_reduc, m_reduc, pvp_dmg, pvp_reduc, ignore_pdef, ignore_mdef, cri, cri_dmg };
     const statLabels: Record<string, string> = {
-      hp: "Max HP", sp: "Max SP", p_atk: "P.ATK", m_atk: "M.ATK",
+      cp: "CP", hp: "Max HP", sp: "Max SP", p_atk: "P.ATK", m_atk: "M.ATK",
       p_def: "P.DEF", m_def: "M.DEF", ignore_pdef: "Ignore P.DEF", ignore_mdef: "Ignore M.DEF",
       p_dmg: "P.DMG (%)", m_dmg: "M.DMG (%)", p_reduc: "P.Reduc (%)", m_reduc: "M.Reduc (%)",
       pvp_dmg: "PvP DMG", pvp_reduc: "PvP Reduc", cri: "Cri", cri_dmg: "Cri Dam (%)"
@@ -208,6 +210,7 @@ export async function updateMember(id: string, formData: FormData) {
         display_name,
         job_name,
         role,
+        cp,
         p_atk,
         m_atk,
         p_def,

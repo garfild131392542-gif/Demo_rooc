@@ -1,5 +1,5 @@
 // ฟังก์ชันสำหรับแปลงชื่ออาชีพเป็น URL ของรูปภาพ
-export function getJobIconUrl(jobName: string): string {
+export function getJobIconUrl(jobName: string | null | undefined): string {
     const job = (jobName || '').toLowerCase().trim();
 
     // ตรวจสอบชื่ออาชีพและส่งคืนชื่อไฟล์รูปภาพที่ตรงกัน

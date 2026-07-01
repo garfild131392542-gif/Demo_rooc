@@ -59,6 +59,7 @@ type AuctionWindowProps = {
     item_type: AuctionItemType;
     requested_qty: number;
     received_qty: number;
+    status: string;
     queue_timestamp: string | null;
   }[];
   mappedSlots: AuctionSlot[];

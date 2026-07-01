@@ -41,7 +41,7 @@ export default function ExportModal({ profiles, onClose }: Props) {
 
   // Config states
   const [bannerTitle, setBannerTitle] = useState('แผนจัดทีม Guild War (GvG)')
-  const [activePreset, setActivePreset] = useState<'gvg' | 'dungeon' | 'temple' | 'custom'>('gvg')
+  const [activePreset, setActivePreset] = useState<'gvg' | 'dungeon' | 'temple' | 'league' | 'custom'>('gvg')
   const [groupNames, setGroupNames] = useState<string[]>([
     'ทีมบุกหลัก',
     'ทีมกันบ้าน',
@@ -58,9 +58,9 @@ export default function ExportModal({ profiles, onClose }: Props) {
   const updateGroup1End = (val: number) => {
     setGroup1End(val)
     if (val >= group2End) {
-      setGroup2End(val + 1)
-      if (val + 1 >= group3End) {
-        setGroup3End(val + 2)
+      setGroup2End(Math.min(16, val + 1))
+      if (Math.min(16, val + 1) >= group3End) {
+        setGroup3End(Math.min(16, val + 2))
       }
     }
   }
@@ -69,7 +69,7 @@ export default function ExportModal({ profiles, onClose }: Props) {
     if (val <= group1End) return
     setGroup2End(val)
     if (val >= group3End) {
-      setGroup3End(val + 1)
+      setGroup3End(Math.min(16, val + 1))
     }
   }
 
@@ -101,45 +101,59 @@ export default function ExportModal({ profiles, onClose }: Props) {
   }
 
   // Handle Preset Changes
-  const handlePresetChange = (preset: 'gvg' | 'dungeon' | 'temple' | 'custom') => {
+  const handlePresetChange = (preset: 'gvg' | 'dungeon' | 'temple' | 'league' | 'custom') => {
     setActivePreset(preset)
-    // Reset to default ranges when changing preset (4, 8, 12)
-    setGroup1End(4)
-    setGroup2End(8)
-    setGroup3End(12)
 
-    if (preset === 'gvg') {
-      setBannerTitle('แผนจัดทีม Guild War (GvG)')
+    if (preset === 'league') {
+      setBannerTitle('แผนจัดทีม Guild League (กิลด์ลีก)')
       setGroupNames([
-        'ทีมบุกหลัก',
-        'ทีมกันบ้าน',
-        'ทีมเคลียร์หิน',
-        'ทีมป่วน/ซัปพอร์ต'
+        'ห้องหลัก',
+        'ห้องรอง',
+        'ไม่ได้ใช้งาน',
+        'ไม่ได้ใช้งาน'
       ])
-    } else if (preset === 'dungeon') {
-      setBannerTitle('แผนจัดทีมดันเจี้ยนกิลด์ (Guild Dungeon)')
-      setGroupNames([
-        'ทีมทางซ้าย',
-        'ทีมทางขวา',
-        'ทีมกลางกิลด์',
-        'ทีมเฝ้าระวัง'
-      ])
-    } else if (preset === 'temple') {
-      setBannerTitle('แผนจัดทีมวิหารกิลด์ (Guild Temple)')
-      setGroupNames([
-        'ทีมบอสใหญ่',
-        'ทีมมอนสเตอร์รอง',
-        'ทีมสนับสนุน',
-        'ทีมกองหนุน'
-      ])
-    } else if (preset === 'custom') {
-      setBannerTitle('แผนจัดทีมกิจกรรมกิลด์')
-      setGroupNames([
-        'กลุ่มที่ 1',
-        'กลุ่มที่ 2',
-        'กลุ่มที่ 3',
-        'กลุ่มที่ 4'
-      ])
+      setGroup1End(8)
+      setGroup2End(16)
+      setGroup3End(16)
+    } else {
+      // Reset to default ranges when changing preset (4, 8, 12)
+      setGroup1End(4)
+      setGroup2End(8)
+      setGroup3End(12)
+
+      if (preset === 'gvg') {
+        setBannerTitle('แผนจัดทีม Guild War (GvG)')
+        setGroupNames([
+          'ทีมบุกหลัก',
+          'ทีมกันบ้าน',
+          'ทีมเคลียร์หิน',
+          'ทีมป่วน/ซัปพอร์ต'
+        ])
+      } else if (preset === 'dungeon') {
+        setBannerTitle('แผนจัดทีมดันเจี้ยนกิลด์ (Guild Dungeon)')
+        setGroupNames([
+          'ทีมทางซ้าย',
+          'ทีมทางขวา',
+          'ทีมกลางกิลด์',
+          'ทีมเฝ้าระวัง'
+        ])
+      } else if (preset === 'temple') {
+        setBannerTitle('แผนจัดทีมวิหารกิลด์ (Guild Temple)')
+        setGroupNames([
+          'ทีมบอสใหญ่',
+          'ทีมมอนสเตอร์รอง',
+          'ทีมสนับสนุน',
+          'ทีมกองหนุน'
+        ])
+      } else if (preset === 'custom') {
+        setBannerTitle('แผนจัดทีมกิจกรรมกิลด์')
+        setGroupNames([
+          'กลุ่มที่ 1',
+          'กลุ่มที่ 2',
+          'กลุ่มที่ 3',
+          'กลุ่มที่ 4'
+        ])
+      }
     }
   }
 
@@ -328,6 +342,7 @@ export default function ExportModal({ profiles, onClose }: Props) {
                 <option value="gvg">🏰 Guild War (GvG)</option>
                 <option value="dungeon">🎋 Guild Dungeon (ดันกิลด์)</option>
                 <option value="temple">👑 Guild Temple (วิหาร)</option>
+                <option value="league">⚔️ Guild League (กิลด์ลีก)</option>
                 <option value="custom">⚙️ Custom (ปรับแต่งเอง)</option>
               </select>
             </div>
@@ -362,7 +377,7 @@ export default function ExportModal({ profiles, onClose }: Props) {
                       onChange={(e) => updateGroup1End(Number(e.target.value))}
                       className="bg-gray-50 border border-gray-250 rounded px-1.5 py-0.5 text-[10px]"
                     >
-                      {Array.from({ length: 13 }, (_, i) => i + 1).map(v => (
+                      {Array.from({ length: 15 }, (_, i) => i + 1).map(v => (
                         <option key={v} value={v}>{v}</option>
                       ))}
                     </select>
@@ -378,82 +393,88 @@ export default function ExportModal({ profiles, onClose }: Props) {
               </div>
 
               {/* Group 2 */}
-              <div className="space-y-1 bg-white p-2.5 rounded-xl border border-gray-200 shadow-xxs">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-gray-500 flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: GROUP_THEMES[1].headerBg }} />
-                    กลุ่มที่ 2
-                  </span>
-                  <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                    <span>ปาร์ตี้ {group1End + 1} ถึง</span>
-                    <select
-                      value={group2End}
-                      onChange={(e) => updateGroup2End(Number(e.target.value))}
-                      className="bg-gray-50 border border-gray-255 rounded px-1.5 py-0.5 text-[10px]"
-                    >
-                      {Array.from({ length: 14 - (group1End + 1) + 1 }, (_, i) => group1End + 1 + i).map(v => (
-                        <option key={v} value={v}>{v}</option>
-                      ))}
-                    </select>
+              {group1End < 16 && (
+                <div className="space-y-1 bg-white p-2.5 rounded-xl border border-gray-200 shadow-xxs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-gray-500 flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: GROUP_THEMES[1].headerBg }} />
+                      กลุ่มที่ 2
+                    </span>
+                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                      <span>ปาร์ตี้ {group1End + 1} ถึง</span>
+                      <select
+                        value={group2End}
+                        onChange={(e) => updateGroup2End(Number(e.target.value))}
+                        className="bg-gray-50 border border-gray-255 rounded px-1.5 py-0.5 text-[10px]"
+                      >
+                        {Array.from({ length: 16 - (group1End + 1) + 1 }, (_, i) => group1End + 1 + i).map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
+                  <input
+                    type="text"
+                    value={groupNames[1]}
+                    onChange={(e) => handleGroupNameChange(1, e.target.value)}
+                    placeholder="ชื่อกลุ่มภารกิจ 2..."
+                    className="w-full bg-slate-50/50 border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-700 focus:outline-none"
+                  />
                 </div>
-                <input
-                  type="text"
-                  value={groupNames[1]}
-                  onChange={(e) => handleGroupNameChange(1, e.target.value)}
-                  placeholder="ชื่อกลุ่มภารกิจ 2..."
-                  className="w-full bg-slate-50/50 border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-700 focus:outline-none"
-                />
-              </div>
+              )}
 
               {/* Group 3 */}
-              <div className="space-y-1 bg-white p-2.5 rounded-xl border border-gray-200 shadow-xxs">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-gray-500 flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: GROUP_THEMES[2].headerBg }} />
-                    กลุ่มที่ 3
-                  </span>
-                  <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                    <span>ปาร์ตี้ {group2End + 1} ถึง</span>
-                    <select
-                      value={group3End}
-                      onChange={(e) => updateGroup3End(Number(e.target.value))}
-                      className="bg-gray-50 border border-gray-255 rounded px-1.5 py-0.5 text-[10px]"
-                    >
-                      {Array.from({ length: 15 - (group2End + 1) + 1 }, (_, i) => group2End + 1 + i).map(v => (
-                        <option key={v} value={v}>{v}</option>
-                      ))}
-                    </select>
+              {group2End < 16 && (
+                <div className="space-y-1 bg-white p-2.5 rounded-xl border border-gray-200 shadow-xxs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-gray-500 flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: GROUP_THEMES[2].headerBg }} />
+                      กลุ่มที่ 3
+                    </span>
+                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                      <span>ปาร์ตี้ {group2End + 1} ถึง</span>
+                      <select
+                        value={group3End}
+                        onChange={(e) => updateGroup3End(Number(e.target.value))}
+                        className="bg-gray-50 border border-gray-255 rounded px-1.5 py-0.5 text-[10px]"
+                      >
+                        {Array.from({ length: 16 - (group2End + 1) + 1 }, (_, i) => group2End + 1 + i).map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
+                  <input
+                    type="text"
+                    value={groupNames[2]}
+                    onChange={(e) => handleGroupNameChange(2, e.target.value)}
+                    placeholder="ชื่อกลุ่มภารกิจ 3..."
+                    className="w-full bg-slate-50/50 border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-700 focus:outline-none"
+                  />
                 </div>
-                <input
-                  type="text"
-                  value={groupNames[2]}
-                  onChange={(e) => handleGroupNameChange(2, e.target.value)}
-                  placeholder="ชื่อกลุ่มภารกิจ 3..."
-                  className="w-full bg-slate-50/50 border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-700 focus:outline-none"
-                />
-              </div>
+              )}
 
               {/* Group 4 */}
-              <div className="space-y-1 bg-white p-2.5 rounded-xl border border-gray-200 shadow-xxs">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-gray-500 flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: GROUP_THEMES[3].headerBg }} />
-                    กลุ่มที่ 4
-                  </span>
-                  <span className="text-[10px] text-gray-400 font-medium">
-                    ปาร์ตี้ {group3End + 1} ถึง 16
-                  </span>
+              {group3End < 16 && (
+                <div className="space-y-1 bg-white p-2.5 rounded-xl border border-gray-200 shadow-xxs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-gray-500 flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: GROUP_THEMES[3].headerBg }} />
+                      กลุ่มที่ 4
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-medium">
+                      ปาร์ตี้ {group3End + 1} ถึง 16
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    value={groupNames[3]}
+                    onChange={(e) => handleGroupNameChange(3, e.target.value)}
+                    placeholder="ชื่อกลุ่มภารกิจ 4..."
+                    className="w-full bg-slate-50/50 border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-700 focus:outline-none"
+                  />
                 </div>
-                <input
-                  type="text"
-                  value={groupNames[3]}
-                  onChange={(e) => handleGroupNameChange(3, e.target.value)}
-                  placeholder="ชื่อกลุ่มภารกิจ 4..."
-                  className="w-full bg-slate-50/50 border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-700 focus:outline-none"
-                />
-              </div>
+              )}
 
             </div>
 

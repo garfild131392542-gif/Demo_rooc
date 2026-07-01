@@ -146,6 +146,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                             <div className="hidden sm:flex gap-1">
                                 {[
                                     { name: 'จัดปาร์ตี้', href: '/' },
+                                    { name: 'วางแผน', href: '/tactics' },
                                     { name: 'กิลด์', href: '/guild/edit' },
                                     { name: 'ข้อมูลส่วนตัว', href: '/profile' },
 
@@ -245,6 +246,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                             <div className="px-4 pb-6 space-y-2">
                                 {[
                                     { name: 'จัดปาร์ตี้', href: '/' },
+                                    { name: 'วางแผน', href: '/tactics' },
                                     { name: 'กิลด์', href: '/guild/edit' },
                                     { name: 'ข้อมูลส่วนตัว', href: '/profile' },
 

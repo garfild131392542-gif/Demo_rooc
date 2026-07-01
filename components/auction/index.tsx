@@ -177,16 +177,18 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
       }
     })
 
-    // ✨ Assign absolute locked page and slot numbers to all slots
-    const rawSlots = slots.map((s, index) => ({
+    // ✨ Filter for board: keep empty slots but hide waitlist slots from the live board slots view
+    let boardSlots = slots.filter(s => !s.isWaitlist)
+    let waitlistSlots = slots.filter(s => s.isWaitlist)
+
+    // ✨ Assign absolute locked page and slot numbers to board slots (since waitlist slots are not on the board)
+    boardSlots = boardSlots.map((s, index) => ({
       ...s,
       originalPage: Math.floor(index / 4) + 1,
       originalSlot: (index % 4) + 1
     }))
 
-    // ✨ Filter for board: keep empty slots but hide waitlist slots from the live board slots view
-    let boardSlots = rawSlots.filter(s => !s.isWaitlist)
-    let waitlistSlots = rawSlots.filter(s => s.isWaitlist)
+    const rawSlots = [...boardSlots, ...waitlistSlots]
 
     // ✨ Filter by activeSubTab (condense empty/non-matching slots)
     if (activeSubTab !== 'all') {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -26,7 +26,7 @@ export type Profile = {
   display_name: string;
   job_name: string;
   cp?: number | null;
-  
+
   // Stats
   pvp_reduc: number;
   pvp_dmg: number;
@@ -49,12 +49,12 @@ export type Profile = {
   guild_id?: string | null;
   avatar_url: string;
   role: "admin" | "member";
-  
+
   // Party & Status
   party_id: number | null;
   slot_index: number | null;
   is_on_leave: boolean;
-  
+
   // Timestamps
   created_at?: string;
   updated_at?: string;
@@ -77,6 +77,118 @@ export default function Dashboard({
   const [isPending, startTransition] = useTransition();
   const [isEditMode, setIsEditMode] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+
+  // Guild Activity and Party Team assignment states
+  const [activity, setActivity] = useState<'general' | 'guild_league' | 'emperium_overrun'>('general');
+  const [partyTeams, setPartyTeams] = useState<Record<number, 'defense' | 'offense' | 'runner'>>(() => {
+    const defaults: Record<number, 'defense' | 'offense' | 'runner'> = {}
+    for (let i = 1; i <= 16; i++) {
+      if (i <= 6) defaults[i] = 'defense';
+      else if (i <= 12) defaults[i] = 'offense';
+      else defaults[i] = 'runner';
+    }
+    return defaults;
+  });
+
+  const [defenseInput, setDefenseInput] = useState<string>('')
+  const [offenseInput, setOffenseInput] = useState<string>('')
+
+  useEffect(() => {
+    const defenseCount = Object.values(partyTeams).filter(v => v === 'defense').length
+    const offenseCount = Object.values(partyTeams).filter(v => v === 'offense').length
+    setDefenseInput(defenseCount.toString())
+    setOffenseInput(offenseCount.toString())
+  }, [partyTeams])
+
+  const handleDefenseInputChange = (val: string) => {
+    setDefenseInput(val)
+    if (val !== '') {
+      const num = Number(val)
+      if (!isNaN(num)) {
+        handleResizeTeams('defense', num)
+      }
+    }
+  }
+
+  const handleOffenseInputChange = (val: string) => {
+    setOffenseInput(val)
+    if (val !== '') {
+      const num = Number(val)
+      if (!isNaN(num)) {
+        handleResizeTeams('offense', num)
+      }
+    }
+  }
+
+  const handleInputBlur = (teamType: 'defense' | 'offense') => {
+    const currentVal = teamType === 'defense' ? defenseInput : offenseInput;
+    if (currentVal === '') {
+      const count = Object.values(partyTeams).filter(v => v === teamType).length;
+      if (teamType === 'defense') {
+        setDefenseInput(count.toString());
+      } else {
+        setOffenseInput(count.toString());
+      }
+    }
+  };
+
+  useEffect(() => {
+    const savedActivity = localStorage.getItem('rooc_active_activity');
+    if (savedActivity) {
+      setActivity(savedActivity as any);
+    }
+    const savedTeams = localStorage.getItem('rooc_party_teams');
+    if (savedTeams) {
+      try {
+        setPartyTeams(JSON.parse(savedTeams));
+      } catch (e) { }
+    }
+  }, []);
+
+  const handleActivityChange = (act: 'general' | 'guild_league' | 'emperium_overrun') => {
+    setActivity(act);
+    localStorage.setItem('rooc_active_activity', act);
+  };
+
+  const handlePartyTeamChange = (partyId: number, team: 'defense' | 'offense' | 'runner') => {
+    setPartyTeams(prev => {
+      const updated = { ...prev, [partyId]: team };
+      localStorage.setItem('rooc_party_teams', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleResizeTeams = (teamType: 'defense' | 'offense', count: number) => {
+    const safeCount = Math.max(0, Math.min(16, count));
+    setPartyTeams(prev => {
+      const updated = { ...prev };
+      let defenseCount = teamType === 'defense' ? safeCount : Object.values(prev).filter(v => v === 'defense').length;
+      let offenseCount = teamType === 'offense' ? safeCount : Object.values(prev).filter(v => v === 'offense').length;
+
+      // Ensure sum of defense and offense doesn't exceed 16
+      if (defenseCount + offenseCount > 16) {
+        if (teamType === 'defense') {
+          offenseCount = 16 - defenseCount;
+        } else {
+          defenseCount = 16 - offenseCount;
+        }
+      }
+
+      // Reassign contiguously
+      for (let i = 1; i <= 16; i++) {
+        if (i <= defenseCount) {
+          updated[i] = 'defense';
+        } else if (i <= defenseCount + offenseCount) {
+          updated[i] = 'offense';
+        } else {
+          updated[i] = 'runner';
+        }
+      }
+
+      localStorage.setItem('rooc_party_teams', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -150,9 +262,9 @@ export default function Dashboard({
     const occupant =
       targetPartyId !== null && targetSlotIndex !== null
         ? profiles.find(
-            (p) =>
-              p.party_id === targetPartyId && p.slot_index === targetSlotIndex,
-          )
+          (p) =>
+            p.party_id === targetPartyId && p.slot_index === targetSlotIndex,
+        )
         : null;
 
     // Optimistic Update
@@ -269,17 +381,96 @@ export default function Dashboard({
                 aria-checked={isEditMode}
                 onClick={() => setIsEditMode((prev) => !prev)}
                 className={`cursor-pointer relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 shrink-0
-                ${
-                  isEditMode
+                ${isEditMode
                     ? "bg-orange-500 focus-visible:ring-orange-500"
                     : "bg-gray-300 dark:bg-gray-600 focus-visible:ring-indigo-500"
-                }`}
+                  }`}
               >
                 <span
                   className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300
                   ${isEditMode ? "translate-x-8" : "translate-x-1"}`}
                 />
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Activity Segmented Control Selector */}
+        <div className="mb-6 bg-gray-100 dark:bg-gray-900/50 p-1.5 rounded-2xl flex gap-1.5 inline-flex max-w-full overflow-x-auto self-start border border-gray-200/50 dark:border-gray-800 shadow-xxs">
+          <button
+            onClick={() => handleActivityChange('general')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activity === 'general'
+              ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+          >
+            📂 ทั่วไป (1-16 ปาร์ตี้)
+          </button>
+          <button
+            onClick={() => handleActivityChange('guild_league')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activity === 'guild_league'
+              ? 'bg-indigo-600 text-white shadow-md'
+              : 'text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400'
+              }`}
+          >
+            🏆 Guild League (40v40)
+          </button>
+          <button
+            onClick={() => handleActivityChange('emperium_overrun')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activity === 'emperium_overrun'
+              ? 'bg-orange-600 text-white shadow-md'
+              : 'text-gray-500 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400'
+              }`}
+          >
+            🏰 Emperium Overrun
+          </button>
+        </div>
+
+        {(activity === 'emperium_overrun' || activity === 'general') && isAdmin && isEditMode && (
+          <div className="mb-6 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/60 p-4 rounded-2xl flex flex-col md:flex-row gap-4 items-center justify-between transition-all">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-sm font-bold text-orange-900 dark:text-orange-200 flex items-center gap-1.5">
+                🏰 ปรับแต่งจำนวนปาร์ตี้แต่ละทีม ({activity === 'emperium_overrun' ? 'Emperium Overrun' : 'ทั่วไป'})
+              </h3>
+              <p className="text-[10px] text-orange-700 dark:text-orange-400">
+                ระบุจำนวนปาร์ตี้สำหรับแต่ละทีม ระบบจะคำนวณและแบ่งกลุ่มปาร์ตี้ให้อัตโนมัติ (รวมทั้งหมด 16 ปาร์ตี้)
+              </p>
+            </div>
+
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-blue-900 dark:text-blue-200">กันบ้าน:</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="16"
+                  value={defenseInput}
+                  onChange={(e) => handleDefenseInputChange(e.target.value)}
+                  onBlur={() => handleInputBlur('defense')}
+                  className="w-14 bg-white dark:bg-gray-800 border border-orange-200 dark:border-orange-900 rounded-lg px-2 py-1 text-xs font-bold text-center focus:outline-none focus:border-orange-550 text-slate-800 dark:text-white"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-rose-900 dark:text-rose-200">ทีมบุก:</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="16"
+                  value={offenseInput}
+                  onChange={(e) => handleOffenseInputChange(e.target.value)}
+                  onBlur={() => handleInputBlur('offense')}
+                  className="w-14 bg-white dark:bg-gray-800 border border-orange-200 dark:border-orange-900 rounded-lg px-2 py-1 text-xs font-bold text-center focus:outline-none focus:border-orange-550 text-slate-800 dark:text-white"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">วิ่งบ้าน:</span>
+                <input
+                  type="number"
+                  value={Object.values(partyTeams).filter(v => v === 'runner').length}
+                  className="w-14 bg-gray-100 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-800 rounded-lg px-2 py-1 text-xs font-bold text-center text-gray-500 cursor-not-allowed font-mono"
+                  disabled
+                />
+              </div>
             </div>
           </div>
         )}
@@ -294,44 +485,224 @@ export default function Dashboard({
             >
               <div className="flex flex-col gap-4">
 
-              <div>
-                <WaitlistBlock
-                  profiles={profiles.filter(
-                    (p) => p.party_id === null && !p.is_on_leave,
-                  )}
-                  isAdmin={isAdmin}
-                  isEditMode={isEditMode}
+                <div>
+                  <WaitlistBlock
+                    profiles={profiles.filter(
+                      (p) => p.party_id === null && !p.is_on_leave,
+                    )}
+                    isAdmin={isAdmin}
+                    isEditMode={isEditMode}
                   />
-              </div>
-              <div>
-                <LeaveListBlock
-                  profiles={profiles.filter(
-                    (p) => p.party_id === null && p.is_on_leave,
-                  )}
-                  isEditMode={isEditMode}
+                </div>
+                <div>
+                  <LeaveListBlock
+                    profiles={profiles.filter(
+                      (p) => p.party_id === null && p.is_on_leave,
+                    )}
+                    isEditMode={isEditMode}
                   />
+                </div>
               </div>
-                  </div>
             </div>
           )}
 
-          {/* Left Side: 16 Parties */}
+          {/* Left Side: 16 Parties Grouped by Activity */}
           <div className="flex-1 w-full order-2 lg:order-1">
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {parties.map((partyId) => (
-                <PartyBlock
-                  key={partyId}
-                  partyId={partyId}
-                  profiles={profiles.filter((p) => p.party_id === partyId)}
-                  isAdmin={isAdmin}
-                  isEditMode={isEditMode}
-                  onEmptySlotClick={(partyId, slotIndex) =>
-                    setActiveSlot({ partyId, slotIndex })
-                  }
-                  onMemberClear={handleClearMember}
-                />
-              ))}
-            </div>
+            {activity === 'general' && (
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {parties.map((partyId) => (
+                  <PartyBlock
+                    key={partyId}
+                    partyId={partyId}
+                    profiles={profiles.filter((p) => p.party_id === partyId)}
+                    isAdmin={isAdmin}
+                    isEditMode={isEditMode}
+                    onEmptySlotClick={(partyId, slotIndex) =>
+                      setActiveSlot({ partyId, slotIndex })
+                    }
+                    onMemberClear={handleClearMember}
+                    activity={activity}
+                  />
+                ))}
+              </div>
+            )}
+
+            {activity === 'guild_league' && (
+              <div className="space-y-8">
+                {/* ทีมหลัก */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-indigo-100 dark:border-indigo-950 pb-2">
+                    <span className="text-xl">🛡️</span>
+                    <h2 className="text-base font-extrabold text-indigo-900 dark:text-indigo-200">
+                      ทีมหลัก (Main Team) - 40 คน
+                    </h2>
+                    <span className="text-[10px] bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-bold border border-indigo-200/40 dark:border-indigo-900/40">
+                      ปาร์ตี้ 1 - 8
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {parties.filter(pid => pid <= 8).map((partyId) => (
+                      <PartyBlock
+                        key={partyId}
+                        partyId={partyId}
+                        profiles={profiles.filter((p) => p.party_id === partyId)}
+                        isAdmin={isAdmin}
+                        isEditMode={isEditMode}
+                        onEmptySlotClick={(partyId, slotIndex) =>
+                          setActiveSlot({ partyId, slotIndex })
+                        }
+                        onMemberClear={handleClearMember}
+                        activity={activity}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* ทีมรอง */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-purple-100 dark:border-purple-900 pb-2">
+                    <span className="text-xl">⚔️</span>
+                    <h2 className="text-base font-extrabold text-purple-900 dark:text-purple-200">
+                      ทีมรอง (Sub Team) - 40 คน
+                    </h2>
+                    <span className="text-[10px] bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full font-bold border border-purple-200/40 dark:border-purple-900/40">
+                      ปาร์ตี้ 9 - 16
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {parties.filter(pid => pid > 8).map((partyId) => (
+                      <PartyBlock
+                        key={partyId}
+                        partyId={partyId}
+                        profiles={profiles.filter((p) => p.party_id === partyId)}
+                        isAdmin={isAdmin}
+                        isEditMode={isEditMode}
+                        onEmptySlotClick={(partyId, slotIndex) =>
+                          setActiveSlot({ partyId, slotIndex })
+                        }
+                        onMemberClear={handleClearMember}
+                        activity={activity}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activity === 'emperium_overrun' && (
+              <div className="space-y-8">
+                {/* ทีมป้องกันบ้าน */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-blue-100 dark:border-blue-900 pb-2">
+                    <span className="text-xl">🏰</span>
+                    <h2 className="text-base font-extrabold text-blue-900 dark:text-blue-200">
+                      ทีมป้องกันบ้าน (Defense Team)
+                    </h2>
+                    <span className="text-[10px] bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-bold border border-blue-200/40 dark:border-blue-900/40">
+                      {parties.filter(pid => partyTeams[pid] === 'defense').length} ปาร์ตี้
+                    </span>
+                  </div>
+                  {parties.filter(pid => partyTeams[pid] === 'defense').length === 0 ? (
+                    <div className="text-center py-10 text-xs font-semibold text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl bg-gray-50/50 dark:bg-gray-900/10">
+                      ยังไม่มีปาร์ตี้ในทีมนี้ (เปลี่ยนทีมของปาร์ตี้ผ่านตัวเลือกขวาบนของการ์ดในโหมดแก้ไข)
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {parties.filter(pid => partyTeams[pid] === 'defense').map((partyId) => (
+                        <PartyBlock
+                          key={partyId}
+                          partyId={partyId}
+                          profiles={profiles.filter((p) => p.party_id === partyId)}
+                          isAdmin={isAdmin}
+                          isEditMode={isEditMode}
+                          onEmptySlotClick={(partyId, slotIndex) =>
+                            setActiveSlot({ partyId, slotIndex })
+                          }
+                          onMemberClear={handleClearMember}
+                          activity={activity}
+                          currentTeam={partyTeams[partyId]}
+                          onTeamChange={(team) => handlePartyTeamChange(partyId, team)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* ทีมบุก */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-rose-100 dark:border-rose-900 pb-2">
+                    <span className="text-xl">🔥</span>
+                    <h2 className="text-base font-extrabold text-rose-900 dark:text-rose-200">
+                      ทีมบุก (Offense Team)
+                    </h2>
+                    <span className="text-[10px] bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-full font-bold border border-rose-200/40 dark:border-rose-900/40">
+                      {parties.filter(pid => partyTeams[pid] === 'offense').length} ปาร์ตี้
+                    </span>
+                  </div>
+                  {parties.filter(pid => partyTeams[pid] === 'offense').length === 0 ? (
+                    <div className="text-center py-10 text-xs font-semibold text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl bg-gray-50/50 dark:bg-gray-900/10">
+                      ยังไม่มีปาร์ตี้ในทีมนี้ (เปลี่ยนทีมของปาร์ตี้ผ่านตัวเลือกขวาบนของการ์ดในโหมดแก้ไข)
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {parties.filter(pid => partyTeams[pid] === 'offense').map((partyId) => (
+                        <PartyBlock
+                          key={partyId}
+                          partyId={partyId}
+                          profiles={profiles.filter((p) => p.party_id === partyId)}
+                          isAdmin={isAdmin}
+                          isEditMode={isEditMode}
+                          onEmptySlotClick={(partyId, slotIndex) =>
+                            setActiveSlot({ partyId, slotIndex })
+                          }
+                          onMemberClear={handleClearMember}
+                          activity={activity}
+                          currentTeam={partyTeams[partyId]}
+                          onTeamChange={(team) => handlePartyTeamChange(partyId, team)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* ทีมวิ่งบ้าน */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-amber-100 dark:border-amber-900 pb-2">
+                    <span className="text-xl">⚡</span>
+                    <h2 className="text-base font-extrabold text-amber-900 dark:text-amber-200">
+                      ทีมวิ่งบ้าน (Runner Team)
+                    </h2>
+                    <span className="text-[10px] bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-bold border border-amber-200/40 dark:border-amber-900/40">
+                      {parties.filter(pid => partyTeams[pid] === 'runner').length} ปาร์ตี้
+                    </span>
+                  </div>
+                  {parties.filter(pid => partyTeams[pid] === 'runner').length === 0 ? (
+                    <div className="text-center py-10 text-xs font-semibold text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl bg-gray-50/50 dark:bg-gray-900/10">
+                      ยังไม่มีปาร์ตี้ในทีมนี้ (เปลี่ยนทีมของปาร์ตี้ผ่านตัวเลือกขวาบนของการ์ดในโหมดแก้ไข)
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {parties.filter(pid => partyTeams[pid] === 'runner').map((partyId) => (
+                        <PartyBlock
+                          key={partyId}
+                          partyId={partyId}
+                          profiles={profiles.filter((p) => p.party_id === partyId)}
+                          isAdmin={isAdmin}
+                          isEditMode={isEditMode}
+                          onEmptySlotClick={(partyId, slotIndex) =>
+                            setActiveSlot({ partyId, slotIndex })
+                          }
+                          onMemberClear={handleClearMember}
+                          activity={activity}
+                          currentTeam={partyTeams[partyId]}
+                          onTeamChange={(team) => handlePartyTeamChange(partyId, team)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -386,6 +757,8 @@ export default function Dashboard({
         <ExportModal
           profiles={profiles}
           onClose={() => setShowExportModal(false)}
+          activity={activity}
+          partyTeams={partyTeams}
         />
       )}
     </DndContext>

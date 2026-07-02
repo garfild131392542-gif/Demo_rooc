@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { Profile } from './Dashboard'
 import { getJobIconUrl } from '@/components/helpers'
 import { toJpeg } from 'html-to-image'
@@ -8,6 +8,8 @@ import { toJpeg } from 'html-to-image'
 interface Props {
   profiles: Profile[]
   onClose: () => void
+  activity?: 'general' | 'guild_league' | 'emperium_overrun'
+  partyTeams?: Record<number, 'defense' | 'offense' | 'runner'>
 }
 
 // Group background colors (soft pastel colors for header banners)
@@ -32,16 +34,13 @@ const cellBase: React.CSSProperties = {
   color: '#000', // Black text is required for clear contrast in printed images
 }
 
-export default function ExportModal({ profiles, onClose }: Props) {
+export default function ExportModal({ profiles, onClose, activity, partyTeams }: Props) {
   const gridRef = useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = useState(false)
 
-  // Config panel collapse state
-  const [isConfigOpen, setIsConfigOpen] = useState(true)
-
   // Config states
   const [bannerTitle, setBannerTitle] = useState('แผนจัดทีม Guild War (GvG)')
-  const [activePreset, setActivePreset] = useState<'gvg' | 'dungeon' | 'temple' | 'league' | 'custom'>('gvg')
+  const [activePreset, setActivePreset] = useState<'gvg' | 'dungeon' | 'temple' | 'league' | 'emperium_overrun' | 'custom'>('gvg')
   const [groupNames, setGroupNames] = useState<string[]>([
     'ทีมบุกหลัก',
     'ทีมกันบ้าน',
@@ -80,6 +79,18 @@ export default function ExportModal({ profiles, onClose }: Props) {
 
   // Get start/end party IDs for a group index (0-3)
   const getGroupPartiesRange = (groupIdx: number) => {
+    if (activePreset === 'emperium_overrun' && partyTeams) {
+      if (groupIdx === 0) {
+        return Object.keys(partyTeams).filter(k => partyTeams[Number(k)] === 'defense').map(Number).sort((a, b) => a - b)
+      } else if (groupIdx === 1) {
+        return Object.keys(partyTeams).filter(k => partyTeams[Number(k)] === 'offense').map(Number).sort((a, b) => a - b)
+      } else if (groupIdx === 2) {
+        return Object.keys(partyTeams).filter(k => partyTeams[Number(k)] === 'runner').map(Number).sort((a, b) => a - b)
+      } else {
+        return []
+      }
+    }
+
     let start = 1
     let end = 16
 
@@ -101,20 +112,39 @@ export default function ExportModal({ profiles, onClose }: Props) {
   }
 
   // Handle Preset Changes
-  const handlePresetChange = (preset: 'gvg' | 'dungeon' | 'temple' | 'league' | 'custom') => {
+  const handlePresetChange = (preset: 'gvg' | 'dungeon' | 'temple' | 'league' | 'emperium_overrun' | 'custom') => {
     setActivePreset(preset)
 
     if (preset === 'league') {
       setBannerTitle('แผนจัดทีม Guild League (กิลด์ลีก)')
       setGroupNames([
-        'ห้องหลัก',
-        'ห้องรอง',
+        'ทีมหลัก(40คน)',
+        'ทีมรอง(40คน)',
         'ไม่ได้ใช้งาน',
         'ไม่ได้ใช้งาน'
       ])
       setGroup1End(8)
       setGroup2End(16)
       setGroup3End(16)
+    } else if (preset === 'emperium_overrun') {
+      setBannerTitle('แผนจัดทีม Emperium Overrun')
+      setGroupNames([
+        'ทีมป้องกันบ้าน',
+        'ทีมบุก',
+        'ทีมวิ่งบ้าน',
+        'ไม่ได้ใช้งาน'
+      ])
+      if (partyTeams) {
+        const defenseCount = Object.values(partyTeams).filter(v => v === 'defense').length
+        const offenseCount = Object.values(partyTeams).filter(v => v === 'offense').length
+        setGroup1End(defenseCount)
+        setGroup2End(defenseCount + offenseCount)
+        setGroup3End(16)
+      } else {
+        setGroup1End(6)
+        setGroup2End(12)
+        setGroup3End(16)
+      }
     } else {
       // Reset to default ranges when changing preset (4, 8, 12)
       setGroup1End(4)
@@ -156,6 +186,16 @@ export default function ExportModal({ profiles, onClose }: Props) {
       }
     }
   }
+
+  useEffect(() => {
+    if (activity === 'guild_league') {
+      handlePresetChange('league');
+    } else if (activity === 'emperium_overrun') {
+      handlePresetChange('emperium_overrun');
+    } else {
+      handlePresetChange('gvg');
+    }
+  }, [activity, partyTeams]);
 
   const handleGroupNameChange = (idx: number, value: string) => {
     setGroupNames(prev => {
@@ -318,181 +358,6 @@ export default function ExportModal({ profiles, onClose }: Props) {
         {/* Modal Body */}
         <div className="flex flex-col md:flex-row overflow-hidden flex-grow relative bg-gray-100">
           
-          {/* LEFT SIDE: Configuration Panel */}
-          <div 
-            style={{
-              width: isConfigOpen ? '320px' : '0px',
-              padding: isConfigOpen ? '20px' : '0px',
-              borderRightWidth: isConfigOpen ? '1px' : '0px',
-              opacity: isConfigOpen ? 1 : 0,
-              transition: 'all 300ms ease-in-out',
-            }}
-            className={`bg-gray-50/50 border-gray-200 shrink-0 flex flex-col gap-4 ${
-              isConfigOpen ? 'overflow-y-auto' : 'overflow-hidden pointer-events-none'
-            }`}
-          >
-            {/* Presets Selection */}
-            <div className="space-y-1">
-              <label className="text-xxs font-bold text-gray-450 uppercase tracking-widest block">กิจกรรมที่ลง (Presets)</label>
-              <select
-                value={activePreset}
-                onChange={(e) => handlePresetChange(e.target.value as any)}
-                className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs text-gray-700 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-xxs"
-              >
-                <option value="gvg">🏰 Guild War (GvG)</option>
-                <option value="dungeon">🎋 Guild Dungeon (ดันกิลด์)</option>
-                <option value="temple">👑 Guild Temple (วิหาร)</option>
-                <option value="league">⚔️ Guild League (กิลด์ลีก)</option>
-                <option value="custom">⚙️ Custom (ปรับแต่งเอง)</option>
-              </select>
-            </div>
-
-            {/* Banner Title */}
-            <div className="space-y-1">
-              <label className="text-xxs font-bold text-gray-450 uppercase tracking-widest block">หัวข้อใหญ่ของกิจกรรม (Title)</label>
-              <input
-                type="text"
-                value={bannerTitle}
-                onChange={(e) => setBannerTitle(e.target.value)}
-                placeholder="ชื่อกิจกรรม..."
-                className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs text-gray-700 focus:outline-none focus:border-indigo-500 shadow-xxs"
-              />
-            </div>
-
-            {/* Group Names & Ranges Customizations */}
-            <div className="space-y-3.5 border-t border-gray-200/80 pt-3">
-              <label className="text-xxs font-bold text-gray-450 uppercase tracking-widest block mb-1">ขอบเขต & ชื่อของแต่ละกลุ่ม</label>
-              
-              {/* Group 1 */}
-              <div className="space-y-1 bg-white p-2.5 rounded-xl border border-gray-200 shadow-xxs">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-gray-500 flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: GROUP_THEMES[0].headerBg }} />
-                    กลุ่มที่ 1
-                  </span>
-                  <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                    <span>ปาร์ตี้ 1 ถึง</span>
-                    <select
-                      value={group1End}
-                      onChange={(e) => updateGroup1End(Number(e.target.value))}
-                      className="bg-gray-50 border border-gray-250 rounded px-1.5 py-0.5 text-[10px]"
-                    >
-                      {Array.from({ length: 15 }, (_, i) => i + 1).map(v => (
-                        <option key={v} value={v}>{v}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <input
-                  type="text"
-                  value={groupNames[0]}
-                  onChange={(e) => handleGroupNameChange(0, e.target.value)}
-                  placeholder="ชื่อกลุ่มภารกิจ 1..."
-                  className="w-full bg-slate-50/50 border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-700 focus:outline-none"
-                />
-              </div>
-
-              {/* Group 2 */}
-              {group1End < 16 && (
-                <div className="space-y-1 bg-white p-2.5 rounded-xl border border-gray-200 shadow-xxs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-gray-500 flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: GROUP_THEMES[1].headerBg }} />
-                      กลุ่มที่ 2
-                    </span>
-                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                      <span>ปาร์ตี้ {group1End + 1} ถึง</span>
-                      <select
-                        value={group2End}
-                        onChange={(e) => updateGroup2End(Number(e.target.value))}
-                        className="bg-gray-50 border border-gray-255 rounded px-1.5 py-0.5 text-[10px]"
-                      >
-                        {Array.from({ length: 16 - (group1End + 1) + 1 }, (_, i) => group1End + 1 + i).map(v => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <input
-                    type="text"
-                    value={groupNames[1]}
-                    onChange={(e) => handleGroupNameChange(1, e.target.value)}
-                    placeholder="ชื่อกลุ่มภารกิจ 2..."
-                    className="w-full bg-slate-50/50 border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-700 focus:outline-none"
-                  />
-                </div>
-              )}
-
-              {/* Group 3 */}
-              {group2End < 16 && (
-                <div className="space-y-1 bg-white p-2.5 rounded-xl border border-gray-200 shadow-xxs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-gray-500 flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: GROUP_THEMES[2].headerBg }} />
-                      กลุ่มที่ 3
-                    </span>
-                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                      <span>ปาร์ตี้ {group2End + 1} ถึง</span>
-                      <select
-                        value={group3End}
-                        onChange={(e) => updateGroup3End(Number(e.target.value))}
-                        className="bg-gray-50 border border-gray-255 rounded px-1.5 py-0.5 text-[10px]"
-                      >
-                        {Array.from({ length: 16 - (group2End + 1) + 1 }, (_, i) => group2End + 1 + i).map(v => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <input
-                    type="text"
-                    value={groupNames[2]}
-                    onChange={(e) => handleGroupNameChange(2, e.target.value)}
-                    placeholder="ชื่อกลุ่มภารกิจ 3..."
-                    className="w-full bg-slate-50/50 border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-700 focus:outline-none"
-                  />
-                </div>
-              )}
-
-              {/* Group 4 */}
-              {group3End < 16 && (
-                <div className="space-y-1 bg-white p-2.5 rounded-xl border border-gray-200 shadow-xxs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-gray-500 flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: GROUP_THEMES[3].headerBg }} />
-                      กลุ่มที่ 4
-                    </span>
-                    <span className="text-[10px] text-gray-400 font-medium">
-                      ปาร์ตี้ {group3End + 1} ถึง 16
-                    </span>
-                  </div>
-                  <input
-                    type="text"
-                    value={groupNames[3]}
-                    onChange={(e) => handleGroupNameChange(3, e.target.value)}
-                    placeholder="ชื่อกลุ่มภารกิจ 4..."
-                    className="w-full bg-slate-50/50 border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-700 focus:outline-none"
-                  />
-                </div>
-              )}
-
-            </div>
-
-          </div>
-
-          {/* COLLAPSE/TOGGLE SIDEBAR BUTTON */}
-          <button
-            onClick={() => setIsConfigOpen(prev => !prev)}
-            className="absolute top-1/2 -translate-y-1/2 z-40 bg-indigo-600 hover:bg-indigo-700 text-white w-5 h-14 rounded-r-lg shadow-md border-y border-r border-indigo-700 transition-all flex items-center justify-center cursor-pointer select-none text-[10px]"
-            style={{
-              left: isConfigOpen ? '320px' : '0px',
-              transition: 'left 300ms ease-in-out',
-            }}
-            title={isConfigOpen ? 'ซ่อนการตั้งค่า' : 'แสดงการตั้งค่า'}
-          >
-            {isConfigOpen ? '◀' : '▶'}
-          </button>
-
           {/* RIGHT SIDE: Live Image Preview */}
           <div className="flex-grow overflow-auto p-6 bg-gray-100 flex items-start justify-center">
             

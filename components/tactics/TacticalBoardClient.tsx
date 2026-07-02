@@ -6,10 +6,10 @@ import { saveTacticalPlan, deleteTacticalPlan, uploadTacticalMap } from '@/app/a
 
 // Standard RO GvG map configurations
 const DEFAULT_MAPS = [
-  { id: 'vale_of_clash', name: 'Vale of Clash', src: '/maps/vale_of_clash.png', fallbackBg: 'bg-emerald-950/40', emoji: '🌳' },
-  { id: 'payon_gvg', name: 'Payon GvG', src: '/maps/payon_gvg.png', fallbackBg: 'bg-amber-950/40', emoji: '🎋' },
-  { id: 'geffen_gvg', name: 'Geffen GvG', src: '/maps/geffen_gvg.png', fallbackBg: 'bg-violet-950/40', emoji: '🏰' },
-  { id: 'prontera_gvg', name: 'Prontera GvG', src: '/maps/prontera_gvg.png', fallbackBg: 'bg-blue-950/40', emoji: '👑' },
+  { id: 'guild_league_old_main', name: 'กิลด์ลีกแบบเก่า (ห้องหลัก)', src: '/maps/Guild_league/ห้องหลัก.png', fallbackBg: 'bg-indigo-950/40', emoji: '🛡️' },
+  { id: 'guild_league_old_sub', name: 'กิลด์ลีกแบบเก่า (ห้องรอง)', src: '/maps/Guild_league/ห้องรอง.png', fallbackBg: 'bg-purple-950/40', emoji: '⚔️' },
+  { id: 'guild_league_new_forest', name: 'กิลด์ลีกแบบใหม่ (แผนที่ป่า)', src: '/maps/Guild_Leauge_ป่า.png', fallbackBg: 'bg-emerald-950/40', emoji: '🌳' },
+  { id: 'guild_league_vigrid', name: 'กิลด์ลีกใหม่ (Vigrid Avenge)', src: '/maps/Vigrid_avenge.jpg', fallbackBg: 'bg-rose-950/40', emoji: '⚔️' },
 ]
 
 // Default tokens matching the mockup
@@ -87,6 +87,31 @@ export default function TacticalBoardClient({
   const [tokens, setTokens] = useState(DEFAULT_TOKENS)
   const [draggedTokenId, setDraggedTokenId] = useState<number | null>(null)
   const dragOffset = useRef({ x: 0, y: 0 })
+
+  const [activity, setActivity] = useState<'general' | 'guild_league' | 'emperium_overrun'>('general')
+  const [guildLeagueRoom, setGuildLeagueRoom] = useState<'main' | 'sub'>('main')
+  const [partyTeams, setPartyTeams] = useState<Record<number, 'defense' | 'offense' | 'runner'>>(() => {
+    const defaults: Record<number, 'defense' | 'offense' | 'runner'> = {}
+    for (let i = 1; i <= 16; i++) {
+      if (i <= 6) defaults[i] = 'defense'
+      else if (i <= 12) defaults[i] = 'offense'
+      else defaults[i] = 'runner'
+    }
+    return defaults
+  })
+
+  // Automatically update map to default when switching Guild League rooms
+  useEffect(() => {
+    if (activity === 'guild_league') {
+      if (guildLeagueRoom === 'sub') {
+        setSelectedMapId('guild_league_old_sub')
+      } else {
+        setSelectedMapId('guild_league_old_main')
+      }
+    } else if (activity === 'emperium_overrun') {
+      setSelectedMapId('custom')
+    }
+  }, [guildLeagueRoom, activity])
   
   // Parties roster state (left panel)
   const [parties, setParties] = useState<any[]>(() => {
@@ -396,7 +421,12 @@ export default function TacticalBoardClient({
         battleNotes,
         tokens,
         drawings,
-        parties
+        {
+          parties,
+          activity,
+          partyTeams,
+          guildLeagueRoom
+        }
       )
 
       if (res.success && res.plan) {
@@ -420,7 +450,25 @@ export default function TacticalBoardClient({
     setBattleNotes(plan.battle_notes || '')
     setTokens(plan.token_positions || DEFAULT_TOKENS)
     setDrawings(plan.drawings || [])
-    setParties(plan.parties_data || [])
+    
+    if (plan.parties_data) {
+      if (Array.isArray(plan.parties_data)) {
+        setParties(plan.parties_data)
+        setActivity('general')
+      } else {
+        setParties(plan.parties_data.parties || [])
+        setActivity(plan.parties_data.activity || 'general')
+        if (plan.parties_data.partyTeams) {
+          setPartyTeams(plan.parties_data.partyTeams)
+        }
+        if (plan.parties_data.guildLeagueRoom) {
+          setGuildLeagueRoom(plan.parties_data.guildLeagueRoom)
+        }
+      }
+    } else {
+      setParties([])
+      setActivity('general')
+    }
     
     if (plan.map_name.startsWith('http') || plan.map_name === 'custom') {
       setCustomMapUrl(plan.map_name)
@@ -495,6 +543,85 @@ export default function TacticalBoardClient({
     }))
   }
 
+  const renderPartyCard = (party: any) => {
+    return (
+      <div key={party.id} className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-xl space-y-2 hover:border-slate-350 dark:hover:border-slate-700 transition-all shadow-xs">
+        
+        {/* Party Header & Name Input & Visibility Toggle */}
+        <div className="flex items-center justify-between gap-1.5">
+          <div className="flex items-center gap-2 flex-grow min-w-0">
+            <span 
+              className="w-6 h-6 flex items-center justify-center rounded-lg text-xs font-bold text-white shrink-0 shadow-sm"
+              style={{ backgroundColor: DEFAULT_TOKENS[party.id - 1]?.color || '#38bdf8' }}
+            >
+              {DEFAULT_TOKENS[party.id - 1]?.emoji}
+            </span>
+            <div className="flex flex-col min-w-0 flex-grow">
+              <input
+                type="text"
+                value={party.name}
+                onChange={(e) => handlePartyNameChange(party.id, e.target.value)}
+                placeholder={`Party ${party.id}`}
+                className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none border-b border-transparent hover:border-slate-350 dark:hover:border-slate-700 focus:border-indigo-500 w-full pb-0.5 truncate"
+              />
+              {activity === 'emperium_overrun' && isAdmin && (
+                <select
+                  value={partyTeams[party.id] || 'defense'}
+                  onChange={(e) => setPartyTeams(prev => ({ ...prev, [party.id]: e.target.value as any }))}
+                  className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded text-[9px] font-bold px-1 py-0.5 text-slate-600 dark:text-slate-400 focus:outline-none cursor-pointer mt-0.5 self-start"
+                >
+                  <option value="defense">🏰 กันบ้าน</option>
+                  <option value="offense">🔥 ทีมบุก</option>
+                  <option value="runner">⚡ วิ่งบ้าน</option>
+                </select>
+              )}
+            </div>
+          </div>
+          
+          {/* Token visibility text toggle */}
+          <button
+            onClick={() => toggleTokenVisibility(party.id)}
+            className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer border shrink-0 ${
+              isTokenVisible(party.id) 
+                ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400' 
+                : 'bg-slate-100 border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-slate-400 dark:text-slate-550'
+            }`}
+            title={isTokenVisible(party.id) ? 'ซ่อนโทเค็นจากแผนที่' : 'แสดงโทเค็นบนแผนที่'}
+          >
+            {isTokenVisible(party.id) ? 'แสดง' : 'ซ่อน'}
+          </button>
+        </div>
+
+        {/* Party Member Slot Inputs */}
+        <div className="space-y-1.5 pl-8">
+          {party.slots.map((name: string, slotIdx: number) => (
+            <div key={slotIdx} className="flex items-center gap-1.5">
+              <span className="text-[10px] text-slate-450 dark:text-slate-500 font-mono w-2.5">{slotIdx + 1}.</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => handleMemberSlotChange(party.id, slotIdx, e.target.value)}
+                placeholder="ชื่อตัวละคร..."
+                className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 text-xs px-2 py-1 rounded w-full focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-300"
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Mini notes for the party */}
+        <div className="pl-8 pt-0.5">
+          <textarea
+            value={party.notes}
+            onChange={(e) => handlePartyNoteChange(party.id, e.target.value)}
+            placeholder="เป้าหมาย/หมายเหตุ..."
+            rows={2}
+            className="w-full bg-slate-55/60 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 text-[10px] p-1.5 rounded focus:outline-none focus:border-indigo-500 resize-none text-slate-650 dark:text-slate-400"
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div 
       className="relative w-full text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden flex shadow-sm"
@@ -521,72 +648,109 @@ export default function TacticalBoardClient({
             ❌
           </button>
         </div>
+
+        {/* Activity Selector */}
+        <div className="mt-3 shrink-0 space-y-3">
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 block mb-1 uppercase tracking-wider font-mono">🎯 กิจกรรม (Activity)</label>
+            <select
+              value={activity}
+              onChange={(e) => setActivity(e.target.value as any)}
+              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs p-2 rounded-xl focus:outline-none text-slate-800 dark:text-slate-200 cursor-pointer shadow-xxs"
+            >
+              <option value="general">📂 ทั่วไป (1-16 ปาร์ตี้)</option>
+              <option value="guild_league">🏆 Guild League (กิลด์ลีก)</option>
+              <option value="emperium_overrun">🏰 Emperium Overrun</option>
+            </select>
+          </div>
+
+          {activity === 'guild_league' && (
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 block mb-1 uppercase tracking-wider font-mono">🏢 เลือกห้องแข่งขัน (Room)</label>
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl flex gap-1 shadow-xxs">
+                <button
+                  onClick={() => setGuildLeagueRoom('main')}
+                  className={`flex-1 py-1.5 rounded-lg text-xxs font-bold transition-all cursor-pointer text-center ${
+                    guildLeagueRoom === 'main'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-705 dark:text-slate-400 dark:hover:text-slate-200'
+                  }`}
+                >
+                  🛡️ ห้องหลัก
+                </button>
+                <button
+                  onClick={() => setGuildLeagueRoom('sub')}
+                  className={`flex-1 py-1.5 rounded-lg text-xxs font-bold transition-all cursor-pointer text-center ${
+                    guildLeagueRoom === 'sub'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-705 dark:text-slate-400 dark:hover:text-slate-200'
+                  }`}
+                >
+                  ⚔️ ห้องรอง
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         
         {/* Internally Scrollable Roster list */}
         <div className="flex-grow overflow-y-auto mt-4 pr-1 space-y-4">
-          {parties.map(party => (
-            <div key={party.id} className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-xl space-y-2 hover:border-slate-350 dark:hover:border-slate-700 transition-all shadow-xs">
-              
-              {/* Party Header & Name Input & Visibility Toggle */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 flex-grow min-w-0">
-                  <span 
-                    className="w-6 h-6 flex items-center justify-center rounded-lg text-xs font-bold text-white shrink-0 shadow-sm"
-                    style={{ backgroundColor: DEFAULT_TOKENS[party.id - 1]?.color || '#38bdf8' }}
-                  >
-                    {DEFAULT_TOKENS[party.id - 1]?.emoji}
-                  </span>
-                  <input
-                    type="text"
-                    value={party.name}
-                    onChange={(e) => handlePartyNameChange(party.id, e.target.value)}
-                    placeholder={`Party ${party.id}`}
-                    className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none border-b border-transparent hover:border-slate-350 dark:hover:border-slate-700 focus:border-indigo-500 w-full pb-0.5"
-                  />
-                </div>
-                
-                {/* Token visibility text toggle */}
-                <button
-                  onClick={() => toggleTokenVisibility(party.id)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer border ${
-                    isTokenVisible(party.id) 
-                      ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400' 
-                      : 'bg-slate-100 border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-slate-400 dark:text-slate-550'
-                  }`}
-                  title={isTokenVisible(party.id) ? 'ซ่อนโทเค็นจากแผนที่' : 'แสดงโทเค็นบนแผนที่'}
-                >
-                  {isTokenVisible(party.id) ? 'แสดง' : 'ซ่อน'}
-                </button>
-              </div>
+          {activity === 'general' && parties.map(party => renderPartyCard(party))}
 
-              {/* Party Member Slot Inputs */}
-              <div className="space-y-1.5 pl-8">
-                {party.slots.map((name: string, slotIdx: number) => (
-                  <div key={slotIdx} className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-slate-450 dark:text-slate-500 font-mono w-2.5">{slotIdx + 1}.</span>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => handleMemberSlotChange(party.id, slotIdx, e.target.value)}
-                      placeholder="ชื่อตัวละคร..."
-                      className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 text-xs px-2 py-1 rounded w-full focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-300"
-                    />
+          {activity === 'guild_league' && (
+            <div className="space-y-6">
+              {guildLeagueRoom === 'main' ? (
+                <div className="space-y-3">
+                  <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 border-b border-indigo-150 dark:border-indigo-900/50 pb-1 flex items-center gap-1.5">
+                    <span>🛡️</span> ทีมหลัก (Main) - 40 คน
                   </div>
-                ))}
-              </div>
+                  {parties.filter(p => p.id <= 8).map(party => renderPartyCard(party))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="text-xs font-bold text-purple-600 dark:text-purple-400 border-b border-purple-150 dark:border-purple-900/50 pb-1 flex items-center gap-1.5">
+                    <span>⚔️</span> ทีมรอง (Sub) - 40 คน
+                  </div>
+                  {parties.filter(p => p.id > 8).map(party => renderPartyCard(party))}
+                </div>
+              )}
+            </div>
+          )}
 
-              {/* Mini notes for the party */}
-              <div className="pl-8 pt-0.5">
-                <textarea
-                  value={party.notes}
-                  onChange={(e) => handlePartyNoteChange(party.id, e.target.value)}
-                  placeholder="เป้าหมาย/หมายเหตุ..."
-                  rows={2}
-                  className="w-full bg-slate-55/60 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 text-[10px] p-1.5 rounded focus:outline-none focus:border-indigo-500 resize-none text-slate-600 dark:text-slate-400"
-                />
+          {activity === 'emperium_overrun' && (
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <div className="text-xs font-bold text-blue-600 dark:text-blue-400 border-b border-blue-150 dark:border-blue-900/50 pb-1 flex items-center gap-1.5">
+                  <span>🏰</span> ทีมป้องกันบ้าน (Defense)
+                </div>
+                {parties.filter(p => partyTeams[p.id] === 'defense').length === 0 ? (
+                  <p className="text-[10px] text-slate-500 text-center py-4 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">ไม่มีปาร์ตี้ในทีมนี้</p>
+                ) : (
+                  parties.filter(p => partyTeams[p.id] === 'defense').map(party => renderPartyCard(party))
+                )}
+              </div>
+              <div className="space-y-3">
+                <div className="text-xs font-bold text-rose-600 dark:text-rose-400 border-b border-rose-150 dark:border-rose-900/50 pb-1 flex items-center gap-1.5">
+                  <span>🔥</span> ทีมบุก (Offense)
+                </div>
+                {parties.filter(p => partyTeams[p.id] === 'offense').length === 0 ? (
+                  <p className="text-[10px] text-slate-500 text-center py-4 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">ไม่มีปาร์ตี้ในทีมนี้</p>
+                ) : (
+                  parties.filter(p => partyTeams[p.id] === 'offense').map(party => renderPartyCard(party))
+                )}
+              </div>
+              <div className="space-y-3">
+                <div className="text-xs font-bold text-amber-600 dark:text-amber-450 border-b border-amber-155 dark:border-amber-900/50 pb-1 flex items-center gap-1.5">
+                  <span>⚡</span> ทีมวิ่งบ้าน (Runner)
+                </div>
+                {parties.filter(p => partyTeams[p.id] === 'runner').length === 0 ? (
+                  <p className="text-[10px] text-slate-500 text-center py-4 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">ไม่มีปาร์ตี้ในทีมนี้</p>
+                ) : (
+                  parties.filter(p => partyTeams[p.id] === 'runner').map(party => renderPartyCard(party))
+                )}
               </div>
             </div>
-          ))}
+          )}
         </div>
       </div>
 
@@ -874,7 +1038,14 @@ export default function TacticalBoardClient({
             )}
 
             {/* 6. Draggable Tokens (Filtered by Visibility state, with hover tooltip) */}
-            {tokens.filter(t => t.visible !== false).map(token => {
+            {tokens.filter(t => {
+              if (t.visible === false) return false;
+              if (activity === 'guild_league') {
+                if (guildLeagueRoom === 'main') return t.id <= 8;
+                if (guildLeagueRoom === 'sub') return t.id > 8;
+              }
+              return true;
+            }).map(token => {
               const leftPercent = token.x / 10
               const topPercent = token.y / 10
               const isDragged = token.id === draggedTokenId
@@ -963,13 +1134,33 @@ export default function TacticalBoardClient({
                 setSelectedMapId(e.target.value)
                 if (e.target.value !== 'custom') setCustomMapUrl(null)
               }}
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs p-2.5 rounded-xl focus:outline-none text-slate-800 dark:text-slate-200 cursor-pointer shadow-xxs"
+              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs p-2.5 rounded-xl focus:outline-none text-slate-800 dark:text-slate-200 cursor-pointer shadow-xxs font-semibold"
             >
-              {mapsList.map(map => (
-                <option key={map.id} value={map.id}>
-                  {map.emoji} {map.name}
-                </option>
-              ))}
+              <optgroup label="🏆 กิลด์ลีก (Guild League)" className="text-indigo-600 dark:text-indigo-400 font-bold bg-white dark:bg-slate-900">
+                {mapsList.filter(m => m.id.startsWith('guild_league_')).map(map => (
+                  <option key={map.id} value={map.id} className="text-slate-800 dark:text-slate-200 font-normal">
+                    {map.emoji} {map.name}
+                  </option>
+                ))}
+              </optgroup>
+              {mapsList.some(m => !m.id.startsWith('guild_league_') && m.id !== 'custom') && (
+                <optgroup label="🏰 ยึดปราสาท (Emperium Overrun)" className="text-orange-600 dark:text-orange-400 font-bold bg-white dark:bg-slate-900">
+                  {mapsList.filter(m => !m.id.startsWith('guild_league_') && m.id !== 'custom').map(map => (
+                    <option key={map.id} value={map.id} className="text-slate-800 dark:text-slate-200 font-normal">
+                      {map.emoji} {map.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {mapsList.some(m => m.id === 'custom') && (
+                <optgroup label="🖼️ อัปโหลดเอง (Custom Map)" className="text-slate-500 font-bold bg-white dark:bg-slate-900">
+                  {mapsList.filter(m => m.id === 'custom').map(map => (
+                    <option key={map.id} value={map.id} className="text-slate-800 dark:text-slate-200 font-normal">
+                      {map.emoji} {map.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
 
             {/* Map Uploader (Admin only) */}

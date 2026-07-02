@@ -68,6 +68,9 @@ export default function PartyBlock({
   isEditMode,
   onEmptySlotClick,
   onMemberClear,
+  activity = 'general',
+  currentTeam = 'defense',
+  onTeamChange,
 }: {
   partyId: number
   profiles: Profile[]
@@ -75,13 +78,46 @@ export default function PartyBlock({
   isEditMode: boolean
   onEmptySlotClick?: (partyId: number, slotIndex: number) => void
   onMemberClear?: (memberId: string) => void
+  activity?: 'general' | 'guild_league' | 'emperium_overrun'
+  currentTeam?: 'defense' | 'offense' | 'runner'
+  onTeamChange?: (team: 'defense' | 'offense' | 'runner') => void
 }) {
   const slots = Array.from({ length: 5 }, (_, i) => i)
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden glass-panel">
-      <div className="bg-gray-100 dark:bg-gray-900 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <h3 className="font-bold text-gray-800 dark:text-gray-200">Party {partyId}</h3>
+    <div className="bg-white dark:bg-gray-850 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden glass-panel">
+      <div className="bg-gray-100 dark:bg-gray-900 px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2">
+        <div className="flex flex-col min-w-0">
+          <h3 className="font-bold text-gray-800 dark:text-gray-200 truncate">Party {partyId}</h3>
+          {activity === 'guild_league' && (
+            <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
+              {partyId <= 8 ? '🛡️ ทีมหลัก (40 คน)' : '⚔️ ทีมรอง (40 คน)'}
+            </span>
+          )}
+          {activity === 'emperium_overrun' && (
+            <span className={`text-[10px] font-semibold ${
+              currentTeam === 'defense' ? 'text-blue-600 dark:text-blue-400' :
+              currentTeam === 'offense' ? 'text-rose-600 dark:text-rose-400' :
+              'text-amber-600 dark:text-amber-400'
+            }`}>
+              {currentTeam === 'defense' ? '🏰 ทีมป้องกันบ้าน' :
+               currentTeam === 'offense' ? '🔥 ทีมบุก' :
+               '⚡ ทีมวิ่งบ้าน'}
+            </span>
+          )}
+        </div>
+
+        {activity === 'emperium_overrun' && isAdmin && isEditMode && onTeamChange && (
+          <select
+            value={currentTeam}
+            onChange={(e) => onTeamChange(e.target.value as any)}
+            className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-[10px] font-bold px-1.5 py-0.5 text-gray-700 dark:text-gray-350 focus:outline-none cursor-pointer"
+          >
+            <option value="defense">🏰 กันบ้าน</option>
+            <option value="offense">🔥 ทีมบุก</option>
+            <option value="runner">⚡ วิ่งบ้าน</option>
+          </select>
+        )}
       </div>
       <div className="p-4 space-y-3">
         {slots.map(slotIndex => {

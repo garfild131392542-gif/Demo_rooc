@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import PoringAssistant from "@/components/PoringAssistant";
 import UpdateTicker from "@/components/UpdateTicker";
 import AnnouncementModal from "@/components/AnnouncementModal";
+import QueryProvider from "@/components/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -59,18 +60,19 @@ export default async function RootLayout({
           shadow={`0 0 10px ${primaryColor},0 0 5px ${primaryColor}`}
         />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <Navbar />
-          {session && <UpdateTicker />}
-          <main className="flex-1">
-            {children}
-          </main>
+          <QueryProvider>
+            <Navbar />
+            {session && <UpdateTicker />}
+            <main className="flex-1">
+              {children}
+            </main>
 
-          {/* 2. วางน้อง Poring ไว้ตรงนี้ครับ น้องจะลอยตามไปทุกๆ หน้า */}
-          <PoringAssistant />
+            {/* 2. วางน้อง Poring ไว้ตรงนี้ครับ น้องจะลอยตามไปทุกๆ หน้า */}
+            <PoringAssistant />
 
-          {/* 3. Announcement Modal — เด้งวันละ 1 ครั้ง แจ้งเตือนอัปเดต */}
-          <AnnouncementModal />
-
+            {/* 3. Announcement Modal — เด้งวันละ 1 ครั้ง แจ้งเตือนอัปเดต */}
+            <AnnouncementModal />
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

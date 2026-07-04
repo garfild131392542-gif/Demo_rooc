@@ -200,3 +200,109 @@ export async function uploadTacticalMap(formData: FormData) {
     return { success: false, error: err.message }
   }
 }
+
+/**
+ * Upload a custom audio file to guild-maps bucket
+ */
+export async function uploadTacticalAudio(formData: FormData) {
+  try {
+    const session = (await getSession()) as any
+    if (!session?.profile) {
+      return { success: false, error: 'กรุณาเข้าสู่ระบบ' }
+    }
+
+    const isAdmin = session.profile.role === 'admin'
+    if (!isAdmin) {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const guildId = session.profile.guild_id
+    if (!guildId) {
+      return { success: false, error: 'สมาชิกไม่ได้สังกัดกิลด์' }
+    }
+
+    const file = formData.get('file') as File
+    if (!file) {
+      return { success: false, error: 'ไม่พบไฟล์เสียงที่ต้องการอัปโหลด' }
+    }
+
+    // Convert file to buffer
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+
+    const supabase = (await createAdminClient()) as any
+    const fileExt = file.name.split('.').pop() || 'webm'
+    const filePath = `${guildId}/audio-${Date.now()}.${fileExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('guild-maps')
+      .upload(filePath, buffer, {
+        contentType: file.type,
+        upsert: true,
+      })
+
+    if (uploadError) throw uploadError
+
+    const { data: urlData } = supabase.storage
+      .from('guild-maps')
+      .getPublicUrl(filePath)
+
+    return { success: true, url: urlData.publicUrl }
+  } catch (err: any) {
+    console.error('uploadTacticalAudio error:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+/**
+ * Upload a custom video file to guild-maps bucket
+ */
+export async function uploadTacticalVideo(formData: FormData) {
+  try {
+    const session = (await getSession()) as any
+    if (!session?.profile) {
+      return { success: false, error: 'กรุณาเข้าสู่ระบบ' }
+    }
+
+    const isAdmin = session.profile.role === 'admin'
+    if (!isAdmin) {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const guildId = session.profile.guild_id
+    if (!guildId) {
+      return { success: false, error: 'สมาชิกไม่ได้สังกัดกิลด์' }
+    }
+
+    const file = formData.get('file') as File
+    if (!file) {
+      return { success: false, error: 'ไม่พบไฟล์วิดีโอที่ต้องการอัปโหลด' }
+    }
+
+    // Convert file to buffer
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+
+    const supabase = (await createAdminClient()) as any
+    const fileExt = file.name.split('.').pop() || 'webm'
+    const filePath = `${guildId}/video-${Date.now()}.${fileExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('guild-maps')
+      .upload(filePath, buffer, {
+        contentType: file.type,
+        upsert: true,
+      })
+
+    if (uploadError) throw uploadError
+
+    const { data: urlData } = supabase.storage
+      .from('guild-maps')
+      .getPublicUrl(filePath)
+
+    return { success: true, url: urlData.publicUrl }
+  } catch (err: any) {
+    console.error('uploadTacticalVideo error:', err)
+    return { success: false, error: err.message }
+  }
+}

@@ -7,10 +7,21 @@ import { ITEM_CONFIG } from './constants'
 import AuctionWindow from './AuctionWindow'
 import AdminForm from './AdminForm'
 import AdminLimits from './AdminLimits'
+import { useQuery } from '@tanstack/react-query'
 
 export default function AuctionBoard({ data: initialData, onRefresh }: { data: any; onRefresh?: () => void }) {
   const router = useRouter()
-  const [data, setData] = useState(initialData)
+  const { data, refetch } = useQuery({
+    queryKey: ['auctionDashboard'],
+    queryFn: async () => {
+      const response = await fetch('/api/auction/dashboard')
+      if (!response.ok) throw new Error('Failed to fetch dashboard data')
+      return response.json()
+    },
+    initialData,
+    refetchInterval: 15000, // Auto-poll every 15s to sync real-time changes
+  })
+  
   const { isAdmin, todayItems, memberQueues, myProfile, history = [] } = data
   
   const [currentPage, setCurrentPage] = useState(1)
@@ -18,10 +29,6 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
   const [isSaving, setIsSaving] = useState(false)
   // Debug flag to help trace slot generation in browser console when investigating UI issues
   const DEBUG_AUCTION = true
-
-  useEffect(() => {
-    setData(initialData)
-  }, [initialData])
   
   const [limits, setLimits] = useState<Record<'Album' | 'Puppet' | 'White' | 'RedBlack', number | ''>>(() => {
     const init: Record<'Album' | 'Puppet' | 'White' | 'RedBlack', number | ''> = { Album: '', Puppet: '', White: '', RedBlack: '' }
@@ -219,18 +226,8 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
   const currentSlots = mappedSlots.slice((currentPage - 1) * slotsPerPage, currentPage * slotsPerPage)
 
   const handleRefresh = async () => {
-    try {
-      const response = await fetch('/api/auction/dashboard')
-      if (!response.ok) throw new Error('Failed to fetch dashboard data')
-      const newData = await response.json()
-      if (newData.success) {
-        setData(newData)
-      }
-    } catch (error) {
-      console.error('Error refreshing auction data:', error)
-    }
+    await refetch()
     await onRefresh?.()
-    router.refresh()
   }
 
   const handleAdminSave = async (draftTotals?: Record<'Album' | 'Puppet' | 'White' | 'RedBlack', number | ''>) => {

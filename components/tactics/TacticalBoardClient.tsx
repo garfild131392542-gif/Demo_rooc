@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useTransition } from 'react'
 import { toJpeg } from 'html-to-image'
-import { saveTacticalPlan, deleteTacticalPlan, uploadTacticalMap } from '@/app/actions/tactics'
+import { saveTacticalPlan, deleteTacticalPlan, uploadTacticalMap, uploadTacticalAudio, uploadTacticalVideo } from '@/app/actions/tactics'
 
 // Standard RO GvG map configurations
 const DEFAULT_MAPS = [
@@ -55,34 +55,234 @@ export default function TacticalBoardClient({
 }: TacticalBoardClientProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const exportRef = useRef<HTMLDivElement>(null)
-  
+
   const [plans, setPlans] = useState<any[]>(initialPlans)
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
   const [planName, setPlanName] = useState('')
-  
+
   const [selectedMapId, setSelectedMapId] = useState('vale_of_clash')
   const [customMapUrl, setCustomMapUrl] = useState<string | null>(null)
   const [mapsList, setMapsList] = useState(DEFAULT_MAPS)
   const [mapError, setMapError] = useState(false)
-  
+
+  // Audio Recording States & Refs
+  const [isRecording, setIsRecording] = useState(false)
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [savedAudioUrl, setSavedAudioUrl] = useState<string | null>(null)
+  const [recordingTime, setRecordingTime] = useState(0)
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
+      chunksRef.current = []
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunksRef.current.push(e.data)
+        }
+      }
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        setAudioBlob(blob)
+        const localUrl = URL.createObjectURL(blob)
+        setAudioUrl(localUrl)
+        setSavedAudioUrl(null)
+
+        stream.getTracks().forEach(track => track.stop())
+      }
+
+      mediaRecorder.start()
+      setIsRecording(true)
+      setRecordingTime(0)
+
+      timerIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1)
+      }, 1000)
+    } catch (err) {
+      console.error('Error starting audio recording:', err)
+      alert('ไม่สามารถเข้าถึงไมโครโฟนได้ กรุณาอนุญาตสิทธิ์การใช้ไมโครโฟน')
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
+    }
+    setIsRecording(false)
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current)
+    }
+  }
+
+  const deleteRecording = () => {
+    setAudioBlob(null)
+    setAudioUrl(null)
+    setSavedAudioUrl(null)
+  }
+
+  // Cleanup recording timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current)
+      }
+    }
+  }, [])
+
+  // Screen Video Recording States & Refs
+  const [isVideoRecording, setIsVideoRecording] = useState(false)
+  const [videoBlob, setVideoBlob] = useState<Blob | null>(null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [savedVideoUrl, setSavedVideoUrl] = useState<string | null>(null)
+  const [videoRecordingTime, setVideoRecordingTime] = useState(0)
+
+  const videoMediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const videoChunksRef = useRef<Blob[]>([])
+  const videoTimerIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const videoStreamRef = useRef<MediaStream | null>(null)
+
+  const startVideoRecording = async () => {
+    try {
+      // 1. Request Screen Capture with optimized video constraints (1080p max, ideal 30fps)
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          displaySurface: "browser",
+          frameRate: { ideal: 30, max: 60 },
+          width: { max: 1920 },
+          height: { max: 1080 }
+        },
+        audio: true
+      })
+
+      // 2. Request Mic Capture
+      let voiceStream: MediaStream | null = null
+      try {
+        voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      } catch (e) {
+        console.warn('Microphone access not granted. Recording screen only.', e)
+      }
+
+      const tracks = [...screenStream.getVideoTracks()]
+      if (voiceStream) {
+        tracks.push(...voiceStream.getAudioTracks())
+      } else {
+        tracks.push(...screenStream.getAudioTracks())
+      }
+
+      const combinedStream = new MediaStream(tracks)
+      videoStreamRef.current = combinedStream
+      videoChunksRef.current = []
+
+      // Select lighter, hardware-accelerated video codec (H264/VP8) to avoid CPU-based drawing lag
+      let selectedMimeType = 'video/webm;codecs=vp9,opus'
+      if (MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')) {
+        selectedMimeType = 'video/webm;codecs=h264,opus'
+      } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
+        selectedMimeType = 'video/webm;codecs=vp8,opus'
+      } else if (MediaRecorder.isTypeSupported('video/webm')) {
+        selectedMimeType = 'video/webm'
+      }
+
+      const mediaRecorder = new MediaRecorder(combinedStream, {
+        mimeType: selectedMimeType
+      })
+      videoMediaRecorderRef.current = mediaRecorder
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          videoChunksRef.current.push(e.data)
+        }
+      }
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(videoChunksRef.current, { type: 'video/webm' })
+        setVideoBlob(blob)
+        const localUrl = URL.createObjectURL(blob)
+        setVideoUrl(localUrl)
+        setSavedVideoUrl(null)
+
+        combinedStream.getTracks().forEach(track => track.stop())
+        screenStream.getTracks().forEach(track => track.stop())
+        if (voiceStream) voiceStream.getTracks().forEach(track => track.stop())
+      }
+
+      screenStream.getVideoTracks()[0].onended = () => {
+        stopVideoRecording()
+      }
+
+      mediaRecorder.start()
+      setIsVideoRecording(true)
+      setVideoRecordingTime(0)
+
+      videoTimerIntervalRef.current = setInterval(() => {
+        setVideoRecordingTime(prev => prev + 1)
+      }, 1000)
+    } catch (err) {
+      console.error('Error starting screen recording:', err)
+      alert('ไม่สามารถอัดวิดีโอหน้าจอได้ กรุณาตรวจสอบสิทธิ์การแชร์หน้าจอและไมโครโฟน')
+    }
+  }
+
+  const stopVideoRecording = () => {
+    if (videoMediaRecorderRef.current && videoMediaRecorderRef.current.state !== 'inactive') {
+      videoMediaRecorderRef.current.stop()
+    }
+    setIsVideoRecording(false)
+    if (videoTimerIntervalRef.current) {
+      clearInterval(videoTimerIntervalRef.current)
+    }
+  }
+
+  const deleteVideoRecording = () => {
+    setVideoBlob(null)
+    setVideoUrl(null)
+    setSavedVideoUrl(null)
+  }
+
+  // Cleanup recording timers on unmount
+  useEffect(() => {
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current)
+      }
+      if (videoTimerIntervalRef.current) {
+        clearInterval(videoTimerIntervalRef.current)
+      }
+    }
+  }, [])
+
+  // Eraser drag state
+  const [isErasing, setIsErasing] = useState(false)
+  const [mediaType, setMediaType] = useState<'audio' | 'video'>('audio')
+
   const [battleNotes, setBattleNotes] = useState('')
   const [toolMode, setToolMode] = useState<'select' | 'draw' | 'arrow' | 'text' | 'erase'>('select')
   const [strokeColor, setStrokeColor] = useState('#ef4444')
   const [strokeWidth, setStrokeWidth] = useState(4)
-  
+
   // Collapse Panels state
   const [leftPanelOpen, setLeftPanelOpen] = useState(true)
   const [rightPanelOpen, setRightPanelOpen] = useState(true)
 
   // Drawing states
   const [drawings, setDrawings] = useState<any[]>([])
-  const [currentPath, setCurrentPath] = useState<{x: number, y: number}[] | null>(null)
-  const [currentArrowStart, setCurrentArrowStart] = useState<{x: number, y: number} | null>(null)
-  const [currentArrowEnd, setCurrentArrowEnd] = useState<{x: number, y: number} | null>(null)
-  
+
+  // DOM refs and points tracking for active drawing to prevent React lag during screen recording
+  const activePointsRef = useRef<{ x: number, y: number }[]>([])
+  const activePathRef = useRef<SVGPathElement | null>(null)
+  const activeArrowRef = useRef<SVGLineElement | null>(null)
+
   // Text Tool states
   const [textInput, setTextInput] = useState({ x: 0, y: 0, visible: false, value: '' })
-  
+
   // Tokens state
   const [tokens, setTokens] = useState(DEFAULT_TOKENS)
   const [draggedTokenId, setDraggedTokenId] = useState<number | null>(null)
@@ -112,19 +312,45 @@ export default function TacticalBoardClient({
       setSelectedMapId('custom')
     }
   }, [guildLeagueRoom, activity])
-  
-  // Parties roster state (left panel)
-  const [parties, setParties] = useState<any[]>(() => {
+
+  const getPartiesForActivity = (act: 'general' | 'guild_league' | 'emperium_overrun') => {
     return Array.from({ length: 16 }, (_, i) => {
       const partyId = i + 1
       const defaultToken = DEFAULT_TOKENS.find(t => t.id === partyId)
-      
+
       const partyProfiles = initialProfiles
-        .filter((p: any) => p.party_id === partyId)
-        .sort((a: any, b: any) => (a.slot_index ?? 99) - (b.slot_index ?? 99))
-      
+        .filter((p: any) => {
+          if (act === 'guild_league') {
+            return p.party_id_guild_league === partyId
+          } else if (act === 'emperium_overrun') {
+            return p.party_id_emperium_overrun === partyId
+          } else {
+            return p.party_id === partyId
+          }
+        })
+        .sort((a: any, b: any) => {
+          const aIdx = act === 'guild_league'
+            ? a.slot_index_guild_league
+            : act === 'emperium_overrun'
+              ? a.slot_index_emperium_overrun
+              : a.slot_index
+          const bIdx = act === 'guild_league'
+            ? b.slot_index_guild_league
+            : act === 'emperium_overrun'
+              ? b.slot_index_emperium_overrun
+              : b.slot_index
+          return (aIdx ?? 99) - (bIdx ?? 99)
+        })
+
       const slots = Array.from({ length: 5 }, (_, slotIdx) => {
-        const profile = partyProfiles.find((p: any) => p.slot_index === slotIdx)
+        const profile = partyProfiles.find((p: any) => {
+          const pIdx = act === 'guild_league'
+            ? p.slot_index_guild_league
+            : act === 'emperium_overrun'
+              ? p.slot_index_emperium_overrun
+              : p.slot_index
+          return pIdx === slotIdx
+        })
         return profile ? profile.display_name : ''
       })
 
@@ -135,6 +361,11 @@ export default function TacticalBoardClient({
         slots,
       }
     })
+  }
+
+  // Parties roster state (left panel)
+  const [parties, setParties] = useState<any[]>(() => {
+    return getPartiesForActivity('general')
   })
 
   const [isPending, startTransition] = useTransition()
@@ -154,10 +385,10 @@ export default function TacticalBoardClient({
   const getCoordinates = (e: any) => {
     if (!svgRef.current) return null
     const rect = svgRef.current.getBoundingClientRect()
-    
+
     let clientX = 0
     let clientY = 0
-    
+
     if (e.touches && e.touches.length > 0) {
       clientX = e.touches[0].clientX
       clientY = e.touches[0].clientY
@@ -165,24 +396,37 @@ export default function TacticalBoardClient({
       clientX = e.clientX
       clientY = e.clientY
     }
-    
+
     const x = Math.round(((clientX - rect.left) / rect.width) * 1000)
     const y = Math.round(((clientY - rect.top) / rect.height) * 1000)
     return { x, y }
   }
 
-  // Handle drawing events
+  // Handle drawing events (using DOM refs to bypass React virtual DOM lag during CPU-heavy tasks)
   const handleSvgMouseDown = (e: React.MouseEvent<SVGSVGElement> | React.TouchEvent<SVGSVGElement>) => {
     if (toolMode === 'select' || toolMode === 'erase') return
-    
+
     const coords = getCoordinates(e)
     if (!coords) return
 
     if (toolMode === 'draw') {
-      setCurrentPath([coords])
+      activePointsRef.current = [coords]
+      if (activePathRef.current) {
+        activePathRef.current.setAttribute('d', `M ${coords.x} ${coords.y}`)
+        activePathRef.current.setAttribute('stroke', strokeColor)
+        activePathRef.current.setAttribute('stroke-width', strokeWidth.toString())
+      }
     } else if (toolMode === 'arrow') {
-      setCurrentArrowStart(coords)
-      setCurrentArrowEnd(coords)
+      activePointsRef.current = [coords]
+      if (activeArrowRef.current) {
+        activeArrowRef.current.setAttribute('x1', coords.x.toString())
+        activeArrowRef.current.setAttribute('y1', coords.y.toString())
+        activeArrowRef.current.setAttribute('x2', coords.x.toString())
+        activeArrowRef.current.setAttribute('y2', coords.y.toString())
+        activeArrowRef.current.setAttribute('stroke', strokeColor)
+        activeArrowRef.current.setAttribute('stroke-width', strokeWidth.toString())
+        activeArrowRef.current.setAttribute('marker-end', `url(#arrow-${strokeColor.replace('#', '')})`)
+      }
     } else if (toolMode === 'text') {
       setTextInput({
         x: coords.x,
@@ -194,47 +438,72 @@ export default function TacticalBoardClient({
   }
 
   const handleSvgMouseMove = (e: React.MouseEvent<SVGSVGElement> | React.TouchEvent<SVGSVGElement>) => {
+    if (activePointsRef.current.length === 0) return
     const coords = getCoordinates(e)
     if (!coords) return
 
-    if (toolMode === 'draw' && currentPath) {
-      setCurrentPath(prev => prev ? [...prev, coords] : [coords])
-    } else if (toolMode === 'arrow' && currentArrowStart) {
-      setCurrentArrowEnd(coords)
+    if (toolMode === 'draw') {
+      activePointsRef.current.push(coords)
+      if (activePathRef.current) {
+        const dString = activePointsRef.current.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+        activePathRef.current.setAttribute('d', dString)
+      }
+    } else if (toolMode === 'arrow') {
+      if (activeArrowRef.current) {
+        activeArrowRef.current.setAttribute('x2', coords.x.toString())
+        activeArrowRef.current.setAttribute('y2', coords.y.toString())
+      }
     }
   }
 
   const handleSvgMouseUp = () => {
-    if (toolMode === 'draw' && currentPath && currentPath.length > 1) {
+    if (activePointsRef.current.length === 0) return
+
+    if (toolMode === 'draw' && activePointsRef.current.length > 1) {
+      const capturedPoints = [...activePointsRef.current]
       setDrawings(prev => [
         ...prev,
         {
           id: Date.now().toString(),
           type: 'freehand',
-          points: currentPath,
+          points: capturedPoints,
           color: strokeColor,
           width: strokeWidth,
         },
       ])
-      setCurrentPath(null)
-    } else if (toolMode === 'arrow' && currentArrowStart && currentArrowEnd) {
-      const dist = Math.hypot(currentArrowEnd.x - currentArrowStart.x, currentArrowEnd.y - currentArrowStart.y)
-      if (dist > 10) {
-        setDrawings(prev => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            type: 'arrow',
-            start: currentArrowStart,
-            end: currentArrowEnd,
-            color: strokeColor,
-            width: strokeWidth,
-          },
-        ])
+      if (activePathRef.current) {
+        activePathRef.current.removeAttribute('d')
       }
-      setCurrentArrowStart(null)
-      setCurrentArrowEnd(null)
+    } else if (toolMode === 'arrow') {
+      const start = activePointsRef.current[0]
+      if (activeArrowRef.current) {
+        const x2Attr = activeArrowRef.current.getAttribute('x2')
+        const y2Attr = activeArrowRef.current.getAttribute('y2')
+        if (x2Attr && y2Attr) {
+          const end = { x: parseFloat(x2Attr), y: parseFloat(y2Attr) }
+          const dist = Math.hypot(end.x - start.x, end.y - start.y)
+          if (dist > 10) {
+            setDrawings(prev => [
+              ...prev,
+              {
+                id: Date.now().toString(),
+                type: 'arrow',
+                start,
+                end,
+                color: strokeColor,
+                width: strokeWidth,
+              },
+            ])
+          }
+        }
+        activeArrowRef.current.removeAttribute('marker-end')
+        activeArrowRef.current.removeAttribute('x1')
+        activeArrowRef.current.removeAttribute('y1')
+        activeArrowRef.current.removeAttribute('x2')
+        activeArrowRef.current.removeAttribute('y2')
+      }
     }
+    activePointsRef.current = []
   }
 
   // Eraser handler
@@ -266,48 +535,48 @@ export default function TacticalBoardClient({
   const handleTokenStart = (e: any, tokenId: number) => {
     if (toolMode !== 'select') return
     e.preventDefault()
-    
+
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
-    
+
     const token = tokens.find(t => t.id === tokenId)
     if (!token) return
-    
+
     if (!svgRef.current) return
     const rect = svgRef.current.getBoundingClientRect()
-    
+
     const factorX = rect.width / 1000
     const factorY = rect.height / 1000
-    
+
     const tokenPixelsX = token.x * factorX
     const tokenPixelsY = token.y * factorY
-    
+
     const localX = clientX - rect.left
     const localY = clientY - rect.top
-    
+
     dragOffset.current = {
       x: localX - tokenPixelsX,
       y: localY - tokenPixelsY,
     }
-    
+
     setDraggedTokenId(tokenId)
   }
 
   useEffect(() => {
     const handleGlobalMove = (e: any) => {
       if (draggedTokenId === null || !svgRef.current) return
-      
+
       const clientX = e.touches ? e.touches[0].clientX : e.clientX
       const clientY = e.touches ? e.touches[0].clientY : e.clientY
-      
+
       const rect = svgRef.current.getBoundingClientRect()
-      
+
       const localX = clientX - rect.left - dragOffset.current.x
       const localY = clientY - rect.top - dragOffset.current.y
-      
+
       const x = Math.max(0, Math.min(1000, Math.round((localX / rect.width) * 1000)))
       const y = Math.max(0, Math.min(1000, Math.round((localY / rect.height) * 1000)))
-      
+
       setTokens(prev =>
         prev.map(t => (t.id === draggedTokenId ? { ...t, x, y } : t))
       )
@@ -338,7 +607,7 @@ export default function TacticalBoardClient({
   const handleMapUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return
     const file = e.target.files[0]
-    
+
     const formData = new FormData()
     formData.append('file', file)
 
@@ -347,7 +616,7 @@ export default function TacticalBoardClient({
       if (result.success && result.url) {
         setCustomMapUrl(result.url)
         setSelectedMapId('custom')
-        
+
         if (!mapsList.find(m => m.id === 'custom')) {
           setMapsList(prev => [
             ...prev,
@@ -372,6 +641,18 @@ export default function TacticalBoardClient({
     )
     setTokens(prev =>
       prev.map(t => (t.id === partyId ? { ...t, name: value } : t))
+    )
+  }
+
+  const handlePartyEmojiChange = (partyId: number, value: string) => {
+    setTokens(prev =>
+      prev.map(t => (t.id === partyId ? { ...t, emoji: value } : t))
+    )
+  }
+
+  const handlePartyColorChange = (partyId: number, value: string) => {
+    setTokens(prev =>
+      prev.map(t => (t.id === partyId ? { ...t, color: value } : t))
     )
   }
 
@@ -414,6 +695,37 @@ export default function TacticalBoardClient({
     }
 
     startTransition(async () => {
+      let finalAudioUrl = savedAudioUrl
+      let finalVideoUrl = savedVideoUrl
+
+      // If we have a new recording to upload
+      if (audioBlob) {
+        const formData = new FormData()
+        formData.append('file', audioBlob, 'voice-plan.webm')
+        const uploadRes = await uploadTacticalAudio(formData)
+        if (uploadRes.success && uploadRes.url) {
+          finalAudioUrl = uploadRes.url
+          setSavedAudioUrl(uploadRes.url)
+          setAudioBlob(null)
+        } else {
+          alert(`อัปโหลดไฟล์เสียงอธิบายล้มเหลว: ${uploadRes.error}. จะบันทึกแผนรบโดยไม่มีเสียงอธิบาย`)
+        }
+      }
+
+      // If we have a new video recording to upload
+      if (videoBlob) {
+        const formData = new FormData()
+        formData.append('file', videoBlob, 'screen-plan.webm')
+        const uploadRes = await uploadTacticalVideo(formData)
+        if (uploadRes.success && uploadRes.url) {
+          finalVideoUrl = uploadRes.url
+          setSavedVideoUrl(uploadRes.url)
+          setVideoBlob(null)
+        } else {
+          alert(`อัปโหลดวิดีโอหน้าจอล้มเหลว: ${uploadRes.error}. จะบันทึกแผนรบโดยไม่มีวิดีโออธิบาย`)
+        }
+      }
+
       const res = await saveTacticalPlan(
         selectedPlanId,
         planName,
@@ -425,7 +737,9 @@ export default function TacticalBoardClient({
           parties,
           activity,
           partyTeams,
-          guildLeagueRoom
+          guildLeagueRoom,
+          audio_url: finalAudioUrl,
+          video_url: finalVideoUrl
         }
       )
 
@@ -450,11 +764,17 @@ export default function TacticalBoardClient({
     setBattleNotes(plan.battle_notes || '')
     setTokens(plan.token_positions || DEFAULT_TOKENS)
     setDrawings(plan.drawings || [])
-    
+
     if (plan.parties_data) {
       if (Array.isArray(plan.parties_data)) {
         setParties(plan.parties_data)
         setActivity('general')
+        setSavedAudioUrl(null)
+        setAudioUrl(null)
+        setAudioBlob(null)
+        setSavedVideoUrl(null)
+        setVideoUrl(null)
+        setVideoBlob(null)
       } else {
         setParties(plan.parties_data.parties || [])
         setActivity(plan.parties_data.activity || 'general')
@@ -464,12 +784,36 @@ export default function TacticalBoardClient({
         if (plan.parties_data.guildLeagueRoom) {
           setGuildLeagueRoom(plan.parties_data.guildLeagueRoom)
         }
+        if (plan.parties_data.audio_url || plan.parties_data.audioUrl) {
+          setSavedAudioUrl(plan.parties_data.audio_url || plan.parties_data.audioUrl)
+          setAudioUrl(null)
+          setAudioBlob(null)
+        } else {
+          setSavedAudioUrl(null)
+          setAudioUrl(null)
+          setAudioBlob(null)
+        }
+        if (plan.parties_data.video_url || plan.parties_data.videoUrl) {
+          setSavedVideoUrl(plan.parties_data.video_url || plan.parties_data.videoUrl)
+          setVideoUrl(null)
+          setVideoBlob(null)
+        } else {
+          setSavedVideoUrl(null)
+          setVideoUrl(null)
+          setVideoBlob(null)
+        }
       }
     } else {
       setParties([])
       setActivity('general')
+      setSavedAudioUrl(null)
+      setAudioUrl(null)
+      setAudioBlob(null)
+      setSavedVideoUrl(null)
+      setVideoUrl(null)
+      setVideoBlob(null)
     }
-    
+
     if (plan.map_name.startsWith('http') || plan.map_name === 'custom') {
       setCustomMapUrl(plan.map_name)
       setSelectedMapId('custom')
@@ -500,6 +844,12 @@ export default function TacticalBoardClient({
           setBattleNotes('')
           setDrawings([])
           setTokens(DEFAULT_TOKENS)
+          setSavedAudioUrl(null)
+          setAudioUrl(null)
+          setAudioBlob(null)
+          setSavedVideoUrl(null)
+          setVideoUrl(null)
+          setVideoBlob(null)
         }
         alert('ลบแผนการรบสำเร็จ!')
       } else {
@@ -534,28 +884,44 @@ export default function TacticalBoardClient({
   }
 
   const handleResetPositions = () => {
-    setTokens(DEFAULT_TOKENS.map(t => {
-      const party = parties.find(p => p.id === t.id)
+    setTokens(prev => prev.map(t => {
+      const defaultT = DEFAULT_TOKENS.find(dt => dt.id === t.id)
       return {
         ...t,
-        name: party ? party.name : t.name
+        x: defaultT?.x ?? t.x,
+        y: defaultT?.y ?? t.y,
       }
     }))
   }
 
   const renderPartyCard = (party: any) => {
+    const currentToken = tokens.find(t => t.id === party.id)
     return (
       <div key={party.id} className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-xl space-y-2 hover:border-slate-350 dark:hover:border-slate-700 transition-all shadow-xs">
-        
+
         {/* Party Header & Name Input & Visibility Toggle */}
         <div className="flex items-center justify-between gap-1.5">
           <div className="flex items-center gap-2 flex-grow min-w-0">
-            <span 
-              className="w-6 h-6 flex items-center justify-center rounded-lg text-xs font-bold text-white shrink-0 shadow-sm"
-              style={{ backgroundColor: DEFAULT_TOKENS[party.id - 1]?.color || '#38bdf8' }}
-            >
-              {DEFAULT_TOKENS[party.id - 1]?.emoji}
-            </span>
+            <div className="flex items-center gap-1 shrink-0">
+              <input
+                type="text"
+                value={currentToken?.emoji || ''}
+                onChange={(e) => handlePartyEmojiChange(party.id, e.target.value)}
+                style={{ backgroundColor: currentToken?.color || '#38bdf8' }}
+                className="w-7 h-7 text-center rounded-lg text-xs font-bold text-white focus:outline-none shrink-0 shadow-sm cursor-text border border-white/20 transition-all focus:ring-1 focus:ring-white"
+                maxLength={2}
+                title="เปลี่ยนอิโมจิหรือตัวอักษรย่อ"
+              />
+              <div className="relative w-4 h-4 rounded-full overflow-hidden shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                <input
+                  type="color"
+                  value={currentToken?.color || '#38bdf8'}
+                  onChange={(e) => handlePartyColorChange(party.id, e.target.value)}
+                  className="absolute inset-[-4px] w-[200%] h-[200%] cursor-pointer border-none p-0"
+                  title="เปลี่ยนสีตี้"
+                />
+              </div>
+            </div>
             <div className="flex flex-col min-w-0 flex-grow">
               <input
                 type="text"
@@ -577,15 +943,14 @@ export default function TacticalBoardClient({
               )}
             </div>
           </div>
-          
+
           {/* Token visibility text toggle */}
           <button
             onClick={() => toggleTokenVisibility(party.id)}
-            className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer border shrink-0 ${
-              isTokenVisible(party.id) 
-                ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400' 
-                : 'bg-slate-100 border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-slate-400 dark:text-slate-550'
-            }`}
+            className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer border shrink-0 ${isTokenVisible(party.id)
+              ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400'
+              : 'bg-slate-100 border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-slate-400 dark:text-slate-550'
+              }`}
             title={isTokenVisible(party.id) ? 'ซ่อนโทเค็นจากแผนที่' : 'แสดงโทเค็นบนแผนที่'}
           >
             {isTokenVisible(party.id) ? 'แสดง' : 'ซ่อน'}
@@ -623,16 +988,15 @@ export default function TacticalBoardClient({
   }
 
   return (
-    <div 
+    <div
       className="relative w-full text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden flex shadow-sm"
       style={{ height: '820px' }}
     >
-      
+
       {/* ─── 👥 LEFT PANEL: Collapsible internally scrollable Parties Config ─── */}
-      <div 
-        className={`shrink-0 w-80 bg-slate-50 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 p-4 flex flex-col transition-all duration-300 ${
-          leftPanelOpen ? 'ml-0 opacity-100' : '-ml-80 opacity-0 pointer-events-none'
-        }`}
+      <div
+        className={`shrink-0 w-80 bg-slate-50 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 p-4 flex flex-col transition-all duration-300 ${leftPanelOpen ? 'ml-0 opacity-100' : '-ml-80 opacity-0 pointer-events-none'
+          }`}
         style={{ height: '100%' }}
       >
         {/* Fixed Panel Header */}
@@ -640,7 +1004,7 @@ export default function TacticalBoardClient({
           <h2 className="text-sm font-bold text-slate-850 dark:text-slate-100 flex items-center gap-1.5">
             👥 จัดปาร์ตี้บอร์ดรบ (1-16)
           </h2>
-          <button 
+          <button
             onClick={() => setLeftPanelOpen(false)}
             className="text-slate-400 hover:text-slate-650 dark:text-slate-500 dark:hover:text-slate-300 text-xs cursor-pointer p-0.5"
             title="ซ่อนพาเนล"
@@ -655,7 +1019,11 @@ export default function TacticalBoardClient({
             <label className="text-[10px] font-bold text-slate-400 dark:text-slate-550 block mb-1 uppercase tracking-wider font-mono">🎯 กิจกรรม (Activity)</label>
             <select
               value={activity}
-              onChange={(e) => setActivity(e.target.value as any)}
+              onChange={(e) => {
+                const newAct = e.target.value as any
+                setActivity(newAct)
+                setParties(getPartiesForActivity(newAct))
+              }}
               className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs p-2 rounded-xl focus:outline-none text-slate-800 dark:text-slate-200 cursor-pointer shadow-xxs"
             >
               <option value="general">📂 ทั่วไป (1-16 ปาร์ตี้)</option>
@@ -670,21 +1038,19 @@ export default function TacticalBoardClient({
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl flex gap-1 shadow-xxs">
                 <button
                   onClick={() => setGuildLeagueRoom('main')}
-                  className={`flex-1 py-1.5 rounded-lg text-xxs font-bold transition-all cursor-pointer text-center ${
-                    guildLeagueRoom === 'main'
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'text-slate-500 hover:text-slate-705 dark:text-slate-400 dark:hover:text-slate-200'
-                  }`}
+                  className={`flex-1 py-1.5 rounded-lg text-xxs font-bold transition-all cursor-pointer text-center ${guildLeagueRoom === 'main'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-705 dark:text-slate-400 dark:hover:text-slate-200'
+                    }`}
                 >
                   🛡️ ห้องหลัก
                 </button>
                 <button
                   onClick={() => setGuildLeagueRoom('sub')}
-                  className={`flex-1 py-1.5 rounded-lg text-xxs font-bold transition-all cursor-pointer text-center ${
-                    guildLeagueRoom === 'sub'
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'text-slate-500 hover:text-slate-705 dark:text-slate-400 dark:hover:text-slate-200'
-                  }`}
+                  className={`flex-1 py-1.5 rounded-lg text-xxs font-bold transition-all cursor-pointer text-center ${guildLeagueRoom === 'sub'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-705 dark:text-slate-400 dark:hover:text-slate-200'
+                    }`}
                 >
                   ⚔️ ห้องรอง
                 </button>
@@ -692,7 +1058,7 @@ export default function TacticalBoardClient({
             </div>
           )}
         </div>
-        
+
         {/* Internally Scrollable Roster list */}
         <div className="flex-grow overflow-y-auto mt-4 pr-1 space-y-4">
           {activity === 'general' && parties.map(party => renderPartyCard(party))}
@@ -755,11 +1121,11 @@ export default function TacticalBoardClient({
       </div>
 
       {/* ─── 🛠️ CENTRAL AREA: Full-Width Full-Height Edge-to-Edge Canvas ─── */}
-      <div 
+      <div
         className="flex-1 h-full relative min-w-0 bg-slate-950 overflow-hidden"
         style={{ height: '100%' }}
       >
-        
+
         {/* Floating Sidebar Open buttons (when collapsed) */}
         {!leftPanelOpen && (
           <button
@@ -788,7 +1154,7 @@ export default function TacticalBoardClient({
               title="ย้ายตำแหน่งทีม"
               className={`w-7 h-7 rounded-full text-sm flex items-center justify-center transition-all cursor-pointer ${toolMode === 'select' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50'}`}
             >
-              🎯
+              🖐️
             </button>
             <button
               onClick={() => setToolMode('draw')}
@@ -859,14 +1225,14 @@ export default function TacticalBoardClient({
         </div>
 
         {/* ─── CAPTURED ELEMENT (Edge-to-edge layout filling entire middle space) ─── */}
-        <div 
-          ref={exportRef} 
+        <div
+          ref={exportRef}
           className="w-full h-full relative overflow-hidden bg-slate-950 flex flex-col justify-between"
         >
-          
+
           {/* Interactive Workspace Container (Full width and height of parent, no aspect ratio constraints) */}
           <div className="relative w-full h-full rounded-none bg-slate-950 overflow-hidden shadow-none">
-            
+
             {/* 1. Grid Blueprint Background (beautiful neon grid) */}
             <div className="absolute inset-0 bg-[#080d1a] z-0">
               <svg className="absolute inset-0 w-full h-full opacity-60" xmlns="http://www.w3.org/2000/svg">
@@ -903,12 +1269,13 @@ export default function TacticalBoardClient({
               ref={svgRef}
               viewBox="0 0 1000 1000"
               preserveAspectRatio="none"
-              onMouseDown={handleSvgMouseDown}
+              onMouseDown={(e) => { if (toolMode === 'erase') setIsErasing(true); handleSvgMouseDown(e); }}
               onMouseMove={handleSvgMouseMove}
-              onMouseUp={handleSvgMouseUp}
-              onTouchStart={handleSvgMouseDown}
+              onMouseUp={() => { setIsErasing(false); handleSvgMouseUp(); }}
+              onMouseLeave={() => { setIsErasing(false); handleSvgMouseUp(); }}
+              onTouchStart={(e) => { if (toolMode === 'erase') setIsErasing(true); handleSvgMouseDown(e); }}
               onTouchMove={handleSvgMouseMove}
-              onTouchEnd={handleSvgMouseUp}
+              onTouchEnd={() => { setIsErasing(false); handleSvgMouseUp(); }}
               className={`absolute inset-0 w-full h-full select-none z-10 ${toolMode === 'select' ? 'cursor-default' : 'cursor-crosshair'}`}
             >
               {/* Dynamic arrowhead definitions per color */}
@@ -936,22 +1303,57 @@ export default function TacticalBoardClient({
                     .map((p: any, i: number) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
                     .join(' ')
                   return (
-                    <path
+                    <g
                       key={d.id}
-                      d={dString}
-                      stroke={d.color}
-                      strokeWidth={d.width}
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
                       onClick={() => handleElementClick(d.id)}
-                      className={toolMode === 'erase' ? 'hover:stroke-rose-600 cursor-pointer stroke-2' : ''}
-                    />
+                      onMouseEnter={() => { if (isErasing) handleElementClick(d.id); }}
+                      onMouseMove={() => { if (isErasing) handleElementClick(d.id); }}
+                      className={toolMode === 'erase' ? 'group cursor-pointer' : ''}
+                    >
+                      {/* Hitbox path */}
+                      {toolMode === 'erase' && (
+                        <path
+                          d={dString}
+                          stroke="transparent"
+                          strokeWidth={Math.max(24, (d.width || 0) + 16)}
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      )}
+                      <path
+                        d={dString}
+                        stroke={d.color}
+                        strokeWidth={d.width}
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className={toolMode === 'erase' ? 'group-hover:stroke-rose-600' : ''}
+                      />
+                    </g>
                   )
                 } else if (d.type === 'arrow') {
                   const colorKey = d.color.replace('#', '')
                   return (
-                    <g key={d.id} onClick={() => handleElementClick(d.id)} className={toolMode === 'erase' ? 'hover:opacity-60 cursor-pointer' : ''}>
+                    <g
+                      key={d.id}
+                      onClick={() => handleElementClick(d.id)}
+                      onMouseEnter={() => { if (isErasing) handleElementClick(d.id); }}
+                      onMouseMove={() => { if (isErasing) handleElementClick(d.id); }}
+                      className={toolMode === 'erase' ? 'group cursor-pointer' : ''}
+                    >
+                      {/* Hitbox line */}
+                      {toolMode === 'erase' && (
+                        <line
+                          x1={d.start.x}
+                          y1={d.start.y}
+                          x2={d.end.x}
+                          y2={d.end.y}
+                          stroke="transparent"
+                          strokeWidth={Math.max(24, (d.width || 0) + 16)}
+                          strokeLinecap="round"
+                        />
+                      )}
                       <line
                         x1={d.start.x}
                         y1={d.start.y}
@@ -961,54 +1363,59 @@ export default function TacticalBoardClient({
                         strokeWidth={d.width}
                         strokeLinecap="round"
                         markerEnd={`url(#arrow-${colorKey})`}
+                        className={toolMode === 'erase' ? 'group-hover:stroke-rose-600' : ''}
                       />
                     </g>
                   )
                 } else if (d.type === 'text') {
                   return (
-                    <text
+                    <g
                       key={d.id}
-                      x={d.x}
-                      y={d.y}
-                      fill={d.color}
-                      fontSize={26}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fontWeight="bold"
                       onClick={() => handleElementClick(d.id)}
-                      className={`select-none font-sans ${toolMode === 'erase' ? 'hover:fill-rose-600 cursor-pointer' : ''}`}
+                      onMouseEnter={() => { if (isErasing) handleElementClick(d.id); }}
+                      onMouseMove={() => { if (isErasing) handleElementClick(d.id); }}
+                      className={toolMode === 'erase' ? 'group cursor-pointer' : ''}
                     >
-                      {d.text}
-                    </text>
+                      {/* Hitbox rect */}
+                      {toolMode === 'erase' && (
+                        <rect
+                          x={d.x - 60}
+                          y={d.y - 20}
+                          width={120}
+                          height={40}
+                          fill="transparent"
+                        />
+                      )}
+                      <text
+                        x={d.x}
+                        y={d.y}
+                        fill={d.color}
+                        fontSize={26}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fontWeight="bold"
+                        className={`select-none font-sans ${toolMode === 'erase' ? 'group-hover:fill-rose-600' : ''}`}
+                      >
+                        {d.text}
+                      </text>
+                    </g>
                   )
                 }
                 return null
               })}
 
-              {/* Render Current Drawing Previews */}
-              {currentPath && currentPath.length > 0 && (
-                <path
-                  d={currentPath.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')}
-                  stroke={strokeColor}
-                  strokeWidth={strokeWidth}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              )}
+              {/* Render Current Drawing Previews (Managed via DOM refs for latency-free dragging) */}
+              <path
+                ref={activePathRef}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
 
-              {currentArrowStart && currentArrowEnd && (
-                <line
-                  x1={currentArrowStart.x}
-                  y1={currentArrowStart.y}
-                  x2={currentArrowEnd.x}
-                  y2={currentArrowEnd.y}
-                  stroke={strokeColor}
-                  strokeWidth={strokeWidth}
-                  strokeLinecap="round"
-                  markerEnd={`url(#arrow-${strokeColor.replace('#', '')})`}
-                />
-              )}
+              <line
+                ref={activeArrowRef}
+                strokeLinecap="round"
+              />
             </svg>
 
             {/* 5. Interactive Floating Text Input Tool */}
@@ -1069,12 +1476,12 @@ export default function TacticalBoardClient({
                     P{token.id}: {token.name}
                   </div>
 
-                  <div 
+                  <div
                     style={{ borderColor: token.color, boxShadow: `0 0 12px ${token.color}80` }}
                     className={`w-10 h-10 rounded-full border-3 bg-white dark:bg-slate-900 flex items-center justify-center transition-all shadow-md relative ${isDragged ? 'scale-125 shadow-lg' : 'hover:scale-110 shadow-sm'}`}
                   >
                     <span className="text-xl">{token.emoji}</span>
-                    <span 
+                    <span
                       style={{ backgroundColor: token.color }}
                       className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[9px] font-bold text-white flex items-center justify-center border border-white dark:border-slate-900"
                     >
@@ -1090,10 +1497,9 @@ export default function TacticalBoardClient({
       </div>
 
       {/* ─── ⚙️ RIGHT PANEL: Collapsible internally scrollable Configuration ─── */}
-      <div 
-        className={`shrink-0 w-80 bg-slate-50 dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 p-4 flex flex-col transition-all duration-300 ${
-          rightPanelOpen ? 'mr-0 opacity-100' : '-mr-80 opacity-0 pointer-events-none'
-        }`}
+      <div
+        className={`shrink-0 w-80 bg-slate-50 dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 p-4 flex flex-col transition-all duration-300 ${rightPanelOpen ? 'mr-0 opacity-100' : '-mr-80 opacity-0 pointer-events-none'
+          }`}
         style={{ height: '100%' }}
       >
         {/* Fixed Header */}
@@ -1101,7 +1507,7 @@ export default function TacticalBoardClient({
           <h2 className="text-sm font-bold text-slate-850 dark:text-slate-100 flex items-center gap-1.5">
             ⚙️ ตั้งค่ายุทธวิธี & บันทึก
           </h2>
-          <button 
+          <button
             onClick={() => setRightPanelOpen(false)}
             className="text-slate-400 hover:text-slate-650 dark:text-slate-500 dark:hover:text-slate-300 text-xs cursor-pointer p-0.5"
             title="ซ่อนพาเนล"
@@ -1112,14 +1518,14 @@ export default function TacticalBoardClient({
 
         {/* Scrollable contents */}
         <div className="flex-grow overflow-y-auto mt-4 pr-1 space-y-4">
-          
+
           {/* Battle notes */}
           <div className="space-y-1.5">
-            <label className="text-xxs font-bold text-slate-450 dark:text-slate-405 block uppercase tracking-wider">🗒️ บันทึกคำสั่งยุทธวิธี</label>
+            <label className="text-xxs font-bold text-slate-450 dark:text-slate-405 block uppercase tracking-wider">🗒️ รายละเอียดของแผน</label>
             <textarea
               value={battleNotes}
               onChange={(e) => setBattleNotes(e.target.value)}
-              placeholder="อธิบายยุทธวิธีในแผนรบนี้..."
+              placeholder="อธิบายแผนรบ..."
               rows={4}
               className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs p-2.5 rounded-xl focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-200 resize-none shadow-xxs"
             />
@@ -1167,7 +1573,7 @@ export default function TacticalBoardClient({
             {isAdmin && (
               <div className="pt-1">
                 <label className="cursor-pointer text-xxs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center justify-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 p-2 rounded-xl transition-all shadow-xxs">
-                  📤 อัปโหลดแผนที่กิลด์คัสตอม
+                  📤 อัปโหลดแผนที่
                   <input
                     type="file"
                     accept="image/*"
@@ -1182,17 +1588,17 @@ export default function TacticalBoardClient({
           {/* Admin reset controls */}
           {isAdmin && (
             <div className="space-y-2 border-t border-slate-200 dark:border-slate-800/80 pt-3">
-              <label className="text-xxs font-bold text-slate-450 dark:text-slate-405 block uppercase tracking-wider">🛡️ แอดมินจัดการตำแหน่ง</label>
+
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={handleResetPositions}
                   className="cursor-pointer text-xxs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 p-2 rounded-xl text-slate-700 dark:text-slate-300 font-bold transition-all text-center shadow-xxs"
                 >
-                  รีเซ็ตโทเค็นทีม
+                  รีเซ็ตตำแหน่ง
                 </button>
                 <button
                   onClick={() => setDrawings([])}
-                  className="cursor-pointer text-xxs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 p-2 rounded-xl text-slate-700 dark:text-slate-350 font-bold transition-all text-center shadow-xxs"
+                  className="cursor-pointer text-xxs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 p-2 rounded-xl text-slate-700 dark:text-slate-355 font-bold transition-all text-center shadow-xxs"
                 >
                   ล้างเส้นวาด
                 </button>
@@ -1215,10 +1621,177 @@ export default function TacticalBoardClient({
             )}
           </div>
 
+          {/* 🎙️ Grouped Media Plan Recording section */}
+          <div className="space-y-3 border-t border-slate-200 dark:border-slate-800/80 pt-3">
+            <label className="text-xxs font-bold text-slate-450 dark:text-slate-405 block uppercase tracking-wider">📸 บันทึกวิดีโอ</label>
+
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-2xl shadow-xxs space-y-3.5">
+              {/* 1. Show existing saved media */}
+              {(savedAudioUrl || savedVideoUrl) && (
+                <div className="space-y-3">
+                  {savedAudioUrl && (
+                    <div className="space-y-1 p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800/50">
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                        <span>🔊</span> เสียงอธิบายแผนรบ
+                      </p>
+                      <audio src={savedAudioUrl} controls className="w-full h-8 mt-1 focus:outline-none" />
+                      {isAdmin && (
+                        <button
+                          onClick={deleteRecording}
+                          className="cursor-pointer text-[9px] font-bold text-rose-500 hover:text-rose-650 mt-1 block"
+                        >
+                          🗑️ ลบเสียง
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {savedVideoUrl && (
+                    <div className="space-y-1 p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800/50">
+                      <p className="text-[10px] text-indigo-650 dark:text-indigo-400 font-bold flex items-center gap-1">
+                        <span>📹</span> วิดีโอนำเสนอหน้าจอ
+                      </p>
+                      <video src={savedVideoUrl} controls className="w-full rounded-xl mt-1 focus:outline-none border border-slate-200 dark:border-slate-800" />
+                      {isAdmin && (
+                        <button
+                          onClick={deleteVideoRecording}
+                          className="cursor-pointer text-[9px] font-bold text-rose-500 hover:text-rose-650 mt-1.5 block"
+                        >
+                          🗑️ ลบวิดีโอ
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 2. Recording Mode (Toggle actions) */}
+              {isAdmin && (
+                <div className="space-y-3">
+                  {/* Toggle buttons grid */}
+                  {!audioUrl && !videoUrl && !isRecording && !isVideoRecording && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {!savedAudioUrl && (
+                        <button
+                          onClick={startRecording}
+                          className="cursor-pointer flex flex-col items-center justify-center gap-1.5 p-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl transition-all shadow-xxs"
+                        >
+                          <span className="text-base">🎤</span>
+                          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-250">บันทึกเสียง</span>
+                        </button>
+                      )}
+
+                      {!savedVideoUrl && (
+                        <button
+                          onClick={startVideoRecording}
+                          className="cursor-pointer flex flex-col items-center justify-center gap-1.5 p-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl transition-all shadow-xxs"
+                        >
+                          <span className="text-base">🎥</span>
+                          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-250">อัดวิดีโอหน้าจอ</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Active Recording States */}
+                  {isRecording && (
+                    <button
+                      onClick={stopRecording}
+                      className="cursor-pointer w-full flex items-center justify-between p-3 bg-rose-50 border border-rose-200 dark:bg-rose-950/20 dark:border-rose-900 rounded-xl transition-all animate-pulse"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shrink-0" />
+                        <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">🎤 กำลังอัดเสียง...</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono font-bold text-rose-750 dark:text-rose-300">
+                          {Math.floor(recordingTime / 60).toString().padStart(2, '0')}:
+                          {(recordingTime % 60).toString().padStart(2, '0')}
+                        </span>
+                        <span className="text-[9px] bg-rose-600 text-white px-2 py-0.5 rounded-md font-bold">กดเพื่อหยุด</span>
+                      </div>
+                    </button>
+                  )}
+
+                  {isVideoRecording && (
+                    <button
+                      onClick={stopVideoRecording}
+                      className="cursor-pointer w-full flex items-center justify-between p-3 bg-rose-50 border border-rose-200 dark:bg-rose-950/20 dark:border-rose-900 rounded-xl transition-all animate-pulse"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shrink-0" />
+                        <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">🎥 กำลังอัดหน้าจอ...</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono font-bold text-rose-750 dark:text-rose-300">
+                          {Math.floor(videoRecordingTime / 60).toString().padStart(2, '0')}:
+                          {(videoRecordingTime % 60).toString().padStart(2, '0')}
+                        </span>
+                        <span className="text-[9px] bg-rose-600 text-white px-2 py-0.5 rounded-md font-bold">กดเพื่อหยุด</span>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Previews of newly recorded media (Unsaved) */}
+                  {audioUrl && !savedAudioUrl && (
+                    <div className="space-y-2 p-2 rounded-xl bg-amber-50/40 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-900/50">
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                        🎙️ เสียงอธิบายรอเซฟลงแผนรบ
+                      </p>
+                      <audio src={audioUrl} controls className="w-full h-8 focus:outline-none" />
+                      <div className="flex items-center gap-2 justify-between mt-1 text-[9px] font-bold font-sans">
+                        <button
+                          onClick={() => { deleteRecording(); startRecording(); }}
+                          className="cursor-pointer text-indigo-650 hover:text-indigo-700"
+                        >
+                          🔄 อัดเสียงใหม่
+                        </button>
+                        <button
+                          onClick={deleteRecording}
+                          className="cursor-pointer text-rose-500 hover:text-rose-650"
+                        >
+                          🗑️ ลบทิ้ง
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {videoUrl && !savedVideoUrl && (
+                    <div className="space-y-2 p-2 rounded-xl bg-amber-50/40 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-900/50">
+                      <p className="text-[10px] text-amber-650 dark:text-amber-400 font-bold">
+                        📹 วิดีโอหน้าจอรอเซฟลงแผนรบ
+                      </p>
+                      <video src={videoUrl} controls className="w-full rounded-xl focus:outline-none border border-slate-200 dark:border-slate-800" />
+                      <div className="flex items-center gap-2 justify-between mt-1 text-[9px] font-bold font-sans">
+                        <button
+                          onClick={() => { deleteVideoRecording(); startVideoRecording(); }}
+                          className="cursor-pointer text-indigo-650 hover:text-indigo-700"
+                        >
+                          🔄 อัดใหม่
+                        </button>
+                        <button
+                          onClick={deleteVideoRecording}
+                          className="cursor-pointer text-rose-500 hover:text-rose-650"
+                        >
+                          🗑️ ลบทิ้ง
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 3. Non-admin fallback message */}
+              {!isAdmin && !savedAudioUrl && !savedVideoUrl && (
+                <p className="text-[10px] text-slate-500 text-center py-2">แผนการรบนี้ยังไม่มีสื่อนำเสนอ</p>
+              )}
+            </div>
+          </div>
+
           {/* Plans Management */}
           <div className="space-y-3 border-t border-slate-200 dark:border-slate-800/80 pt-3">
             <label className="text-xxs font-bold text-slate-450 dark:text-slate-405 block uppercase tracking-wider">💾 เซฟและโหลดแผนการรบ</label>
-            
+
             {/* Save input form (Admin only) */}
             {isAdmin && (
               <div className="flex gap-1.5">
@@ -1262,19 +1835,19 @@ export default function TacticalBoardClient({
                           className="text-slate-400 hover:text-rose-500 transition-colors p-1"
                         >
                           🗑️
-                      </button>
-                    )}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
+
         </div>
 
       </div>
 
     </div>
-
-  </div>
-)
+  )
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useMemo } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -77,7 +77,6 @@ export default function Dashboard({
   const [isPending, startTransition] = useTransition();
   const [isEditMode, setIsEditMode] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
-
   // Guild Activity and Party Team assignment states
   const [activity, setActivity] = useState<'general' | 'guild_league' | 'emperium_overrun'>('general');
   const [partyTeams, setPartyTeams] = useState<Record<number, 'defense' | 'offense' | 'runner'>>(() => {
@@ -89,6 +88,26 @@ export default function Dashboard({
     }
     return defaults;
   });
+
+  const mappedProfiles = useMemo(() => {
+    return profiles.map((p) => {
+      if (activity === "guild_league") {
+        return {
+          ...p,
+          party_id: (p as any).party_id_guild_league ?? null,
+          slot_index: (p as any).slot_index_guild_league ?? null,
+        };
+      } else if (activity === "emperium_overrun") {
+        return {
+          ...p,
+          party_id: (p as any).party_id_emperium_overrun ?? null,
+          slot_index: (p as any).slot_index_emperium_overrun ?? null,
+        };
+      } else {
+        return p;
+      }
+    });
+  }, [profiles, activity]);
 
   const [defenseInput, setDefenseInput] = useState<string>('')
   const [offenseInput, setOffenseInput] = useState<string>('')
@@ -209,14 +228,31 @@ export default function Dashboard({
 
     // 1. Optimistic Update: แก้ไข State ในหน้าจอทันทีเพื่อให้ UI เปลี่ยนไวที่สุด
     setProfiles((prev) =>
-      prev.map((p) =>
-        p.id === memberId ? { ...p, party_id: null, slot_index: null } : p,
-      ),
+      prev.map((p) => {
+        if (p.id === memberId) {
+          if (activity === "guild_league") {
+            return {
+              ...p,
+              party_id_guild_league: null,
+              slot_index_guild_league: null,
+            };
+          } else if (activity === "emperium_overrun") {
+            return {
+              ...p,
+              party_id_emperium_overrun: null,
+              slot_index_emperium_overrun: null,
+            };
+          } else {
+            return { ...p, party_id: null, slot_index: null };
+          }
+        }
+        return p;
+      })
     );
 
     // 2. Sync to DB in the background
     startTransition(() => {
-      updateProfileParty(memberId, null, null);
+      updateProfileParty(memberId, null, null, activity);
     });
   };
 
@@ -250,10 +286,24 @@ export default function Dashboard({
     const sourceProfile = profiles.find((p) => p.id === profileId);
     if (!sourceProfile) return;
 
+    const activePartyId =
+      activity === "guild_league"
+        ? (sourceProfile as any).party_id_guild_league ?? null
+        : activity === "emperium_overrun"
+        ? (sourceProfile as any).party_id_emperium_overrun ?? null
+        : sourceProfile.party_id;
+
+    const activeSlotIndex =
+      activity === "guild_league"
+        ? (sourceProfile as any).slot_index_guild_league ?? null
+        : activity === "emperium_overrun"
+        ? (sourceProfile as any).slot_index_emperium_overrun ?? null
+        : sourceProfile.slot_index;
+
     // If dropped on the same slot, do nothing
     if (
-      sourceProfile.party_id === targetPartyId &&
-      sourceProfile.slot_index === targetSlotIndex
+      activePartyId === targetPartyId &&
+      activeSlotIndex === targetSlotIndex
     ) {
       return;
     }
@@ -261,32 +311,74 @@ export default function Dashboard({
     // Find if there is an occupant in the target slot
     const occupant =
       targetPartyId !== null && targetSlotIndex !== null
-        ? profiles.find(
-          (p) =>
-            p.party_id === targetPartyId && p.slot_index === targetSlotIndex,
-        )
+        ? profiles.find((p) => {
+            const pId =
+              activity === "guild_league"
+                ? (p as any).party_id_guild_league ?? null
+                : activity === "emperium_overrun"
+                ? (p as any).party_id_emperium_overrun ?? null
+                : p.party_id;
+            const pIdx =
+              activity === "guild_league"
+                ? (p as any).slot_index_guild_league ?? null
+                : activity === "emperium_overrun"
+                ? (p as any).slot_index_emperium_overrun ?? null
+                : p.slot_index;
+            return pId === targetPartyId && pIdx === targetSlotIndex;
+          })
         : null;
 
     // Optimistic Update
     setProfiles((prev) =>
       prev.map((p) => {
         if (p.id === profileId) {
-          return { ...p, party_id: targetPartyId, slot_index: targetSlotIndex };
+          if (activity === "guild_league") {
+            return {
+              ...p,
+              party_id_guild_league: targetPartyId,
+              slot_index_guild_league: targetSlotIndex,
+            };
+          } else if (activity === "emperium_overrun") {
+            return {
+              ...p,
+              party_id_emperium_overrun: targetPartyId,
+              slot_index_emperium_overrun: targetSlotIndex,
+            };
+          } else {
+            return {
+              ...p,
+              party_id: targetPartyId,
+              slot_index: targetSlotIndex,
+            };
+          }
         }
         if (occupant && p.id === occupant.id) {
-          // Push occupant to waitlist
-          return { ...p, party_id: null, slot_index: null };
+          if (activity === "guild_league") {
+            return {
+              ...p,
+              party_id_guild_league: null,
+              slot_index_guild_league: null,
+            };
+          } else if (activity === "emperium_overrun") {
+            return {
+              ...p,
+              party_id_emperium_overrun: null,
+              slot_index_emperium_overrun: null,
+            };
+          } else {
+            return { ...p, party_id: null, slot_index: null };
+          }
         }
         return p;
-      }),
+      })
     );
 
     // Sync to server
     startTransition(() => {
       if (occupant) {
-        updateProfileParty(occupant.id, null, null);
+        updateProfileParty(occupant.id, null, null, activity);
       }
-      updateProfileParty(profileId, targetPartyId, targetSlotIndex);
+      updateProfileParty(profileId, targetPartyId, targetSlotIndex, activity);
     });
   };
 
@@ -297,36 +389,94 @@ export default function Dashboard({
     const sourceProfile = profiles.find((p) => p.id === memberId);
     if (!sourceProfile) return;
 
+    const activePartyId =
+      activity === "guild_league"
+        ? (sourceProfile as any).party_id_guild_league ?? null
+        : activity === "emperium_overrun"
+        ? (sourceProfile as any).party_id_emperium_overrun ?? null
+        : sourceProfile.party_id;
+
+    const activeSlotIndex =
+      activity === "guild_league"
+        ? (sourceProfile as any).slot_index_guild_league ?? null
+        : activity === "emperium_overrun"
+        ? (sourceProfile as any).slot_index_emperium_overrun ?? null
+        : sourceProfile.slot_index;
+
     // If dropped on the same slot, do nothing
     if (
-      sourceProfile.party_id === targetPartyId &&
-      sourceProfile.slot_index === targetSlotIndex
+      activePartyId === targetPartyId &&
+      activeSlotIndex === targetSlotIndex
     ) {
       setActiveSlot(null);
       return;
     }
 
-    const occupant = profiles.find(
-      (p) => p.party_id === targetPartyId && p.slot_index === targetSlotIndex,
-    );
+    const occupant = profiles.find((p) => {
+      const pId =
+        activity === "guild_league"
+          ? (p as any).party_id_guild_league ?? null
+          : activity === "emperium_overrun"
+          ? (p as any).party_id_emperium_overrun ?? null
+          : p.party_id;
+      const pIdx =
+        activity === "guild_league"
+          ? (p as any).slot_index_guild_league ?? null
+          : activity === "emperium_overrun"
+          ? (p as any).slot_index_emperium_overrun ?? null
+          : p.slot_index;
+      return pId === targetPartyId && pIdx === targetSlotIndex;
+    });
 
     setProfiles((prev) =>
       prev.map((p) => {
         if (p.id === memberId) {
-          return { ...p, party_id: targetPartyId, slot_index: targetSlotIndex };
+          if (activity === "guild_league") {
+            return {
+              ...p,
+              party_id_guild_league: targetPartyId,
+              slot_index_guild_league: targetSlotIndex,
+            };
+          } else if (activity === "emperium_overrun") {
+            return {
+              ...p,
+              party_id_emperium_overrun: targetPartyId,
+              slot_index_emperium_overrun: targetSlotIndex,
+            };
+          } else {
+            return {
+              ...p,
+              party_id: targetPartyId,
+              slot_index: targetSlotIndex,
+            };
+          }
         }
         if (occupant && p.id === occupant.id) {
-          return { ...p, party_id: null, slot_index: null };
+          if (activity === "guild_league") {
+            return {
+              ...p,
+              party_id_guild_league: null,
+              slot_index_guild_league: null,
+            };
+          } else if (activity === "emperium_overrun") {
+            return {
+              ...p,
+              party_id_emperium_overrun: null,
+              slot_index_emperium_overrun: null,
+            };
+          } else {
+            return { ...p, party_id: null, slot_index: null };
+          }
         }
         return p;
-      }),
+      })
     );
 
     startTransition(() => {
       if (occupant) {
-        updateProfileParty(occupant.id, null, null);
+        updateProfileParty(occupant.id, null, null, activity);
       }
-      updateProfileParty(memberId, targetPartyId, targetSlotIndex);
+      updateProfileParty(memberId, targetPartyId, targetSlotIndex, activity);
     });
 
     setActiveSlot(null);
@@ -426,7 +576,7 @@ export default function Dashboard({
           </button>
         </div>
 
-        {(activity === 'emperium_overrun' || activity === 'general') && isAdmin && isEditMode && (
+        {(activity === 'emperium_overrun') && isAdmin && isEditMode && (
           <div className="mb-6 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/60 p-4 rounded-2xl flex flex-col md:flex-row gap-4 items-center justify-between transition-all">
             <div className="flex flex-col gap-1">
               <h3 className="text-sm font-bold text-orange-900 dark:text-orange-200 flex items-center gap-1.5">
@@ -487,7 +637,7 @@ export default function Dashboard({
 
                 <div>
                   <WaitlistBlock
-                    profiles={profiles.filter(
+                    profiles={mappedProfiles.filter(
                       (p) => p.party_id === null && !p.is_on_leave,
                     )}
                     isAdmin={isAdmin}
@@ -496,7 +646,7 @@ export default function Dashboard({
                 </div>
                 <div>
                   <LeaveListBlock
-                    profiles={profiles.filter(
+                    profiles={mappedProfiles.filter(
                       (p) => p.party_id === null && p.is_on_leave,
                     )}
                     isEditMode={isEditMode}
@@ -514,7 +664,7 @@ export default function Dashboard({
                   <PartyBlock
                     key={partyId}
                     partyId={partyId}
-                    profiles={profiles.filter((p) => p.party_id === partyId)}
+                    profiles={mappedProfiles.filter((p) => p.party_id === partyId)}
                     isAdmin={isAdmin}
                     isEditMode={isEditMode}
                     onEmptySlotClick={(partyId, slotIndex) =>
@@ -545,7 +695,7 @@ export default function Dashboard({
                       <PartyBlock
                         key={partyId}
                         partyId={partyId}
-                        profiles={profiles.filter((p) => p.party_id === partyId)}
+                        profiles={mappedProfiles.filter((p) => p.party_id === partyId)}
                         isAdmin={isAdmin}
                         isEditMode={isEditMode}
                         onEmptySlotClick={(partyId, slotIndex) =>
@@ -574,7 +724,7 @@ export default function Dashboard({
                       <PartyBlock
                         key={partyId}
                         partyId={partyId}
-                        profiles={profiles.filter((p) => p.party_id === partyId)}
+                        profiles={mappedProfiles.filter((p) => p.party_id === partyId)}
                         isAdmin={isAdmin}
                         isEditMode={isEditMode}
                         onEmptySlotClick={(partyId, slotIndex) =>
@@ -612,7 +762,7 @@ export default function Dashboard({
                         <PartyBlock
                           key={partyId}
                           partyId={partyId}
-                          profiles={profiles.filter((p) => p.party_id === partyId)}
+                          profiles={mappedProfiles.filter((p) => p.party_id === partyId)}
                           isAdmin={isAdmin}
                           isEditMode={isEditMode}
                           onEmptySlotClick={(partyId, slotIndex) =>
@@ -649,7 +799,7 @@ export default function Dashboard({
                         <PartyBlock
                           key={partyId}
                           partyId={partyId}
-                          profiles={profiles.filter((p) => p.party_id === partyId)}
+                          profiles={mappedProfiles.filter((p) => p.party_id === partyId)}
                           isAdmin={isAdmin}
                           isEditMode={isEditMode}
                           onEmptySlotClick={(partyId, slotIndex) =>
@@ -686,7 +836,7 @@ export default function Dashboard({
                         <PartyBlock
                           key={partyId}
                           partyId={partyId}
-                          profiles={profiles.filter((p) => p.party_id === partyId)}
+                          profiles={mappedProfiles.filter((p) => p.party_id === partyId)}
                           isAdmin={isAdmin}
                           isEditMode={isEditMode}
                           onEmptySlotClick={(partyId, slotIndex) =>
@@ -741,7 +891,7 @@ export default function Dashboard({
             </div>
             <div className="flex-1 overflow-hidden p-2 flex flex-col">
               <WaitlistBlock
-                profiles={profiles.filter(
+                profiles={mappedProfiles.filter(
                   (p) => p.party_id === null && !p.is_on_leave,
                 )}
                 isAdmin={isAdmin}
@@ -755,7 +905,7 @@ export default function Dashboard({
       {/* Export Modal */}
       {showExportModal && (
         <ExportModal
-          profiles={profiles}
+          profiles={mappedProfiles}
           onClose={() => setShowExportModal(false)}
           activity={activity}
           partyTeams={partyTeams}

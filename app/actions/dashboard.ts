@@ -7,7 +7,8 @@ import { revalidatePath } from 'next/cache'
 export async function updateProfileParty(
   profileId: string, 
   partyId: number | null, 
-  slotIndex: number | null
+  slotIndex: number | null,
+  activity: 'general' | 'guild_league' | 'emperium_overrun' = 'general'
 ) {
   const session = (await getSession()) as any
   const role = session?.profile?.role
@@ -21,12 +22,21 @@ export async function updateProfileParty(
   // 🌟 ใช้ Admin Client เพื่อทำการข้าม RLS ให้เฉพาะเจ้าหน้าที่จัดการได้กวดขัน
   const supabaseAdmin = await createAdminClient()
 
+  const updateFields: any = {}
+  if (activity === 'guild_league') {
+    updateFields.party_id_guild_league = partyId
+    updateFields.slot_index_guild_league = slotIndex
+  } else if (activity === 'emperium_overrun') {
+    updateFields.party_id_emperium_overrun = partyId
+    updateFields.slot_index_emperium_overrun = slotIndex
+  } else {
+    updateFields.party_id = partyId
+    updateFields.slot_index = slotIndex
+  }
+
   const { error } = await (supabaseAdmin as any)
     .from('profiles')
-    .update({ 
-      party_id: partyId,
-      slot_index: slotIndex 
-    } as any)
+    .update(updateFields)
     .eq('id', profileId)
     .eq('guild_id', adminGuildId) // 🔐 ล็อกว่าสมาชิกคนที่จะโดนย้ายปาร์ตี้ ต้องอยู่กิลด์เดียวกับแอดมินคนนี้เท่านั้น
 

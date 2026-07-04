@@ -303,6 +303,11 @@ export default function AuctionWindow({
 
                       if (result?.success) {
                         if (onRefresh) await onRefresh();
+                        setConfirmedSlots((prev) => {
+                          const next = { ...prev };
+                          delete next[slot.queueId!];
+                          return next;
+                        });
                       } else {
                          setConfirmedSlots((prev) => {
                           const next = { ...prev };
@@ -956,7 +961,7 @@ export default function AuctionWindow({
         </div>
       </div>
       {renderEditModal()}
-      {(Object.values(actionLoading).some(Boolean) || editLoading || isSaving) && (
+      {(editLoading || isSaving) && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col items-center transform transition-all">
             <svg 

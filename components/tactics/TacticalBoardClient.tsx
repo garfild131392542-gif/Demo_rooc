@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useTransition } from 'react'
-import { toJpeg } from 'html-to-image'
+import { captureAndDownload } from '@/lib/export-image'
 import { saveTacticalPlan, deleteTacticalPlan, uploadTacticalMap, uploadTacticalAudio, uploadTacticalVideo } from '@/app/actions/tactics'
 
 // Standard RO GvG map configurations
@@ -865,16 +865,12 @@ export default function TacticalBoardClient({
     setImageError(null)
 
     try {
-      const dataUrl = await toJpeg(exportRef.current, {
+      const filename = `${planName || 'gvg-tactical-plan'}.jpg`
+      await captureAndDownload(exportRef.current, filename, {
         quality: 0.95,
         backgroundColor: '#0f172a',
         pixelRatio: 2,
       })
-
-      const link = document.createElement('a')
-      link.href = dataUrl
-      link.download = `${planName || 'gvg-tactical-plan'}.jpg`
-      link.click()
     } catch (err: any) {
       console.error('Export Tactical Board Error:', err)
       setImageError('เกิดข้อผิดพลาดในการแปลงไฟล์รูปภาพ กรุณาลองอีกครั้ง')

@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { Profile } from './Dashboard'
 import { getJobIconUrl } from '@/components/helpers'
-import { toJpeg } from 'html-to-image'
+import { captureAndDownload } from '@/lib/export-image'
 
 interface Props {
   profiles: Profile[]
@@ -210,16 +210,12 @@ export default function ExportModal({ profiles, onClose, activity, partyTeams }:
     setExporting(true)
 
     try {
-      const dataUrl = await toJpeg(gridRef.current, {
+      const filename = `${bannerTitle.replace(/\s+/g, '_') || 'party-lineup'}.jpg`
+      await captureAndDownload(gridRef.current, filename, {
         quality: 0.95,
         backgroundColor: '#ffffff',
         pixelRatio: 2,
       })
-
-      const link = document.createElement('a')
-      link.href = dataUrl
-      link.download = `${bannerTitle.replace(/\s+/g, '_') || 'party-lineup'}.jpg`
-      link.click()
     } catch (error) {
       console.error('Export Error:', error)
       alert('เกิดข้อผิดพลาดในการ Export รูปภาพ กรุณาลองใหม่อีกครั้งครับ')

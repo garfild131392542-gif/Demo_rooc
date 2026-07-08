@@ -313,6 +313,7 @@ export default function TacticalBoardClient({
     }
   }, [guildLeagueRoom, activity])
 
+
   const getPartiesForActivity = (act: 'general' | 'guild_league' | 'emperium_overrun') => {
     return Array.from({ length: 16 }, (_, i) => {
       const partyId = i + 1
@@ -870,6 +871,8 @@ export default function TacticalBoardClient({
         quality: 0.95,
         backgroundColor: '#0f172a',
         pixelRatio: 2,
+        width: 1200,
+        height: 820,
       })
     } catch (err: any) {
       console.error('Export Tactical Board Error:', err)
@@ -1132,14 +1135,26 @@ export default function TacticalBoardClient({
           </button>
         )}
 
-        {!rightPanelOpen && (
-          <button
-            onClick={() => setRightPanelOpen(true)}
-            className="absolute right-4 top-4 z-30 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-850 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1 cursor-pointer text-slate-850 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800"
-          >
-            ⚙️ การตั้งค่าแผนรบ
-          </button>
-        )}
+        {/* Floating Right panel controls: Export & Settings */}
+        <div className="absolute right-4 top-4 z-30 flex items-center gap-2">
+          {!rightPanelOpen && (
+            <>
+              <button
+                onClick={handleExportImage}
+                disabled={imageExporting}
+                className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white border border-indigo-700/30 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+              >
+                {imageExporting ? '⏳ กำลังนำออก...' : '🖼️ Export ภาพแผนการรบ'}
+              </button>
+              <button
+                onClick={() => setRightPanelOpen(true)}
+                className="bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-850 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1 cursor-pointer text-slate-850 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                ⚙️ การตั้งค่าแผนรบ
+              </button>
+            </>
+          )}
+        </div>
 
         {/* 🛠️ Floating Toolbar: Positioned absolute inside the canvas */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-full shadow-lg transition-all">

@@ -9,6 +9,13 @@ export function isSafari(): boolean {
   return ua.includes('safari') && !ua.includes('chrome') && !ua.includes('chromium')
 }
 
+// Check if user is on a mobile device
+export function isMobile(): boolean {
+  if (typeof window === 'undefined') return false
+  const ua = window.navigator.userAgent.toLowerCase()
+  return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua)
+}
+
 // Convert dataURL (base64) to Blob
 export function dataURLtoBlob(dataurl: string): Blob {
   const arr = dataurl.split(',')
@@ -26,6 +33,8 @@ interface ExportOptions {
   quality?: number
   backgroundColor?: string
   pixelRatio?: number
+  width?: number
+  height?: number
 }
 
 /**
@@ -41,26 +50,71 @@ export async function captureAndDownload(
   const backgroundColor = options.backgroundColor ?? '#ffffff'
   const pixelRatio = options.pixelRatio ?? 2
 
-  // 1. Warm-up passes for Safari (fixes blank images/delayed rendering)
-  if (isSafari()) {
-    try {
-      // First pass to trigger rendering pipeline
-      await toJpeg(element, { quality, backgroundColor, pixelRatio })
-      await new Promise((resolve) => setTimeout(resolve, 150))
-      // Second pass to ensure icons/images are loaded and painted
-      await toJpeg(element, { quality, backgroundColor, pixelRatio })
-      await new Promise((resolve) => setTimeout(resolve, 150))
-    } catch (e) {
-      console.warn('Safari pre-rendering warmups failed:', e)
-    }
-  }
-
-  // 2. Final render pass
-  const dataUrl = await toJpeg(element, {
+  const renderOptions = {
     quality,
     backgroundColor,
     pixelRatio,
-  })
+    ...(options.width && options.height ? {
+      width: options.width,
+      height: options.height,
+      style: {
+        width: `${options.width}px`,
+        height: `${options.height}px`,
+        transform: 'none',
+        position: 'absolute',
+        top: '0',
+        left: '0',
+      } as any
+    } : {})
+  }
+
+  // Temporarily resize element in the DOM to let the browser compute layout styles for the requested size
+  const originalWidth = element.style.width
+  const originalHeight = element.style.height
+  const originalMinWidth = element.style.minWidth
+  const originalMinHeight = element.style.minHeight
+  const originalMaxWidth = element.style.maxWidth
+  const originalMaxHeight = element.style.maxHeight
+  const originalFlex = element.style.flex
+
+  if (options.width && options.height) {
+    element.style.setProperty('width', `${options.width}px`, 'important')
+    element.style.setProperty('height', `${options.height}px`, 'important')
+    element.style.setProperty('min-width', `${options.width}px`, 'important')
+    element.style.setProperty('min-height', `${options.height}px`, 'important')
+    element.style.setProperty('max-width', `${options.width}px`, 'important')
+    element.style.setProperty('max-height', `${options.height}px`, 'important')
+    element.style.setProperty('flex', 'none', 'important')
+  }
+
+  let dataUrl = ''
+  try {
+    // 1. Warm-up passes for Safari (fixes blank images/delayed rendering)
+    if (isSafari()) {
+      try {
+        // First pass to trigger rendering pipeline
+        await toJpeg(element, renderOptions)
+        await new Promise((resolve) => setTimeout(resolve, 150))
+        // Second pass to ensure icons/images are loaded and painted
+        await toJpeg(element, renderOptions)
+        await new Promise((resolve) => setTimeout(resolve, 150))
+      } catch (e) {
+        console.warn('Safari pre-rendering warmups failed:', e)
+      }
+    }
+
+    // 2. Final render pass
+    dataUrl = await toJpeg(element, renderOptions)
+  } finally {
+    // Restore original styles
+    element.style.width = originalWidth
+    element.style.height = originalHeight
+    element.style.minWidth = originalMinWidth
+    element.style.minHeight = originalMinHeight
+    element.style.maxWidth = originalMaxWidth
+    element.style.maxHeight = originalMaxHeight
+    element.style.flex = originalFlex
+  }
 
   if (!dataUrl || dataUrl.length < 1000) {
     throw new Error('ภาพที่เรนเดอร์ไม่สมบูรณ์หรือว่างเปล่า')
@@ -68,8 +122,9 @@ export async function captureAndDownload(
 
   const blob = dataURLtoBlob(dataUrl)
 
-  // 3. Web Share API: Try native sharing if supported (great for iOS/Android Safari)
+  // 3. Web Share API: Try native sharing if supported (only on mobile devices like iOS/Android)
   if (
+    isMobile() &&
     typeof navigator !== 'undefined' &&
     navigator.share &&
     navigator.canShare

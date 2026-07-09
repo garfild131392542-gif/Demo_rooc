@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
   verifyAndRenewSubscriptionAction, 
@@ -8,6 +8,7 @@ import {
   getGuildPaymentHistory 
 } from '@/app/actions/billing'
 import { createClient } from '@/lib/supabase/client'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 interface TrialStatus {
   trial_ends_at: string | null
@@ -28,49 +29,49 @@ interface PaymentHistoryItem {
 export default function BillingPage() {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [trialStatus, setTrialStatus] = useState<TrialStatus | null>(null)
-  const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryItem[]>([])
+  const queryClient = useQueryClient()
   
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null)
-  const [guildId, setGuildId] = useState<string | null>(null)
 
   const promptPayId = process.env.NEXT_PUBLIC_PROMPTPAY_ID || '0812345678'
   const promptPayName = process.env.NEXT_PUBLIC_PROMPTPAY_NAME || 'นายศักดิ์ธัช (Sakditach)'
   const packagePrice = 259
 
-  // Fetch subscription and payment history on mount
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const status = await getGuildTrialStatus()
-        setTrialStatus(status)
-
-        const history = await getGuildPaymentHistory()
-        setPaymentHistory(history as PaymentHistoryItem[])
-
-        // Fetch user's profile to get guild ID for storage folder naming
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('guild_id')
-            .eq('id', user.id)
-            .maybeSingle()
-          
-          if (profile?.guild_id) {
-            setGuildId(profile.guild_id)
-          }
-        }
-      } catch (err) {
-        console.error('Error loading billing data:', err)
-      }
+  // Fetch user's profile to get guild ID for storage folder naming
+  const { data: guildId = null } = useQuery({
+    queryKey: ['userGuildId'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return null
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('guild_id')
+        .eq('id', user.id)
+        .maybeSingle()
+      return profile?.guild_id || null
     }
-    loadData()
-  }, [])
+  })
+
+  // Fetch subscription status
+  const { data: trialStatus = null } = useQuery<TrialStatus | null>({
+    queryKey: ['guildTrialStatus'],
+    queryFn: async () => {
+      return await getGuildTrialStatus()
+    }
+  })
+
+  // Fetch payment history
+  const { data: paymentHistory = [] } = useQuery<PaymentHistoryItem[]>({
+    queryKey: ['guildPaymentHistory'],
+    queryFn: async () => {
+      const history = await getGuildPaymentHistory()
+      return history as PaymentHistoryItem[]
+    }
+  })
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -141,11 +142,9 @@ export default function BillingPage() {
         setSelectedFile(null)
         setPreviewUrl(null)
 
-        // Reload data
-        const updatedStatus = await getGuildTrialStatus()
-        setTrialStatus(updatedStatus)
-        const updatedHistory = await getGuildPaymentHistory()
-        setPaymentHistory(updatedHistory as PaymentHistoryItem[])
+        // Reload data via TanStack Query invalidation
+        queryClient.invalidateQueries({ queryKey: ['guildTrialStatus'] })
+        queryClient.invalidateQueries({ queryKey: ['guildPaymentHistory'] })
 
       } catch (err: any) {
         console.error('Payment process error:', err)

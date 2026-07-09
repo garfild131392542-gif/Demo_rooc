@@ -13,6 +13,7 @@ import { ITEM_CONFIG } from "@/components/auction/constants";
 import { Profile } from "@/components/Dashboard";
 import { STAT_LIMITS } from "@/lib/stat-limits";
 import { createClient } from "@/lib/supabase/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 type AuctionItemType = keyof typeof ITEM_CONFIG;
 
@@ -164,56 +165,53 @@ export default function ProfileForm({
         : "";
 
   const [reservationModalOpen, setReservationModalOpen] = useState(false);
-  const [reservations, setReservations] = useState<QueueReservation[]>([]);
-  const [isReservationLoading, setIsReservationLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: reservations = [], isLoading: isReservationLoading, refetch: refetchReservations } = useQuery({
+    queryKey: ['myReservations'],
+    queryFn: async () => {
+      const result = await getMyAuctionReservations();
+      if (!result.success) {
+        throw new Error(result.error || "ไม่สามารถโหลดรายการจองคิวได้");
+      }
+      return (result.reservations || []) as QueueReservation[];
+    },
+    enabled: reservationModalOpen,
+  });
+
   const [reservationActionLoading, setReservationActionLoading] = useState(false);
   const [reservationDraftQty, setReservationDraftQty] = useState<Record<string, string>>({});
   const [reservationQtys, setReservationQtys] = useState<Record<'Album' | 'Puppet' | 'White' | 'RedBlack', string>>({ Album: '', Puppet: '', White: '', RedBlack: '' });
   const [isReservationSubmitting, setIsReservationSubmitting] = useState(false);
   const [showGoToAuctionLink, setShowGoToAuctionLink] = useState(false);
 
+  // Sync query data into local draft state
+  useEffect(() => {
+    if (reservations) {
+      setReservationDraftQty(
+        reservations.reduce(
+          (acc, reservation) => ({
+            ...acc,
+            [String(reservation.id)]: String(reservation.requested_qty),
+          }),
+          {} as Record<string, string>,
+        ),
+      );
+    }
+  }, [reservations]);
+
   const openReservationModal = () => {
     setMessage(null);
     setShowGoToAuctionLink(false);
     setReservationModalOpen(true);
-    fetchReservations();
+    refetchReservations();
   };
 
   const closeReservationModal = () => {
     setMessage(null);
     setReservationModalOpen(false);
-    setReservations([]);
     setReservationDraftQty({});
-    setIsReservationLoading(false);
     setShowGoToAuctionLink(false);
-  };
-
-  const fetchReservations = async () => {
-    setIsReservationLoading(true);
-    setMessage(null);
-
-    try {
-      const result = await getMyAuctionReservations();
-      if (result.success) {
-        const list = (result.reservations || []) as QueueReservation[];
-        setReservations(list);
-        setReservationDraftQty(
-          list.reduce(
-            (acc, reservation) => ({
-              ...acc,
-              [String(reservation.id)]: String(reservation.requested_qty),
-            }),
-            {} as Record<string, string>,
-          ),
-        );
-      } else {
-        setMessage({ type: "error", text: result.error || "ไม่สามารถโหลดรายการจองคิวได้" });
-      }
-    } catch {
-      setMessage({ type: "error", text: "เกิดข้อผิดพลาดขณะโหลดรายการจองคิว" });
-    } finally {
-      setIsReservationLoading(false);
-    }
   };
 
   const handleUpdateReservation = async (id: string) => {
@@ -233,7 +231,7 @@ export default function ProfileForm({
       if (result.success) {
         setMessage({ type: "success", text: "อัปเดตรายการจองคิวเรียบร้อยแล้ว" });
         setShowGoToAuctionLink(true);
-        await fetchReservations();
+        queryClient.invalidateQueries({ queryKey: ['myReservations'] });
       } else {
         setMessage({ type: "error", text: result.error || "ไม่สามารถอัปเดตรายการได้" });
       }
@@ -272,7 +270,7 @@ export default function ProfileForm({
         setMessage({ type: 'success', text: 'ซิงค์ข้อมูลการจองคิวสำเร็จ!' });
         setShowGoToAuctionLink(true);
         setReservationQtys({ Album: '', Puppet: '', White: '', RedBlack: '' });
-        await fetchReservations();
+        queryClient.invalidateQueries({ queryKey: ['myReservations'] });
       } else {
         setMessage({ type: 'error', text: res.error || 'เกิดข้อผิดพลาดขณะบันทึก' });
       }
@@ -1133,7 +1131,7 @@ export default function ProfileForm({
                                         await deleteAuctionQueueReservation(String(res.id));
                                       }
                                       setMessage({ type: "success", text: "ยกเลิกคิวไอเทมนี้สำเร็จ" });
-                                      await fetchReservations();
+                                      queryClient.invalidateQueries({ queryKey: ['myReservations'] });
                                     } catch (err) {
                                       setMessage({ type: "error", text: "ไม่สามารถยกเลิกคิวได้ทั้งหมด" });
                                     } finally {

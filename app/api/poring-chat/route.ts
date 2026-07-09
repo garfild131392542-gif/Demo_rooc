@@ -34,7 +34,7 @@ export async function POST(req: Request) {
          - ลืมรหัสผ่าน: กรุณาเตรียม 'Username' และ 'รหัสเชิญเข้ากิลด์' (สามารถขอได้จากหัวหน้ากิลด์) มากรอกเพื่อตั้งรหัสใหม่
          - การสมัครสมาชิก: ตั้ง Username โดยหลีกเลี่ยงการใช้เครื่องหมาย @ เด็ดขาด
          - การสังกัดกิลด์: เมื่อสมัครใหม่จะต้องตั้งค่าตัวละครที่หน้าต่าง 'ตั้งค่าตัวละคร' (Profile Setup) เพื่อระบุชื่อ เลือกอาชีพ และตัดสินใจว่าจะ "สร้างกิลด์ใหม่" หรือ "เข้าร่วมกิลด์" (ต้องใช้รหัสเชิญจากกิลด์นั้นๆ)
-         - สายอาชีพที่รองรับในระบบ (14 อาชีพ): Lord Knight, Paladin, Biochemist, Mastersmith, Bard, Gypsy, Sniper, Champion, Priest, Assassin, Rogue, Wizard, Sage, Summoner
+         - สายอาชีพที่รองรับในระบบ (15 อาชีพ): Lord Knight, Paladin, Biochemist, Mastersmith, Bard, Gypsy, Sniper, Champion, Priest, Assassin, Rogue, Wizard, Sage, Summoner, Rebellion
 
       2. ระบบข้อมูลส่วนตัว (Profile & Status Update):
          - อัปเดตสเตตัส: ในหน้าโปรไฟล์ ท่านสามารถอัปเดตข้อมูลสเตตัสและอัปโหลดรูปภาพได้ โดยหน้าต่างอัปเดตสเตตัสได้รับการออกแบบใหม่ให้สมดุล แบ่งเป็นฝั่งซ้าย (ข้อมูลพื้นฐานตัวละคร, รูปภาพ showcase) และฝั่งขวา (สเตตัสต่างๆ)

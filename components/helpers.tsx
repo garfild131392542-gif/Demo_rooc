@@ -5,6 +5,7 @@ export function getJobIconUrl(jobName: string | null | undefined): string {
     // ตรวจสอบชื่ออาชีพและส่งคืนชื่อไฟล์รูปภาพที่ตรงกัน
     // รองรับการพิมพ์ผิดเล็กน้อย หรือชื่อเรียกที่ต่างกัน
     if (job === 'paladin') return '/icons/jobs/Paladin.png';
+    if (job === 'rebellion') return '/icons/jobs/Rebellion.png';
     if (['assassin'].includes(job)) return '/icons/jobs/Assassin.png';
     if (job === 'wizard') return '/icons/jobs/High Wizard.png';
     if (['champion'].includes(job)) return '/icons/jobs/Champion.png';

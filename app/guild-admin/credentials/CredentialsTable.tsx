@@ -304,7 +304,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
 
   const JOB_OPTIONS = [
     "Lord Knight", "Paladin", "Biochemist", "Mastersmith", "Bard", "Gypsy",
-    "Sniper", "Champion", "Priest", "Assassin", "Rogue", "Wizard", "Sage", "Summoner"
+    "Sniper", "Champion", "Priest", "Assassin", "Rogue", "Wizard", "Sage", "Summoner", "Rebellion"
   ];
 
   return (

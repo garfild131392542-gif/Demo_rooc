@@ -78,7 +78,7 @@ const client = new Client({
 const VALID_CLASSES = [
   'Lord Knight', 'Paladin', 'Biochemist', 'Mastersmith', 
   'Bard', 'Gypsy', 'Sniper', 'Champion', 'Priest', 
-  'Assassin', 'Rogue', 'Wizard', 'Sage', 'Summoner'
+  'Assassin', 'Rogue', 'Wizard', 'Sage', 'Summoner', 'Rebellion'
 ];
 
 // Helper to match input string to valid class (case-insensitive)

@@ -713,6 +713,7 @@ export default function ProfileForm({
                         <option value="Wizard">Wizard</option>
                         <option value="Sage">Sage</option>
                         <option value="Summoner">Summoner</option>
+                        <option value="Rebellion">Rebellion</option>
                       </select>
                     </div>
                     <div className="flex items-end">

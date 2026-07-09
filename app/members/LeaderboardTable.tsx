@@ -204,6 +204,7 @@ export default function LeaderboardTable({
     "Wizard",
     "Sage",
     "Summoner",
+    "Rebellion",
   ];
 
   const JOB_ORDER: Record<string, number> = {
@@ -225,6 +226,7 @@ export default function LeaderboardTable({
     wizard: 12,
     sage: 13,
     summoner: 14,
+    rebellion: 15,
   };
 
   const sortedProfiles = [...profiles].sort((a, b) => {

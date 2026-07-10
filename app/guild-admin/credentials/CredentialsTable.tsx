@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import * as XLSX from 'xlsx';
 // 🌟 เพิ่มการอิมพอร์ต resetMemberPassword เข้ามาจากไฟล์หลังบ้าน
 import { changeMemberRole, createMember, updateMember, deleteMember, toggleMemberLeave, resetMemberPassword } from '@/app/actions/admin'
@@ -71,6 +72,10 @@ function formatUpdatedAt(last_stat_update?: string) {
 
 export default function CredentialsTable({ initialData }: { initialData: ManagementItem[] }) {
   const [data, setData] = useState(initialData)
+
+  useEffect(() => {
+    setData(initialData)
+  }, [initialData])
   const [isPending, startTransition] = useTransition()
   const [modal, setModal] = useState<{
   type: "success" | "error";
@@ -136,6 +141,32 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
     startTransition(async () => {
       const result = await updateMember(editingMember.id, formData)
       if (result?.success) {
+        // อัปเดตข้อมูลในตารางทันทีโดยไม่ต้องรอโหลดหน้าใหม่
+        const updatedItem = {
+          ...editingMember,
+          display_name: formData.get("display_name") as string,
+          job_name: formData.get("job_name") as string,
+          role: formData.get("role") as string,
+          cp: parseInt(formData.get("cp") as string) || 0,
+          hp: parseInt(formData.get("hp") as string) || 0,
+          sp: parseInt(formData.get("sp") as string) || 0,
+          p_atk: parseInt(formData.get("p_atk") as string) || 0,
+          m_atk: parseInt(formData.get("m_atk") as string) || 0,
+          p_def: parseInt(formData.get("p_def") as string) || 0,
+          m_def: parseInt(formData.get("m_def") as string) || 0,
+          p_dmg: parseFloat(formData.get("p_dmg") as string) || 0,
+          m_dmg: parseFloat(formData.get("m_dmg") as string) || 0,
+          ignore_pdef: parseInt(formData.get("ignore_pdef") as string) || 0,
+          ignore_mdef: parseInt(formData.get("ignore_mdef") as string) || 0,
+          p_reduc: parseFloat(formData.get("p_reduc") as string) || 0,
+          m_reduc: parseFloat(formData.get("m_reduc") as string) || 0,
+          pvp_reduc: parseInt(formData.get("pvp_reduc") as string) || 0,
+          pvp_dmg: parseInt(formData.get("pvp_dmg") as string) || 0,
+          cri: parseInt(formData.get("cri") as string) || 0,
+          cri_dmg: parseFloat(formData.get("cri_dmg") as string) || 0,
+          last_stat_update: new Date().toISOString()
+        }
+        setData(prev => prev.map(p => p.id === editingMember.id ? updatedItem : p))
         setEditingMember(null)
         router.refresh()
       } else {
@@ -171,6 +202,36 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       const result = await createMember(formData)
       if (result?.success) {
         setIsCreating(false)
+        if (result.member) {
+          const newMember: ManagementItem = {
+            id: result.member.id,
+            uid_game: result.member.uid_game || '',
+            display_name: result.member.display_name || '',
+            job_name: result.member.job_name || '',
+            role: result.member.role || 'member',
+            cp: result.member.cp || 0,
+            pvp_reduc: result.member.pvp_reduc || 0,
+            pvp_dmg: result.member.pvp_dmg || 0,
+            p_def: result.member.p_def || 0,
+            m_def: result.member.m_def || 0,
+            p_atk: result.member.p_atk || 0,
+            m_atk: result.member.m_atk || 0,
+            p_dmg: result.member.p_dmg || 0,
+            m_dmg: result.member.m_dmg || 0,
+            p_reduc: result.member.p_reduc || 0,
+            m_reduc: result.member.m_reduc || 0,
+            hp: result.member.hp || 0,
+            sp: result.member.sp || 0,
+            ignore_pdef: result.member.ignore_pdef || 0,
+            ignore_mdef: result.member.ignore_mdef || 0,
+            cri: result.member.cri || 0,
+            cri_dmg: result.member.cri_dmg || 0,
+            is_on_leave: result.member.is_on_leave || false,
+            updated_at: result.member.updated_at || undefined,
+            last_stat_update: result.member.last_stat_update || undefined,
+          }
+          setData(prev => [...prev, newMember])
+        }
         router.refresh()
         alert(`🎉 เพิ่มสมาชิกเรียบร้อยแล้ว!\n\nUsername (UID Game): ${formData.get("uid_game")}\nรหัสผ่านเข้าสู่ระบบชั่วคราวคือ: ${result.password}\n\n(กรุณาคัดลอกรหัสผ่านนี้ส่งต่อให้สมาชิกสำหรับเข้าใช้งาน)`)
       } else {
@@ -179,40 +240,40 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
     })
   }
 
-  const handleToggleLeave = (id: string, currentStatus: boolean) => {
-  startTransition(async () => {
-    try {
-      // Optimistic Update เปลี่ยนที่หน้าจอก่อน
-      setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: !currentStatus } : p))
-      
-      const result = await toggleMemberLeave(id, !currentStatus)
-      
+  const queryClient = useQueryClient()
+
+  const leaveMutation = useMutation({
+    mutationFn: async ({ id, isOnLeave }: { id: string; isOnLeave: boolean }) => {
+      const result = await toggleMemberLeave(id, isOnLeave)
       if (!result?.success) {
-        // ถ้าล้มเหลว ให้ย้อนกลับเป็นค่าเดิม และเปิด Modal แจ้งเตือน Error
-        setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: currentStatus } : p))
-        setModal({
-          type: "error",
-          text: result?.error || 'ไม่สามารถอัปเดตสถานะลากิจกรรมได้'
-        })
-      } else {
-        // 💡 ถ้าสำเร็จ เปิด Modal แจ้งเตือน Success
-        setModal({
-          type: "success",
-          text: !currentStatus 
-            ? "ลากิจกรรมเรียบร้อยแล้ว ✅" 
-            : "เข้าร่วมปกติเรียบร้อยแล้ว ✅"
-        })
+        throw new Error(result?.error || 'ไม่สามารถอัปเดตสถานะลากิจกรรมได้')
       }
-    } catch (err) {
-      // เกิด Exception ย้อนกลับเป็นค่าเดิม และเปิด Modal แจ้งเตือนระบบขัดข้อง
-      setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: currentStatus } : p))
+      return { id, isOnLeave }
+    },
+    onMutate: async ({ id, isOnLeave }) => {
+      setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: isOnLeave } : p))
+    },
+    onError: (error: any, { id, isOnLeave }) => {
+      setData(prev => prev.map(p => p.id === id ? { ...p, is_on_leave: !isOnLeave } : p))
       setModal({
         type: "error",
-        text: 'ระบบหลังบ้านขัดข้อง กรุณาลองใหม่อีกครั้ง'
+        text: error.message || 'ระบบหลังบ้านขัดข้อง กรุณาลองใหม่อีกครั้ง'
       })
+    },
+    onSuccess: (dataRes) => {
+      setModal({
+        type: "success",
+        text: dataRes.isOnLeave 
+          ? "ลากิจกรรมเรียบร้อยแล้ว ✅" 
+          : "เข้าร่วมปกติเรียบร้อยแล้ว ✅"
+      })
+      router.refresh()
     }
   })
-}
+
+  const handleToggleLeave = (id: string, currentStatus: boolean) => {
+    leaveMutation.mutate({ id, isOnLeave: !currentStatus })
+  }
 
   // 🌟 ฟังก์ชันสุ่มรหัสผ่านชั่วคราวความยาว 8 หลักให้แอดมินนำไปใช้งานง่ายๆ
   const handleGenerateRandomPassword = () => {
@@ -395,7 +456,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                         className="sr-only peer"
                         checked={!!item.is_on_leave}
                         onChange={() => handleToggleLeave(item.id, !!item.is_on_leave)}
-                        disabled={isPending}
+                        disabled={isPending || leaveMutation.isPending}
                       />
                       <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-rose-500 disabled:opacity-50"></div>
                     </label>

@@ -140,30 +140,38 @@ export async function createMember(formData: FormData) {
     }
 
     // 4. บันทึกข้อมูลโปรไฟล์สมาชิกใหม่ในตาราง profiles
-    const { error: profileError } = await supabase.from("profiles").insert([
-      {
-        id: newUserId,
-        guild_id: admin.guild_id,
-        uid_game: uid_game.trim(),
-        display_name: display_name?.trim() || uid_game.trim(),
-        job_name,
-        role,
-        cp,
-        p_atk,
-        m_atk,
-        p_def,
-        m_def,
-        p_dmg,
-        m_dmg,
-        p_reduc,
-        m_reduc,
-        pvp_reduc,
-        pvp_dmg,
-        hp, sp, ignore_pdef, ignore_mdef,
-        cri, cri_dmg,
-        last_stat_update: new Date().toISOString(),
-      },
-    ] as any);
+    const { data: newProfile, error: profileError } = await supabase
+      .from("profiles")
+      .insert([
+        {
+          id: newUserId,
+          guild_id: admin.guild_id,
+          uid_game: uid_game.trim(),
+          display_name: display_name?.trim() || uid_game.trim(),
+          job_name,
+          role,
+          cp,
+          p_atk,
+          m_atk,
+          p_def,
+          m_def,
+          p_dmg,
+          m_dmg,
+          p_reduc,
+          m_reduc,
+          pvp_reduc,
+          pvp_dmg,
+          hp,
+          sp,
+          ignore_pdef,
+          ignore_mdef,
+          cri,
+          cri_dmg,
+          last_stat_update: new Date().toISOString(),
+        },
+      ] as any)
+      .select()
+      .single();
 
     if (profileError) {
       // Rollback: ลบ Auth User ทิ้งเพื่อหลีกเลี่ยงบัญชีกำพร้าที่ไม่มีโปรไฟล์
@@ -175,7 +183,7 @@ export async function createMember(formData: FormData) {
     revalidatePath("/members");
     revalidatePath("/");
     
-    return { success: true, password: generatedPassword };
+    return { success: true, password: generatedPassword, member: newProfile };
   } catch (err: any) {
     return { success: false, error: err.message };
   }

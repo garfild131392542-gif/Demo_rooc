@@ -373,7 +373,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
     <>
     
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden relative z-10">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center sticky top-16 sm:top-[72px] z-20 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm">
           <h2 className="text-xl font-semibold">จัดการสมาชิกในกิล</h2>
           <div className='flex items-center space-x-3 flex-wrap gap-y-2'>
             <label className="flex items-center space-x-2 text-sm cursor-pointer text-gray-700 dark:text-gray-300">
@@ -424,9 +424,9 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)] min-h-[300px]">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
-            <thead className="bg-gray-50 dark:bg-gray-900">
+            <thead className="bg-gray-50 dark:bg-gray-900 sticky top-0 z-10 shadow-[0_1px_0_0_rgba(0,0,0,0.05)]">
               <tr>
                 <th className="w-[12%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">User name</th>
                 <th className="w-[15%] px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อตัวละคร</th>

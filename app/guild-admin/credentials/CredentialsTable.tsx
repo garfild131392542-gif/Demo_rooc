@@ -373,7 +373,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
     <>
     
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden relative z-10">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center sticky top-16 sm:top-[72px] z-20 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800">
           <h2 className="text-xl font-semibold">จัดการสมาชิกในกิล</h2>
           <div className='flex items-center space-x-3 flex-wrap gap-y-2'>
             <label className="flex items-center space-x-2 text-sm cursor-pointer text-gray-700 dark:text-gray-300">

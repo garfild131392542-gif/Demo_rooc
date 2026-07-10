@@ -172,6 +172,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       if (result?.success) {
         setIsCreating(false)
         router.refresh()
+        alert(`🎉 เพิ่มสมาชิกเรียบร้อยแล้ว!\n\nUsername (UID Game): ${formData.get("uid_game")}\nรหัสผ่านเข้าสู่ระบบชั่วคราวคือ: ${result.password}\n\n(กรุณาคัดลอกรหัสผ่านนี้ส่งต่อให้สมาชิกสำหรับเข้าใช้งาน)`)
       } else {
         alert(result?.error || 'Failed to create member')
       }
@@ -313,7 +314,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden relative z-10">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <h2 className="text-xl font-semibold">จัดการสมาชิกในกิล</h2>
-          <div className='flex items-center space-x-4'>
+          <div className='flex items-center space-x-3 flex-wrap gap-y-2'>
             <label className="flex items-center space-x-2 text-sm cursor-pointer text-gray-700 dark:text-gray-300">
               <input
                 type="checkbox"
@@ -323,6 +324,15 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
               />
               <span>📌 คัดกรองคนที่ยังไม่อัพเดท</span>
             </label>
+            <button
+              onClick={() => setIsCreating(true)}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span>เพิ่มสมาชิกใหม่</span>
+            </button>
             <div className="relative">
               <input
                 type="text"

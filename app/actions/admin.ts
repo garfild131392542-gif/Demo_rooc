@@ -110,11 +110,42 @@ export async function createMember(formData: FormData) {
       }
     }
 
-    const { error } = await supabase.from("profiles").insert([
+    // 1. สร้างเมลเสมือนโดยอิงจาก UID Game
+    if (!uid_game || !uid_game.trim()) {
+      return { success: false, error: "กรุณาระบุ UID Game" };
+    }
+    const finalEmail = `${uid_game.trim().toLowerCase()}@member.rooc`;
+
+    // 2. สุ่มสร้างรหัสผ่านเริ่มต้นความยาว 8 หลัก
+    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let generatedPassword = '';
+    for (let i = 0; i < 8; i++) {
+      generatedPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    // 3. ลงทะเบียน Auth User ในระบบ
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: finalEmail,
+      password: generatedPassword,
+      email_confirm: true,
+    });
+
+    if (authError) {
+      return { success: false, error: `ไม่สามารถลงทะเบียนผู้ใช้ได้: ${authError.message}` };
+    }
+
+    const newUserId = authData.user?.id;
+    if (!newUserId) {
+      return { success: false, error: "ไม่สามารถรับรหัส ID ผู้ใช้ใหม่ได้" };
+    }
+
+    // 4. บันทึกข้อมูลโปรไฟล์สมาชิกใหม่ในตาราง profiles
+    const { error: profileError } = await supabase.from("profiles").insert([
       {
+        id: newUserId,
         guild_id: admin.guild_id,
-        uid_game,
-        display_name,
+        uid_game: uid_game.trim(),
+        display_name: display_name?.trim() || uid_game.trim(),
         job_name,
         role,
         cp,
@@ -134,12 +165,17 @@ export async function createMember(formData: FormData) {
       },
     ] as any);
 
-    if (error) return { success: false, error: error.message };
+    if (profileError) {
+      // Rollback: ลบ Auth User ทิ้งเพื่อหลีกเลี่ยงบัญชีกำพร้าที่ไม่มีโปรไฟล์
+      await supabase.auth.admin.deleteUser(newUserId);
+      return { success: false, error: `ไม่สามารถบันทึกโปรไฟล์สมาชิกได้: ${profileError.message}` };
+    }
 
     revalidatePath("/guild-admin/credentials");
     revalidatePath("/members");
     revalidatePath("/");
-    return { success: true };
+    
+    return { success: true, password: generatedPassword };
   } catch (err: any) {
     return { success: false, error: err.message };
   }

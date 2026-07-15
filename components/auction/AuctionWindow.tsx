@@ -47,6 +47,7 @@ import {
   clearQueueByItemType,
 } from "@/app/actions/auction";
 import QueueSummaryTable from "./QueueSummaryTable";
+import { captureAndDownload } from "@/lib/export-image";
 
 type AuctionWindowProps = {
   isAdmin: boolean;
@@ -116,6 +117,7 @@ export default function AuctionWindow({
   const [editQueueId, setEditQueueId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState<string>("");
   const [editLoading, setEditLoading] = useState(false);
+  const [exportingType, setExportingType] = useState<AuctionItemType | null>(null);
 
   const editingQueue = editQueueId
     ? memberQueues.find((q) => q.id === editQueueId)
@@ -941,10 +943,54 @@ export default function AuctionWindow({
                   <div className="space-y-6">
                     {activeTypes.map(type => {
                       return (
-                        <div key={type} className="space-y-3">
-                          <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-200">
-                            <span className="text-lg">📦</span>
-                            <span>{ITEM_CONFIG[type]?.label || type}</span>
+                        <div key={type} id={`queue-summary-${type}`} className="space-y-3 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm relative">
+                          <div className="flex items-center justify-between font-bold text-slate-800 dark:text-slate-200">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">📦</span>
+                              <span>{ITEM_CONFIG[type]?.label || type}</span>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={exportingType !== null}
+                              onClick={async () => {
+                                const el = document.getElementById(`queue-summary-${type}`);
+                                if (el) {
+                                  setExportingType(type);
+                                  // Hide the export button itself during screenshot capture
+                                  const btn = el.querySelector(`.export-btn-${type}`) as HTMLElement;
+                                  if (btn) btn.style.setProperty('display', 'none', 'important');
+                                  
+                                  try {
+                                    // small timeout to let the state change render/flush
+                                    await new Promise(resolve => setTimeout(resolve, 80));
+                                    await captureAndDownload(el, `queue_${type}_${new Date().toISOString().split('T')[0]}.jpg`, {
+                                      backgroundColor: document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff'
+                                    });
+                                  } catch (err: any) {
+                                    alert('ไม่สามารถส่งออกรูปภาพได้: ' + err.message);
+                                  } finally {
+                                    if (btn) btn.style.removeProperty('display');
+                                    setExportingType(null);
+                                  }
+                                }
+                              }}
+                              className={`export-btn-${type} cursor-pointer flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-blue-400 rounded-xl text-xs font-bold transition-all disabled:opacity-50 shrink-0`}
+                            >
+                              {exportingType === type ? (
+                                <>
+                                  <svg className="animate-spin h-3.5 w-3.5 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="none">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                                  </svg>
+                                  <span>กำลังส่งออก...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                  <span>Export รูปภาพ</span>
+                                </>
+                              )}
+                            </button>
                           </div>
                           <QueueSummaryTable
                             itemName={type}

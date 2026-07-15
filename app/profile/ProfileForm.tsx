@@ -167,7 +167,7 @@ export default function ProfileForm({
   const [reservationModalOpen, setReservationModalOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: reservations = [], isLoading: isReservationLoading, refetch: refetchReservations } = useQuery({
+  const { data: reservationsData, isLoading: isReservationLoading, refetch: refetchReservations } = useQuery({
     queryKey: ['myReservations'],
     queryFn: async () => {
       const result = await getMyAuctionReservations();
@@ -179,17 +179,20 @@ export default function ProfileForm({
     enabled: reservationModalOpen,
   });
 
+  const reservations = reservationsData || [];
+
   const [reservationActionLoading, setReservationActionLoading] = useState(false);
   const [reservationDraftQty, setReservationDraftQty] = useState<Record<string, string>>({});
   const [reservationQtys, setReservationQtys] = useState<Record<'Album' | 'Puppet' | 'White' | 'RedBlack', string>>({ Album: '', Puppet: '', White: '', RedBlack: '' });
   const [isReservationSubmitting, setIsReservationSubmitting] = useState(false);
+  const [submittingItem, setSubmittingItem] = useState<'Album' | 'Puppet' | 'White' | 'RedBlack' | null>(null);
   const [showGoToAuctionLink, setShowGoToAuctionLink] = useState(false);
 
   // Sync query data into local draft state
   useEffect(() => {
-    if (reservations) {
+    if (reservationsData) {
       setReservationDraftQty(
-        reservations.reduce(
+        reservationsData.reduce(
           (acc, reservation) => ({
             ...acc,
             [String(reservation.id)]: String(reservation.requested_qty),
@@ -198,7 +201,7 @@ export default function ProfileForm({
         ),
       );
     }
-  }, [reservations]);
+  }, [reservationsData]);
 
   const openReservationModal = () => {
     setMessage(null);
@@ -242,34 +245,26 @@ export default function ProfileForm({
     }
   };
 
-  // ✨ ฟังก์ชันสำหรับกดปุ่มฟอร์มด้านบน (ใช้ Sync)
-  const handleMemberRegister = async () => {
-    // 1. นำข้อมูลทุกไอเทมแปลงเป็นตัวเลข ถ้าช่องว่างให้มีค่าเป็น 0
-    const selectedItems = Object.entries(reservationQtys)
-      .map(([key, value]) => ({
-        itemType: key as 'Album' | 'Puppet' | 'White' | 'RedBlack',
-        qty: parseInt(value || "0", 10), 
-      }));
-
-    // ตรวจสอบ limit 10 ชิ้น
-    for (const item of selectedItems) {
-      if (item.qty > 10) {
-        const itemLabel = ITEM_CONFIG[item.itemType]?.label || item.itemType;
-        setMessage({ type: 'error', text: `ท่านสามารถจอง ${itemLabel} ได้ไม่เกิน 10 ชิ้น` });
-        return;
-      }
+  // ✨ ฟังก์ชันสำหรับกดปุ่มจองคิวแยกรายไอเทม (1:1 Action)
+  const handleMemberRegisterSingle = async (itemType: 'Album' | 'Puppet' | 'White' | 'RedBlack', qty: number) => {
+    if (qty < 0 || qty > 10) {
+      const itemLabel = ITEM_CONFIG[itemType]?.label || itemType;
+      setMessage({ type: 'error', text: `ท่านสามารถจอง ${itemLabel} ได้ไม่เกิน 10 ชิ้น` });
+      return;
     }
 
-    setIsReservationSubmitting(true);
+    setSubmittingItem(itemType);
     setMessage(null);
 
     try {
-      // 2. เรียกใช้งาน Server Action ระบบ Sync ข้อมูล (ลบของที่ใส่ 0 อัตโนมัติ)
-      const res = await syncUserAuctionQueues(selectedItems as any);
+      // 2. เรียกใช้งาน Server Action ส่งเฉพาะไอเทมที่เลือกจองแบบ 1:1
+      const res = await syncUserAuctionQueues([{ itemType, qty }]);
       if (res.success) {
-        setMessage({ type: 'success', text: 'ซิงค์ข้อมูลการจองคิวสำเร็จ!' });
+        const itemLabel = ITEM_CONFIG[itemType]?.label || itemType;
+        setMessage({ type: 'success', text: `จองคิว ${itemLabel} จำนวน ${qty} ชิ้น สำเร็จ!` });
         setShowGoToAuctionLink(true);
-        setReservationQtys({ Album: '', Puppet: '', White: '', RedBlack: '' });
+        // ล้างค่าเฉพาะช่องที่เพิ่งกดจองสำเร็จ
+        setReservationQtys(prev => ({ ...prev, [itemType]: '' }));
         queryClient.invalidateQueries({ queryKey: ['myReservations'] });
       } else {
         setMessage({ type: 'error', text: res.error || 'เกิดข้อผิดพลาดขณะบันทึก' });
@@ -277,7 +272,7 @@ export default function ProfileForm({
     } catch (err) {
       setMessage({ type: 'error', text: 'ระบบผิดพลาด กรุณาลองใหม่อีกครั้ง' });
     } finally {
-      setIsReservationSubmitting(false);
+      setSubmittingItem(null);
     }
   };
 
@@ -989,8 +984,8 @@ export default function ProfileForm({
                   <MemberForm
                     reservationQtys={reservationQtys}
                     setReservationQtys={setReservationQtys}
-                    handleMemberRegister={handleMemberRegister}
-                    isSaving={isReservationSubmitting || isPending || isAiLoading}
+                    handleMemberRegisterSingle={handleMemberRegisterSingle}
+                    submittingItem={submittingItem}
                   />
 
                   {showGoToAuctionLink && (
@@ -1141,8 +1136,20 @@ export default function ProfileForm({
                                   disabled={reservationActionLoading} 
                                   className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-xs font-bold text-red-600 bg-white hover:bg-red-50 dark:border-red-950/30 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-950/20 transition-all disabled:opacity-50"
                                 >
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                  ยกเลิกคิวจองทั้งหมด
+                                  {reservationActionLoading ? (
+                                    <>
+                                      <svg className="animate-spin h-3.5 w-3.5 text-red-650" viewBox="0 0 24 24" fill="none">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                                      </svg>
+                                      <span>กำลังยกเลิก...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                      <span>ยกเลิกคิวจองทั้งหมด</span>
+                                    </>
+                                  )}
                                 </button>
                               </div>
                             </div>

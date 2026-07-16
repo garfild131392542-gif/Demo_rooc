@@ -662,10 +662,10 @@ export default function ProfileForm({
                 <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60">
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                      สถานะสมาชิก
+                      ลากิจกรรม
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {isOnLeave ? "กำลังอยู่ในสถานะลากิจกรรม" : "พร้อมเข้าร่วมกิลด์วอร์"}
+                      {isOnLeave ? "กำลังลากิจกรรม (ไม่สะดวกเข้าร่วมกิจกรรมกิลด์)" : "พร้อมเข้าร่วมปกติ"}
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">

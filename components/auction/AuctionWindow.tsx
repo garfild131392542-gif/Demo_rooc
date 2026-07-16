@@ -964,7 +964,8 @@ export default function AuctionWindow({
                                     // small timeout to let the state change render/flush
                                     await new Promise(resolve => setTimeout(resolve, 80));
                                     await captureAndDownload(el, `queue_${type}_${new Date().toISOString().split('T')[0]}.jpg`, {
-                                      backgroundColor: document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff'
+                                      backgroundColor: document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff',
+                                      width: 900
                                     });
                                   } catch (err: any) {
                                     alert('ไม่สามารถส่งออกรูปภาพได้: ' + err.message);

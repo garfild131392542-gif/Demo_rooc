@@ -50,24 +50,6 @@ export async function captureAndDownload(
   const backgroundColor = options.backgroundColor ?? '#ffffff'
   const pixelRatio = options.pixelRatio ?? 2
 
-  const renderOptions = {
-    quality,
-    backgroundColor,
-    pixelRatio,
-    ...(options.width && options.height ? {
-      width: options.width,
-      height: options.height,
-      style: {
-        width: `${options.width}px`,
-        height: `${options.height}px`,
-        transform: 'none',
-        position: 'absolute',
-        top: '0',
-        left: '0',
-      } as any
-    } : {})
-  }
-
   // Temporarily resize element in the DOM to let the browser compute layout styles for the requested size
   const originalWidth = element.style.width
   const originalHeight = element.style.height
@@ -77,14 +59,39 @@ export async function captureAndDownload(
   const originalMaxHeight = element.style.maxHeight
   const originalFlex = element.style.flex
 
-  if (options.width && options.height) {
+  // If width is specified, temporarily set it before measuring computed height
+  if (options.width) {
     element.style.setProperty('width', `${options.width}px`, 'important')
-    element.style.setProperty('height', `${options.height}px`, 'important')
     element.style.setProperty('min-width', `${options.width}px`, 'important')
-    element.style.setProperty('min-height', `${options.height}px`, 'important')
     element.style.setProperty('max-width', `${options.width}px`, 'important')
-    element.style.setProperty('max-height', `${options.height}px`, 'important')
     element.style.setProperty('flex', 'none', 'important')
+  }
+
+  // Auto-calculate height if not provided but width is present (retains desktop layout on mobile viewports)
+  const computedHeight = options.height ?? (options.width ? element.offsetHeight : undefined)
+
+  if (computedHeight) {
+    element.style.setProperty('height', `${computedHeight}px`, 'important')
+    element.style.setProperty('min-height', `${computedHeight}px`, 'important')
+    element.style.setProperty('max-height', `${computedHeight}px`, 'important')
+  }
+
+  const renderOptions = {
+    quality,
+    backgroundColor,
+    pixelRatio,
+    ...(options.width && computedHeight ? {
+      width: options.width,
+      height: computedHeight,
+      style: {
+        width: `${options.width}px`,
+        height: `${computedHeight}px`,
+        transform: 'none',
+        position: 'absolute',
+        top: '0',
+        left: '0',
+      } as any
+    } : {})
   }
 
   let dataUrl = ''

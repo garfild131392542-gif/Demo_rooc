@@ -612,27 +612,7 @@ export default function ProfileForm({
   return (
     <div className="relative w-full max-w-[1550px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
       
-      {/* Loading Overlay */}
-      {(isAiLoading || isPending || isShowcaseUploading) && (
-        <div className="fixed inset-0 z-50 pointer-events-auto flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/20 bg-white/95 p-8 text-center shadow-2xl dark:bg-slate-900/95 dark:text-white">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-500/30">
-              <svg className="h-8 w-8 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-              </svg>
-            </div>
-            <p className="text-xl font-bold text-slate-900 dark:text-white">{loadingText}</p>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              {isAiLoading 
-                ? "กำลังประมวลผลสเตตัสจากภาพ โปรดรอสักครู่..." 
-                : isShowcaseUploading
-                  ? (removeBgAutomatic ? "🔮 AI กำลังดาวน์โหลดโมเดลและประมวลผลลบพื้นหลัง (อาจใช้เวลาประมาณ 10-15 วินาทีในครั้งแรก)..." : "กำลังอัปโหลดรูปตัวละคร...")
-                  : "กำลังบันทึกข้อมูล โปรดรอจนกว่าจะเสร็จสิ้น"}
-            </p>
-          </div>
-        </div>
-      )}
+      {/* Loading Overlay Removed */}
 
       {/* Global Message Alert */}
       {message && (
@@ -664,8 +644,8 @@ export default function ProfileForm({
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                       ลากิจกรรม
                     </h3>
-                    <p className={`text-xs mt-0.5 font-bold ${isOnLeave ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                      {isOnLeave ? "🔴 ลากิจกรรม" : "🟢 สะดวกเข้าร่วมกิจกรรม"}
+                    <p className={`text-xs mt-0.5 font-bold ${isPending ? 'text-slate-400 dark:text-slate-500' : (isOnLeave ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}`}>
+                      {isPending ? "⏳ กำลังอัปเดตสถานะ..." : (isOnLeave ? "🔴 ลากิจกรรม" : "🟢 สะดวกเข้าร่วมกิจกรรม")}
                     </p>
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 leading-relaxed">
                       *หากเปิดไว้ ระบบจะแสดงกรอบสีแดงในระบบ และหัวหน้ากิลด์จะไม่สามารถจัดคุณเข้าปาร์ตี้กิจกรรมได้
@@ -850,7 +830,17 @@ export default function ProfileForm({
                         🔮 ลบพื้นหลังอัตโนมัติด้วย AI
                       </label>
                     </div>
-                    {showcaseUrl ? (
+                    {isShowcaseUploading ? (
+                      <div className="flex-1 min-h-[120px] p-3 bg-slate-50/50 dark:bg-slate-900/40 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-2">
+                        <svg className="animate-spin h-6 w-6 text-indigo-500" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                        </svg>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 text-center font-semibold">
+                          {removeBgAutomatic ? "🔮 AI กำลังลบพื้นหลังรูปภาพ..." : "กำลังอัปโหลดรูปตัวละคร..."}
+                        </p>
+                      </div>
+                    ) : showcaseUrl ? (
                       <div className="flex-1 min-h-[120px] p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-center">
                         <img src={showcaseUrl} alt="Character Showcase" className="max-h-[140px] w-auto object-contain rounded" onError={(e) => { (e.target as any).src = 'https://placehold.co/150x150?text=Invalid+Image'; }} />
                       </div>
@@ -874,7 +864,13 @@ export default function ProfileForm({
                 style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)' }}
                 className="w-full sm:w-auto sm:min-w-[240px] rounded-md bg-gradient-to-b from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 active:translate-y-[1px] active:shadow-[inset_0_1px_3px_rgba(0,0,0,0.4)] text-white font-bold py-2.5 px-6 text-xs sm:text-sm shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.4)] border border-amber-800 transition-all duration-150 cursor-pointer disabled:opacity-50"
               >
-                {isPending ? "กำลังบันทึกข้อมูล..." : "💾 บันทึกข้อมูลตัวละคร"}
+                {isPending ? (
+                  "กำลังบันทึกข้อมูล..."
+                ) : isShowcaseUploading ? (
+                  "กำลังอัปโหลดรูป..."
+                ) : (
+                  "💾 บันทึกข้อมูลตัวละคร"
+                )}
               </button>
             </div>
           </div>
@@ -898,14 +894,15 @@ export default function ProfileForm({
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isAiLoading || isPending}
                     style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)' }}
-                    className="relative overflow-hidden inline-flex items-center justify-center rounded-md bg-gradient-to-b from-slate-600 via-slate-700 to-slate-800 hover:from-slate-500 hover:to-slate-700 active:translate-y-[1px] active:shadow-[inset_0_1px_3px_rgba(0,0,0,0.4)] text-white px-4 py-2 text-xs sm:text-sm font-bold shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.2)] border border-slate-900 transition-all duration-150 cursor-pointer disabled:opacity-50"
+                    className="relative overflow-hidden inline-flex items-center justify-center rounded-md bg-gradient-to-b from-slate-600 via-slate-700 to-slate-800 hover:from-slate-500 hover:to-slate-700 active:translate-y-[1px] active:shadow-[inset_0_1px_3px_rgba(0,0,0,0.4)] text-white px-4 py-2 text-xs sm:text-sm font-bold shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.2)] border border-slate-900 transition-all duration-150 cursor-pointer disabled:opacity-50 gap-1.5"
                   >
-                    {isAiLoading ? (
-                      <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24" fill="none">
+                    {isAiLoading && (
+                      <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
                       </svg>
-                    ) : "อัปโหลดสเตตัส ด้วย AI"}
+                    )}
+                    {isAiLoading ? "AI กำลังสแกนรูป..." : "อัปโหลดสเตตัส ด้วย AI"}
                   </button>
                   <button
                     type="submit"
@@ -913,7 +910,13 @@ export default function ProfileForm({
                     style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)' }}
                     className="relative overflow-hidden inline-flex items-center justify-center rounded-md bg-gradient-to-b from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 active:translate-y-[1px] active:shadow-[inset_0_1px_3px_rgba(0,0,0,0.4)] text-white px-4 py-2 text-xs sm:text-sm font-bold shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.3)] border border-emerald-900 transition-all duration-150 cursor-pointer disabled:opacity-50"
                   >
-                    {isPending ? "กำลังบันทึก..." : "💾 บันทึกค่าสเตตัส"}
+                    {isPending ? (
+                      "กำลังบันทึก..."
+                    ) : isAiLoading ? (
+                      "AI กำลังทำงาน..."
+                    ) : (
+                      "💾 บันทึกค่าสเตตัส"
+                    )}
                   </button>
                 </div>
               </div>

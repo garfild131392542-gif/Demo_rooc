@@ -1008,27 +1008,7 @@ export default function AuctionWindow({
         </div>
       </div>
       {renderEditModal()}
-      {(editLoading || isSaving) && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col items-center transform transition-all">
-            <svg 
-              className="animate-spin h-14 w-14 text-blue-500 mb-5 drop-shadow-md" 
-              xmlns="http://www.w3.org/2000/svg" 
-              fill="none" 
-              viewBox="0 0 24 24"
-            >
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-            </svg>
-            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">
-              กำลังประมวลผล...
-            </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
-              กรุณารอสักครู่ ระบบกำลังสื่อสารกับฐานข้อมูล
-            </p>
-          </div>
-        </div>
-      )}
+      {/* Processing Loader Removed */}
     </div>
   );
 }

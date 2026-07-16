@@ -617,7 +617,9 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
             </div>
             <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3 shrink-0 bg-gray-50 dark:bg-gray-900/50">
               <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors">ยกเลิก</button>
-              <button type="submit" form="create-form" disabled={isPending} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-50">บันทึกข้อมูล</button>
+              <button type="submit" form="create-form" disabled={isPending} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-50">
+                {isPending ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
+              </button>
             </div>
           </div>
         </div>
@@ -728,7 +730,9 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
             </div>
             <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3 shrink-0 bg-gray-50 dark:bg-gray-900/50">
               <button type="button" onClick={() => setEditingMember(null)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors">ยกเลิก</button>
-              <button type="submit" form="edit-form" disabled={isPending} className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:opacity-50">บันทึกการแก้ไข</button>
+              <button type="submit" form="edit-form" disabled={isPending} className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:opacity-50">
+                {isPending ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
+              </button>
             </div>
           </div>
         </div>
@@ -797,45 +801,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
         </div>
       )}
 
-      {/* ⏳ Modal กำลังดำเนินการ... (สไตล์จากหน้า Profile) */}
-      {isPending && (
-        <div className="fixed inset-0 z-[100] pointer-events-auto flex items-center justify-center bg-black/40 p-4 transition-opacity">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/95 p-6 text-center shadow-2xl backdrop-blur-md dark:bg-slate-900/95 dark:text-white animate-in zoom-in-95 duration-200">
-            
-            {/* วงกลมไอคอนโหลด */}
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg">
-              <svg
-                className="h-8 w-8 animate-spin"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8z"
-                />
-              </svg>
-            </div>
-            
-            {/* ข้อความ */}
-            <p className="text-lg font-bold text-gray-900 dark:text-white">
-              กำลังดำเนินการ...
-            </p>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              ระบบกำลังอัปเดตสถานะลากิจกรรม โปรดรอสักครู่
-            </p>
-            
-          </div>
-        </div>
-      )}
+      {/* ⏳ Modal กำลังดำเนินการ... (สไตล์จากหน้า Profile) Removed */}
     </>
   )
 

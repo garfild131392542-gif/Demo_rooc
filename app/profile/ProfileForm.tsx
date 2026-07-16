@@ -664,8 +664,11 @@ export default function ProfileForm({
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                       ลากิจกรรม
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {isOnLeave ? "กำลังลากิจกรรม (ไม่สะดวกเข้าร่วมกิจกรรมกิลด์)" : "พร้อมเข้าร่วมปกติ"}
+                    <p className={`text-xs mt-0.5 font-bold ${isOnLeave ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {isOnLeave ? "🔴 ลากิจกรรม" : "🟢 สะดวกเข้าร่วมกิจกรรม"}
+                    </p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 leading-relaxed">
+                      *หากเปิดไว้ ระบบจะแสดงกรอบสีแดงในระบบ และหัวหน้ากิลด์จะไม่สามารถจัดคุณเข้าปาร์ตี้กิจกรรมได้
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">

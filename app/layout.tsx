@@ -12,6 +12,7 @@ import PoringAssistant from "@/components/PoringAssistant";
 import UpdateTicker from "@/components/UpdateTicker";
 import AnnouncementModal from "@/components/AnnouncementModal";
 import QueryProvider from "@/components/QueryProvider";
+import { getActiveAnnouncementForGuild } from "@/app/actions/admin-guilds";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,7 +35,17 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await getSession();
+  const sessionAny = session as any;
   let primaryColor = "#3b82f6"; // Default Blue
+
+  let activeAnnouncement = null;
+  if (sessionAny?.profile?.guild_id) {
+    try {
+      activeAnnouncement = await getActiveAnnouncementForGuild(sessionAny.profile.guild_id);
+    } catch (e) {
+      console.error("Failed to fetch active announcement:", e);
+    }
+  }
 
   // Default theme color is fixed to blue (#3b82f6) as dynamic guild styling is disabled.
 
@@ -70,8 +81,8 @@ export default async function RootLayout({
             {/* 2. วางน้อง Poring ไว้ตรงนี้ครับ น้องจะลอยตามไปทุกๆ หน้า */}
             <PoringAssistant />
 
-            {/* 3. Announcement Modal — เด้งวันละ 1 ครั้ง แจ้งเตือนอัปเดต */}
-            <AnnouncementModal />
+            {/* 3. Announcement Modal — เด้งวันละ 1 ครั้ง แจ้งเตือนอัปเดต (คอมเมนต์ออกตามคำสั่ง มีการส่งค่าประกาศแบบไดนามิกจาก DB) */}
+            {/* {activeAnnouncement && <AnnouncementModal announcement={activeAnnouncement} />} */}
           </QueryProvider>
         </ThemeProvider>
       </body>

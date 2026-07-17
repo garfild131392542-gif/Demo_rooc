@@ -3,9 +3,25 @@
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CURRENT_ANNOUNCEMENT, type AnnouncementItem } from '@/lib/announcements.config'
+type AnnouncementProp = {
+  id: string
+  title: string
+  subtitle?: string | null
+  items: Array<{
+    icon: string
+    label: string
+    detail: string
+    color: 'blue' | 'green' | 'yellow' | 'red' | 'purple'
+    youtubeUrl?: string | null
+  }>
+  footer?: string | null
+}
 
-const COLOR_MAP: Record<AnnouncementItem['color'], { bg: string; border: string; icon: string; badge: string }> = {
+type Props = {
+  announcement: AnnouncementProp
+}
+
+const COLOR_MAP: Record<AnnouncementProp['items'][0]['color'], { bg: string; border: string; icon: string; badge: string }> = {
   blue:   { bg: 'bg-blue-50 dark:bg-blue-950/30',     border: 'border-blue-200 dark:border-blue-800/50',     icon: 'bg-blue-100 dark:bg-blue-900/50',     badge: 'text-blue-700 dark:text-blue-300' },
   green:  { bg: 'bg-green-50 dark:bg-green-950/30',   border: 'border-green-200 dark:border-green-800/50',   icon: 'bg-green-100 dark:bg-green-900/50',   badge: 'text-green-700 dark:text-green-300' },
   yellow: { bg: 'bg-yellow-50 dark:bg-yellow-950/30', border: 'border-yellow-200 dark:border-yellow-800/50', icon: 'bg-yellow-100 dark:bg-yellow-900/50', badge: 'text-yellow-700 dark:text-yellow-300' },
@@ -110,7 +126,7 @@ function YouTubeCard({ url }: { url: string }) {
 // ────────────────────────────────────────────────
 // Main Modal
 // ────────────────────────────────────────────────
-export default function AnnouncementModal() {
+export default function AnnouncementModal({ announcement }: Props) {
   const [isOpen, setIsOpen] = useState(false)
   const [suppressToday, setSuppressToday] = useState(false)
   const pathname = usePathname()
@@ -122,7 +138,7 @@ export default function AnnouncementModal() {
     const justLoggedIn = sessionStorage.getItem('just-logged-in')
     if (!justLoggedIn) return
 
-    if (hasSeenToday(CURRENT_ANNOUNCEMENT.id)) return
+    if (hasSeenToday(announcement.id)) return
 
     // ย้าย removeItem เข้าไปใน timer callback
     // ถ้า cleanup ยกเลิก timer → flag ยังอยู่ให้ effect รอบใหม่อ่านได้
@@ -132,17 +148,17 @@ export default function AnnouncementModal() {
     }, 800)
 
     return () => clearTimeout(timer)
-  }, [pathname])
+  }, [pathname, announcement.id])
 
   const handleClose = () => {
     // บันทึก "เห็นแล้ว" เฉพาะเมื่อผู้ใช้ติ๊ก checkbox
     if (suppressToday) {
-      markSeenToday(CURRENT_ANNOUNCEMENT.id)
+      markSeenToday(announcement.id)
     }
     setIsOpen(false)
   }
 
-  const { title, subtitle, items, footer } = CURRENT_ANNOUNCEMENT
+  const { title, subtitle, items, footer } = announcement
 
   return (
     <AnimatePresence>

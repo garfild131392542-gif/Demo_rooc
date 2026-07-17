@@ -15,10 +15,29 @@ export default function LoginPage() {
   const recaptchaRef = useRef<any>(null)
 
   const [identifier, setIdentifier] = useState('')
+  const [identifierError, setIdentifierError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+
+  const handleIdentifierChange = (value: string) => {
+    setIdentifier(value)
+    
+    if (value.includes('@')) {
+      if (value && !/^[a-zA-Z0-9_.-@]*$/.test(value)) {
+        setIdentifierError("อีเมลต้องเป็นภาษาอังกฤษและไม่มีช่องว่าง")
+      } else {
+        setIdentifierError(null)
+      }
+    } else {
+      if (value && !/^[a-zA-Z0-9_.-]*$/.test(value)) {
+        setIdentifierError("ชื่อผู้ใช้งานต้องเป็นภาษาอังกฤษ ตัวเลข จุด (.) ขีดกลาง (-) หรือขีดล่าง (_) เท่านั้น ห้ามใส่ภาษาไทยหรือเว้นวรรค")
+      } else {
+        setIdentifierError(null)
+      }
+    }
+  }
   
   // ==========================================
   // 🌟 State สำหรับ Modal รีเซ็ตรหัสผ่าน (แบบตรวจสอบรหัสกิลด์)
@@ -69,6 +88,12 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
+    
+    if (identifierError) {
+      setError('กรุณาแก้ไขข้อผิดพลาดของชื่อผู้ใช้งานหรืออีเมลให้ถูกต้องก่อนเข้าสู่ระบบ')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -158,7 +183,8 @@ export default function LoginPage() {
               <div className="space-y-5">
                 <div>
                   <label className="block text-sm font-bold text-white uppercase tracking-wider mb-2">ชื่อผู้ใช้งาน</label>
-                  <input id="identifier" type="text" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} className="block w-full rounded-xl border border-white/20 px-4 py-3 text-white placeholder-white/40 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/10 dark:bg-black/20 backdrop-blur-md transition-all sm:text-sm" placeholder="Username" autoCapitalize="none" spellCheck={false} />
+                  <input id="identifier" type="text" required value={identifier} onChange={(e) => handleIdentifierChange(e.target.value)} className="block w-full rounded-xl border border-white/20 px-4 py-3 text-white placeholder-white/40 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/10 dark:bg-black/20 backdrop-blur-md transition-all sm:text-sm" placeholder="Username" autoCapitalize="none" spellCheck={false} />
+                  {identifierError && <p className="mt-1.5 text-xs text-red-300 font-medium">{identifierError}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-white uppercase tracking-wider mb-2">รหัสผ่าน</label>
@@ -193,7 +219,7 @@ export default function LoginPage() {
                 />
               </div>
 
-              <button type="submit" disabled={loading} className="cursor-pointer group relative flex w-full justify-center rounded-xl bg-blue-600/80 px-4 py-3.5 text-sm font-bold text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-70 transition-all shadow-lg backdrop-blur-sm">
+              <button type="submit" disabled={loading || !!identifierError} className="cursor-pointer group relative flex w-full justify-center rounded-xl bg-blue-600/80 px-4 py-3.5 text-sm font-bold text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-70 transition-all shadow-lg backdrop-blur-sm">
                 เข้าสู่ระบบ
               </button>
               

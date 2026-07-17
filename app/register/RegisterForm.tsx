@@ -33,13 +33,29 @@ export function RegisterForm() {
       [name]: value,
     }));
     
-    if (fieldErrors[name]) {
-      setFieldErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
+    setFieldErrors((prev) => {
+      const newErrors = { ...prev };
+      if (name === "username") {
+        let usernameError = "";
+        if (value.includes("@")) {
+          usernameError = "ชื่อผู้ใช้งานห้ามมีเครื่องหมาย @";
+        } else if (value && !/^[a-zA-Z0-9_.-]*$/.test(value)) {
+          usernameError = "ชื่อผู้ใช้งานต้องเป็นภาษาอังกฤษ ตัวเลข จุด (.) ขีดกลาง (-) หรือขีดล่าง (_) เท่านั้น ห้ามใส่ภาษาไทยหรือเว้นว่าง";
+        }
+        
+        if (usernameError) {
+          newErrors.username = usernameError;
+        } else {
+          delete newErrors.username;
+        }
+      } else {
+        if (newErrors[name]) {
+          delete newErrors[name];
+        }
+      }
+      return newErrors;
+    });
+
     setError(null);
   };
 

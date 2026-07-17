@@ -2,6 +2,7 @@
 
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { validateUsername } from '@/lib/validations'
 
 const VIRTUAL_EMAIL_DOMAIN = '@member.rooc'
 
@@ -19,7 +20,11 @@ export async function registerMemberWithGuildInvite(
   const normalizedJobName = (jobName || '').trim()
 
   if (!normalizedGuildId) return { success: false, error: 'ไม่พบกิลด์ที่ต้องการลงทะเบียน' }
-  if (!normalizedUsername) return { success: false, error: 'กรุณากรอก Username' }
+  
+  const usernameValidation = validateUsername(normalizedUsername)
+  if (!usernameValidation.valid) {
+    return { success: false, error: usernameValidation.error }
+  }
   if (!normalizedPassword) return { success: false, error: 'กรุณากรอกรหัสผ่าน' }
   if (normalizedPassword.length < 6) return { success: false, error: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร' }
   if (!normalizedDisplayName) return { success: false, error: 'กรุณากรอกชื่อตัวละคร' }

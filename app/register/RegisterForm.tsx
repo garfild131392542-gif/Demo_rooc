@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { registerAction } from "@/app/actions/register";
-import { validatePassword, validatePasswordMatch } from "@/lib/validations";
+import { validateUsername, validatePassword, validatePasswordMatch } from "@/lib/validations";
 import ReCAPTCHA from "react-google-recaptcha";
 
 export function RegisterForm() {
@@ -48,10 +48,9 @@ export function RegisterForm() {
 
     switch (field) {
       case "username":
-        if (!formData.username.trim()) {
-          error = "กรุณากรอกชื่อผู้ใช้งาน";
-        } else if (formData.username.includes("@")) {
-          error = "ชื่อผู้ใช้งานห้ามมีเครื่องหมาย @";
+        const usernameValidation = validateUsername(formData.username);
+        if (!usernameValidation.valid) {
+          error = usernameValidation.error || "";
         }
         break;
       case "password":
@@ -80,8 +79,7 @@ export function RegisterForm() {
   };
 
   const isFormValid =
-    formData.username.trim() &&
-    !formData.username.includes("@") &&
+    validateUsername(formData.username).valid &&
     validatePassword(formData.password).valid &&
     validatePasswordMatch(formData.password, formData.confirmPassword).valid &&
     Object.keys(fieldErrors).length === 0;
@@ -142,10 +140,11 @@ export function RegisterForm() {
             onChange={handleInputChange}
             onBlur={() => handleBlur("username")}
             className="block w-full rounded-xl border border-white/20 px-4 py-3 text-white placeholder-white/40 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/10 dark:bg-black/20 backdrop-blur-md transition-all sm:text-sm"
-            placeholder="ตั้งชื่อผู้ใช้งาน..."
+            placeholder="ตั้งชื่อผู้ใช้งาน (ภาษาอังกฤษ)..."
             autoCapitalize="none"
             spellCheck={false}
           />
+          <p className="mt-1 text-[10px] text-white/50">* ภาษาอังกฤษ ตัวเลข จุด (.) ขีดกลาง (-) หรือขีดล่าง (_) เท่านั้น ห้ามใส่ภาษาไทยหรือเว้นวรรค</p>
           {fieldErrors.username && <p className="mt-1.5 text-xs text-red-300 font-medium">{fieldErrors.username}</p>}
         </div>
 

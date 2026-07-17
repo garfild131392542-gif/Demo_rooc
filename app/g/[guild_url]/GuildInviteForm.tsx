@@ -72,10 +72,11 @@ export default function GuildInviteForm({ guildId, guildName }: Props) {
             required
             name="username"
             className="mt-1 block w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white placeholder-white/50 shadow-sm shadow-black/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 sm:text-sm"
-            placeholder="กรอก username"
+            placeholder="ตั้งชื่อผู้ใช้งาน (ภาษาอังกฤษ)..."
             autoCapitalize="none"
             spellCheck={false}
           />
+          <p className="mt-1 text-[10px] text-white/50">* ภาษาอังกฤษ ตัวเลข จุด (.) ขีดกลาง (-) หรือขีดล่าง (_) เท่านั้น ห้ามใส่ภาษาไทยหรือเว้นวรรค</p>
         </div>
 
         <div>

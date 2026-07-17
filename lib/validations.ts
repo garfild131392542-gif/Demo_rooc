@@ -2,6 +2,29 @@
  * Validation utilities for registration and onboarding forms
  */
 
+export function validateUsername(username: string): { valid: boolean; error?: string } {
+  const trimmed = (username || '').trim()
+  if (!trimmed) {
+    return { valid: false, error: 'กรุณากรอกชื่อผู้ใช้งาน' }
+  }
+  if (trimmed.includes('@')) {
+    return { valid: false, error: 'ชื่อผู้ใช้งานห้ามมีเครื่องหมาย @' }
+  }
+  // Allow only alphanumeric, underscores, hyphens, and dots. No spaces or Thai characters.
+  const usernameRegex = /^[a-zA-Z0-9_.-]+$/
+  if (!usernameRegex.test(trimmed)) {
+    return {
+      valid: false,
+      error: 'ชื่อผู้ใช้งานต้องเป็นภาษาอังกฤษ ตัวเลข จุด (.) ขีดกลาง (-) หรือขีดล่าง (_) เท่านั้น ห้ามใส่ภาษาไทยหรือช่องว่าง'
+    }
+  }
+  if (trimmed.length < 3) {
+    return { valid: false, error: 'ชื่อผู้ใช้งานต้องมีความยาวอย่างน้อย 3 ตัวอักษร' }
+  }
+  return { valid: true }
+}
+
+
 export function validateEmail(email: string): { valid: boolean; error?: string } {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(email)) {

@@ -2,7 +2,7 @@
 
 import { registerAction as registerAuthAction } from './auth'
 import {
-  
+  validateUsername,
   validatePassword,
   validatePasswordMatch,
 } from '@/lib/validations'
@@ -22,12 +22,9 @@ interface RegisterResponse {
 export async function registerAction(formData: RegisterFormData): Promise<RegisterResponse> {
   try {
     // 🌟 1. ปรับการตรวจสอบ: ตรวจสอบ Username แทนอีเมล
-    if (!formData.username || !formData.username.trim()) {
-      return { success: false, error: 'กรุณากรอกชื่อผู้ใช้งาน (Username)' }
-    }
-    
-    if (formData.username.includes('@')) {
-      return { success: false, error: 'ชื่อผู้ใช้งานต้องไม่มีเครื่องหมาย @' }
+    const usernameValidation = validateUsername(formData.username)
+    if (!usernameValidation.valid) {
+      return { success: false, error: usernameValidation.error }
     }
 
     // 2. ตรวจสอบข้อมูลเบอร์โทรศัพท์และรหัสผ่านตามปกติ

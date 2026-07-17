@@ -15,9 +15,17 @@ export default async function Navbar() {
     .eq('id', sessionAny.user?.id ?? sessionAny.id)
     .single()
 
+  // 🌟 Check if user is a System Admin from public.admins table
+  const { data: adminCheck } = await supabase
+    .from('admins')
+    .select('id')
+    .eq('id', sessionAny.user?.id ?? sessionAny.id)
+    .maybeSingle()
+
   const enrichedSession = {
     uid_game: sessionAny.profile?.uid_game ?? '',
     role: sessionAny.profile?.role ?? '',
+    is_system_admin: !!adminCheck,
     display_name:
       (profile as any)?.display_name ||
       sessionAny.profile?.display_name ||

@@ -13,6 +13,7 @@ type SessionType = {
     uid_game: string;
     role: string;
     display_name: string;
+    is_system_admin?: boolean;
 }
 
 export default function NavbarClient({ enrichedSession }: { enrichedSession: SessionType }) {
@@ -168,6 +169,11 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                         จัดการสมาชิก
                                     </Link>
                                 )}
+                                {enrichedSession.is_system_admin && (
+                                    <Link href="/admin-control" className="px-3 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all hover:bg-white/10 bg-rose-600/30 border border-rose-500/40 text-rose-200">
+                                        แผงควบคุมระบบ
+                                    </Link>
+                                )}
                             </div>
                         </div>
 
@@ -254,7 +260,8 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                     { name: 'คิวประมูล', href: '/profile/history' },
                                     { name: 'ประมูล', href: '/auction' },
 
-                                    ...(enrichedSession.role === 'admin' ? [{ name: 'จัดการข้อมูลสมาชิกกิล', href: '/guild-admin/credentials' }] : [])
+                                    ...(enrichedSession.role === 'admin' ? [{ name: 'จัดการข้อมูลสมาชิกกิล', href: '/guild-admin/credentials' }] : []),
+                                    ...(enrichedSession.is_system_admin ? [{ name: '⚙️ แผงควบคุมระบบ', href: '/admin-control' }] : [])
                                 ].map((item) => (
                                     <motion.div key={item.name} variants={itemVariants}>
                                         <Link

@@ -36,7 +36,7 @@ export async function getManageableGuilds() {
   const supabase = await createAdminClient()
   const supabaseAny = supabase as any
 
-  // 1. Fetch all guilds and their owner profiles
+  // 1. Fetch all guilds
   const { data: guilds, error: guildsError } = await supabaseAny
     .from('guilds')
     .select(`
@@ -47,11 +47,7 @@ export async function getManageableGuilds() {
       plan_type,
       trial_ends_at,
       owner_id,
-      created_at,
-      profiles!owner_id (
-        display_name,
-        email
-      )
+      created_at
     `)
     .order('created_at', { ascending: false })
 
@@ -60,18 +56,20 @@ export async function getManageableGuilds() {
     throw new Error('ไม่สามารถดึงข้อมูลกิลด์ได้: ' + guildsError.message)
   }
 
-  // 2. Fetch all profiles to calculate member count for each guild in memory
+  // 2. Fetch all profiles to calculate member count and get owner info in memory
   const { data: profiles, error: profilesError } = await supabaseAny
     .from('profiles')
-    .select('guild_id')
+    .select('id, guild_id, display_name, email')
 
   if (profilesError) {
-    console.error('Error fetching profiles for counts:', profilesError.message)
+    console.error('Error fetching profiles:', profilesError.message)
     throw new Error('ไม่สามารถคำนวณจำนวนสมาชิกกิลด์ได้')
   }
 
   const countsMap: Record<string, number> = {}
+  const profilesMap: Record<string, any> = {}
   profiles?.forEach((p: any) => {
+    profilesMap[p.id] = p
     if (p.guild_id) {
       countsMap[p.guild_id] = (countsMap[p.guild_id] || 0) + 1
     }
@@ -87,7 +85,7 @@ export async function getManageableGuilds() {
     trial_ends_at: guild.trial_ends_at,
     created_at: guild.created_at,
     member_count: countsMap[guild.id] || 0,
-    owner: Array.isArray(guild.profiles) ? guild.profiles[0] : guild.profiles
+    owner: profilesMap[guild.owner_id] || null
   }))
 }
 

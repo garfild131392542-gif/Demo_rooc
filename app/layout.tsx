@@ -12,7 +12,7 @@ import PoringAssistant from "@/components/PoringAssistant";
 import UpdateTicker from "@/components/UpdateTicker";
 import AnnouncementModal from "@/components/AnnouncementModal";
 import QueryProvider from "@/components/QueryProvider";
-import { getActiveAnnouncementForGuild } from "@/app/actions/admin-guilds";
+import { getActiveAnnouncementForGuild, getUpdateTickerSetting } from "@/app/actions/admin-guilds";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +37,15 @@ export default async function RootLayout({
   const session = await getSession();
   const sessionAny = session as any;
   let primaryColor = "#3b82f6"; // Default Blue
+
+  let tickerSettings = null;
+  if (session) {
+    try {
+      tickerSettings = await getUpdateTickerSetting();
+    } catch (e) {
+      console.error("Failed to fetch update ticker settings:", e);
+    }
+  }
 
   let activeAnnouncement = null;
   if (sessionAny?.profile?.guild_id) {
@@ -73,7 +82,12 @@ export default async function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <QueryProvider>
             <Navbar />
-            {session && <UpdateTicker />}
+            {session && (
+              <UpdateTicker
+                initialText={tickerSettings?.text}
+                initialVisible={tickerSettings?.is_visible}
+              />
+            )}
             <main className="flex-1">
               {children}
             </main>

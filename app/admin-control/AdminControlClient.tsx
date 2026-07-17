@@ -11,7 +11,7 @@ import {
   Check, 
   AlertCircle
 } from 'lucide-react'
-import { updateGuildPlanAndExpiry, saveAnnouncementWithTargets } from '@/app/actions/admin-guilds'
+import { updateGuildPlanAndExpiry, saveAnnouncementWithTargets, saveUpdateTickerSetting } from '@/app/actions/admin-guilds'
 
 type GuildItem = {
   id: string
@@ -44,13 +44,44 @@ type AnnouncementConfig = {
   targetGuildIds: string[]
 }
 
+type TickerConfig = {
+  text: string
+  is_visible: boolean
+}
+
 type Props = {
   initialGuilds: GuildItem[]
   initialAnnouncement: AnnouncementConfig | null
+  initialTicker: TickerConfig
 }
 
-export default function AdminControlClient({ initialGuilds, initialAnnouncement }: Props) {
+export default function AdminControlClient({ initialGuilds, initialAnnouncement, initialTicker }: Props) {
   const [activeTab, setActiveTab] = useState<'guilds' | 'announcement'>('guilds')
+
+  // Update Ticker Editor State
+  const [tickerText, setTickerText] = useState(initialTicker?.text || '')
+  const [tickerIsVisible, setTickerIsVisible] = useState(initialTicker?.is_visible ?? true)
+  const [isSavingTicker, setIsSavingTicker] = useState(false)
+  const [tickerMsg, setTickerMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const handleSaveTicker = async () => {
+    setIsSavingTicker(true)
+    setTickerMsg(null)
+
+    const result = await saveUpdateTickerSetting({
+      text: tickerText,
+      is_visible: tickerIsVisible
+    })
+
+    setIsSavingTicker(false)
+
+    if (result.success) {
+      setTickerMsg({ type: 'success', text: 'บันทึกข้อความวิ่งเรียบร้อยแล้ว!' })
+      setTimeout(() => setTickerMsg(null), 3000)
+    } else {
+      setTickerMsg({ type: 'error', text: result.error || 'ไม่สามารถบันทึกข้อความวิ่งได้' })
+    }
+  }
   
   // Format Date Helper
   const formatDateString = (isoString: string | null) => {
@@ -354,7 +385,8 @@ export default function AdminControlClient({ initialGuilds, initialAnnouncement 
 
         {/* Tab content 2: Targeted Announcement modal builder */}
         {activeTab === 'announcement' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             
             {/* Col 1 & 2: Announcement Editor Form */}
             <div className="lg:col-span-2 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-3xl p-6 md:p-8 space-y-6 shadow-xl backdrop-blur-md">
@@ -623,6 +655,70 @@ export default function AdminControlClient({ initialGuilds, initialAnnouncement 
             </div>
 
           </div>
+
+          {/* Section 2: Global Update Ticker Form */}
+          <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-3xl p-6 md:p-8 space-y-6 shadow-xl backdrop-blur-md mt-6 transition-all duration-200">
+            <div className="border-b border-slate-200 dark:border-white/10 pb-4">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">📢 ตั้งค่าแถบข้อความวิ่งด้านบนสุด (Update Ticker)</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">ข้อความวิ่งนี้จะแสดงบนแถบสีน้ำเงินด้านบนสุดของทุกหน้าเว็บให้กับสมาชิกทุกคนที่เข้าสู่ระบบ</p>
+            </div>
+            
+            {/* Ticker status message */}
+            {tickerMsg && (
+              <div className={`p-4 rounded-xl border flex items-center gap-2.5 animate-in fade-in ${
+                tickerMsg.type === 'success' 
+                  ? 'bg-green-50/10 border-green-50/20 text-green-700 dark:text-green-300' 
+                  : 'bg-red-50/10 border-red-50/20 text-red-700 dark:text-red-300'
+              }`}>
+                {tickerMsg.type === 'success' ? <Check className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
+                <p className="text-xs font-bold">{tickerMsg.text}</p>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {/* Switch Active Ticker */}
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                <div>
+                  <p className="text-xs font-bold text-slate-800 dark:text-white">สถานะการแสดงแถบข้อความวิ่ง</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">เปิด-ปิดการแสดงผลแถบวิ่งด้านบนสุด</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={tickerIsVisible} 
+                    onChange={(e) => setTickerIsVisible(e.target.checked)} 
+                    className="sr-only peer" 
+                  />
+                  <div className="w-11 h-6 bg-slate-300 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              {/* Ticker Textarea */}
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1.5">ข้อความวิ่ง</label>
+                <textarea
+                  value={tickerText}
+                  onChange={(e) => setTickerText(e.target.value)}
+                  rows={3}
+                  className="block w-full rounded-xl border border-slate-350 dark:border-white/15 bg-white dark:bg-slate-955 px-4 py-3 text-slate-900 dark:text-white placeholder-slate-400 shadow-inner focus:border-blue-500 focus:outline-none text-xs font-semibold leading-relaxed"
+                  placeholder="พิมพ์ข้อความที่ต้องการให้วิ่งที่นี่..."
+                />
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <div className="border-t border-slate-200 dark:border-white/10 pt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={handleSaveTicker}
+                disabled={isSavingTicker || !tickerText.trim()}
+                className="cursor-pointer px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold transition-all shadow-md shadow-blue-500/10 hover:scale-105 active:scale-95"
+              >
+                {isSavingTicker ? 'กำลังบันทึก...' : '💾 บันทึกข้อความวิ่ง'}
+              </button>
+            </div>
+          </div>
+          </>
         )}
 
       </div>

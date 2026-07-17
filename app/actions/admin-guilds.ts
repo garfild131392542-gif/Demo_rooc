@@ -283,3 +283,51 @@ export async function getActiveAnnouncementForGuild(guildId: string) {
     is_active: announcement.is_active
   }
 }
+
+/**
+ * Fetches the global update ticker settings.
+ * Accessible by anyone (public).
+ */
+export async function getUpdateTickerSetting() {
+  const supabase = await createAdminClient()
+  const { data, error } = await (supabase as any)
+    .from('system_settings')
+    .select('value')
+    .eq('key', 'update_ticker')
+    .maybeSingle()
+
+  if (error || !data) {
+    return {
+      text: '📢 อัปเดตใหม่ล่าสุด: ปรับลดราคาแพ็กเกจเป็น 259 บาท/30 วัน | เปิดให้ใช้งานระบบจัดทีมปาร์ตี้ หน้าข้อมูลส่วนตัว และบอร์ดกิลด์ฟรี! (จำกัดสิทธิ์เฉพาะส่วนการประมูลหากยังไม่ได้ชำระเงิน) | เชื่อมต่อบอต Discord ได้ปกติแล้ววันนี้!',
+      is_visible: true
+    }
+  }
+
+  return data.value as { text: string; is_visible: boolean }
+}
+
+/**
+ * Saves the global update ticker settings.
+ * Restricted to System Admins.
+ */
+export async function saveUpdateTickerSetting(data: { text: string; is_visible: boolean }) {
+  await checkSystemAdmin()
+
+  const supabase = await createAdminClient()
+  const { error } = await (supabase as any)
+    .from('system_settings')
+    .upsert({
+      key: 'update_ticker',
+      value: data,
+      updated_at: new Date().toISOString()
+    })
+
+  if (error) {
+    console.error('Error saving update ticker settings:', error.message)
+    return { success: false, error: error.message }
+  }
+
+  revalidatePath('/')
+  revalidatePath('/admin-control')
+  return { success: true }
+}

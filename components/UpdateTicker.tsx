@@ -2,16 +2,22 @@
 
 import { useState, useEffect } from 'react'
 
-export default function UpdateTicker() {
+export default function UpdateTicker({
+  initialText,
+  initialVisible = true
+}: {
+  initialText?: string
+  initialVisible?: boolean
+}) {
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
     // Check if dismissed in this session
     const isDismissed = sessionStorage.getItem('update-ticker-dismissed')
-    if (!isDismissed) {
+    if (!isDismissed && initialVisible) {
       setIsVisible(true)
     }
-  }, [])
+  }, [initialVisible])
 
   const handleDismiss = () => {
     sessionStorage.setItem('update-ticker-dismissed', 'true')
@@ -20,7 +26,7 @@ export default function UpdateTicker() {
 
   if (!isVisible) return null
 
-  const announcementText = "📢 อัปเดตใหม่ล่าสุด: ปรับลดราคาแพ็กเกจเป็น 259 บาท/30 วัน | เปิดให้ใช้งานระบบจัดทีมปาร์ตี้ หน้าข้อมูลส่วนตัว และบอร์ดกิลด์ฟรี! (จำกัดสิทธิ์เฉพาะส่วนการประมูลหากยังไม่ได้ชำระเงิน) | เชื่อมต่อบอต Discord ได้ปกติแล้ววันนี้!"
+  const announcementText = initialText || "📢 อัปเดตใหม่ล่าสุด: ปรับลดราคาแพ็กเกจเป็น 259 บาท/30 วัน | เปิดให้ใช้งานระบบจัดทีมปาร์ตี้ หน้าข้อมูลส่วนตัว และบอร์ดกิลด์ฟรี! (จำกัดสิทธิ์เฉพาะส่วนการประมูลหากยังไม่ได้ชำระเงิน) | เชื่อมต่อบอต Discord ได้ปกติแล้ววันนี้!"
 
   return (
     <div className="relative w-full h-8 overflow-hidden bg-linear-to-r from-blue-500/10 via-indigo-500/10 to-blue-500/10 dark:from-blue-950/20 dark:via-slate-900/40 dark:to-blue-950/20 border-b border-blue-500/10 dark:border-blue-900/30 flex items-center z-[90]">

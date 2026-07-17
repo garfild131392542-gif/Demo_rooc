@@ -50,9 +50,9 @@ export default function GuildInviteForm({ guildId, guildName }: Props) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md rounded-4xl border border-white/10 bg-white/10 p-8 shadow-2xl shadow-black/20 backdrop-blur-3xl ring-1 ring-white/10 dark:border-white/10 dark:bg-black/30 transition-all duration-300 sm:p-10">
+    <div className="mx-auto w-full max-w-lg rounded-4xl border border-white/10 bg-white/10 p-8 shadow-2xl shadow-black/20 backdrop-blur-3xl ring-1 ring-white/10 dark:border-white/10 dark:bg-black/30 transition-all duration-300 sm:p-10">
       <div className="mb-6 text-center">
-        <h2 className="text-3xl font-extrabold text-white tracking-tight">
+        <h2 className="text-3xl font-extrabold text-white tracking-tight break-keep">
           สมัครสมาชิกเพื่อเข้าร่วมกิลด์
         </h2>
         <p className="mt-2 text-sm text-white/80">

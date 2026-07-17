@@ -15,11 +15,18 @@ export default function GuildInviteForm({ guildId, guildName }: Props) {
   const [displayName, setDisplayName] = useState('')
   const [jobName, setJobName] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [usernameError, setUsernameError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
+
+    if (usernameError || (username && !/^[a-zA-Z0-9_.-]*$/.test(username))) {
+      setError('กรุณากรอกข้อมูล Username ให้ถูกต้องตามเงื่อนไข')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -68,7 +75,18 @@ export default function GuildInviteForm({ guildId, guildName }: Props) {
           </label>
           <input
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value
+              setUsername(val)
+              
+              let errorMsg = ""
+              if (val.includes("@")) {
+                errorMsg = "ชื่อผู้ใช้งานห้ามมีเครื่องหมาย @"
+              } else if (val && !/^[a-zA-Z0-9_.-]*$/.test(val)) {
+                errorMsg = "ชื่อผู้ใช้งานต้องเป็นภาษาอังกฤษ ตัวเลข จุด (.) ขีดกลาง (-) หรือขีดล่าง (_) เท่านั้น ห้ามใส่ภาษาไทยหรือเว้นว่าง"
+              }
+              setUsernameError(errorMsg || null)
+            }}
             required
             name="username"
             className="mt-1 block w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white placeholder-white/50 shadow-sm shadow-black/10 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 sm:text-sm"
@@ -77,6 +95,7 @@ export default function GuildInviteForm({ guildId, guildName }: Props) {
             spellCheck={false}
           />
           <p className="mt-1 text-[10px] text-white/50">* ภาษาอังกฤษ ตัวเลข จุด (.) ขีดกลาง (-) หรือขีดล่าง (_) เท่านั้น ห้ามใส่ภาษาไทยหรือเว้นวรรค</p>
+          {usernameError && <p className="mt-1.5 text-xs text-red-300 font-medium">{usernameError}</p>}
         </div>
 
         <div>

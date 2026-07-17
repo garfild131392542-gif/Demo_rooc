@@ -56,14 +56,23 @@ export async function getManageableGuilds() {
     throw new Error('ไม่สามารถดึงข้อมูลกิลด์ได้: ' + guildsError.message)
   }
 
-  // 2. Fetch all profiles to calculate member count and get owner info in memory
+  // 2. Fetch all profiles to calculate member count and get display name in memory
   const { data: profiles, error: profilesError } = await supabaseAny
     .from('profiles')
-    .select('id, guild_id, display_name, email')
+    .select('id, guild_id, display_name')
 
   if (profilesError) {
     console.error('Error fetching profiles:', profilesError.message)
     throw new Error('ไม่สามารถคำนวณจำนวนสมาชิกกิลด์ได้')
+  }
+
+  // 3. Fetch all guild owners to get their contact email in memory
+  const { data: owners, error: ownersError } = await supabaseAny
+    .from('guild_owners')
+    .select('id, email')
+
+  if (ownersError) {
+    console.error('Error fetching guild owners:', ownersError.message)
   }
 
   const countsMap: Record<string, number> = {}
@@ -75,18 +84,31 @@ export async function getManageableGuilds() {
     }
   })
 
-  // 3. Map member counts and format owner profile
-  return (guilds || []).map((guild: any) => ({
-    id: guild.id,
-    name: guild.name,
-    server_name: guild.server_name,
-    status: guild.status,
-    plan_type: guild.plan_type,
-    trial_ends_at: guild.trial_ends_at,
-    created_at: guild.created_at,
-    member_count: countsMap[guild.id] || 0,
-    owner: profilesMap[guild.owner_id] || null
-  }))
+  const ownersMap: Record<string, any> = {}
+  owners?.forEach((o: any) => {
+    ownersMap[o.id] = o
+  })
+
+  // 4. Map member counts and format owner profile
+  return (guilds || []).map((guild: any) => {
+    const profile = profilesMap[guild.owner_id]
+    const ownerContact = ownersMap[guild.owner_id]
+    
+    return {
+      id: guild.id,
+      name: guild.name,
+      server_name: guild.server_name,
+      status: guild.status,
+      plan_type: guild.plan_type,
+      trial_ends_at: guild.trial_ends_at,
+      created_at: guild.created_at,
+      member_count: countsMap[guild.id] || 0,
+      owner: {
+        display_name: profile?.display_name || 'ไม่พบหัวหน้ากิลด์',
+        email: ownerContact?.email || null
+      }
+    }
+  })
 }
 
 /**

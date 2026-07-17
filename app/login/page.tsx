@@ -376,7 +376,7 @@ export default function LoginPage() {
               <p className="text-xs font-semibold text-blue-200 mb-3">⚡ ติดต่อแอดมินด่วนผ่าน Discord Server</p>
               <div className="flex justify-center">
                 <a
-                  href="https://discord.gg/WXVDPqydT"
+                  href="https://discord.gg/3b67uGhFcN"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full max-w-[200px] px-4 py-2.5 rounded-xl bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-bold transition-all shadow-md hover:scale-105 active:scale-95 duration-200"

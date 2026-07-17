@@ -7,13 +7,15 @@
 --   5. Seed the initial global announcement
 
 -- ============================================
--- 1. ADD PLAN_TYPE COLUMN TO GUILDS TABLE
+-- 1. ADD PLAN_TYPE AND SERVER_NAME COLUMNS TO GUILDS TABLE
 -- ============================================
 ALTER TABLE public.guilds
-ADD COLUMN IF NOT EXISTS plan_type TEXT NOT NULL DEFAULT 'free';
+ADD COLUMN IF NOT EXISTS plan_type TEXT NOT NULL DEFAULT 'free',
+ADD COLUMN IF NOT EXISTS server_name TEXT;
 
 -- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_guilds_plan_type ON public.guilds(plan_type);
+CREATE INDEX IF NOT EXISTS idx_guilds_server_name ON public.guilds(server_name);
 
 -- ============================================
 -- 2. CREATE ANNOUNCEMENTS TABLES

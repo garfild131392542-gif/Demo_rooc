@@ -19,10 +19,6 @@ interface GuildStatusFormProps {
     hall_of_fame_gold_uid?: string | null;
     hall_of_fame_silver_uid?: string | null;
     hall_of_fame_bronze_uid?: string | null;
-    discord_class_channel_id?: string | null;
-    discord_name_channel_id?: string | null;
-    discord_reserve_channel_id?: string | null;
-    discord_leave_channel_id?: string | null;
   };
   isAdmin: boolean;
   members?: { id: string; display_name: string | null; job_name: string | null; character_showcase_url?: string | null }[];
@@ -38,10 +34,7 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
   const [hallOfFameGoldUid, setHallOfFameGoldUid] = useState(guild.hall_of_fame_gold_uid || "");
   const [hallOfFameSilverUid, setHallOfFameSilverUid] = useState(guild.hall_of_fame_silver_uid || "");
   const [hallOfFameBronzeUid, setHallOfFameBronzeUid] = useState(guild.hall_of_fame_bronze_uid || "");
-  const [discordClassChannelId, setDiscordClassChannelId] = useState(guild.discord_class_channel_id || "");
-  const [discordNameChannelId, setDiscordNameChannelId] = useState(guild.discord_name_channel_id || "");
-  const [discordReserveChannelId, setDiscordReserveChannelId] = useState(guild.discord_reserve_channel_id || "");
-  const [discordLeaveChannelId, setDiscordLeaveChannelId] = useState(guild.discord_leave_channel_id || "");
+
 
   // File Upload State
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -55,7 +48,7 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
   const [isProcessingBg, setIsProcessingBg] = useState(false);
 
   // Tab State for Admin panel
-  const [activeTab, setActiveTab] = useState<"general" | "discord" | "hof" | "invite">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "hof" | "invite">("general");
 
   // Copy State
   const [copiedUrl, setCopiedUrl] = useState(false);
@@ -173,10 +166,6 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
       hallOfFameGoldUid: hallOfFameGoldUid || null,
       hallOfFameSilverUid: hallOfFameSilverUid || null,
       hallOfFameBronzeUid: hallOfFameBronzeUid || null,
-      discordClassChannelId: discordClassChannelId || null,
-      discordNameChannelId: discordNameChannelId || null,
-      discordReserveChannelId: discordReserveChannelId || null,
-      discordLeaveChannelId: discordLeaveChannelId || null,
     });
 
     if (result.success) {
@@ -465,17 +454,7 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
         >
           📝 ข้อมูลกิลด์
         </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("discord")}
-          className={`flex-1 text-center py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-            activeTab === "discord"
-              ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-slate-700"
-              : "text-slate-700 dark:text-slate-350 hover:bg-slate-250/20 dark:hover:bg-slate-800/50"
-          }`}
-        >
-          🤖 ตั้งค่าบอท
-        </button>
+
         <button
           type="button"
           onClick={() => setActiveTab("hof")}
@@ -603,117 +582,7 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
           </div>
         )}
 
-        {/* TAB 2: DISCORD BOT CONFIG */}
-        {activeTab === "discord" && (
-          <div className="space-y-4 animate-in fade-in duration-200">
 
-            {/* Bot Invite Card */}
-            <div className="relative overflow-hidden rounded-2xl border border-[#5865F2]/40 bg-gradient-to-br from-[#5865F2]/10 via-[#5865F2]/5 to-transparent dark:from-[#5865F2]/20 dark:via-[#5865F2]/10 dark:to-transparent p-5 shadow-md">
-              <div className="flex items-start gap-4">
-                {/* Discord Bot Icon */}
-                <div className="shrink-0 flex items-center justify-center w-12 h-12 rounded-2xl bg-[#5865F2] shadow-lg shadow-[#5865F2]/30">
-                  <svg className="w-7 h-7 fill-white" viewBox="0 0 127.14 96.36">
-                    <path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,52.88,6.83,77.19,77.19,0,0,0,49.58,0,105.15,105.15,0,0,0,19.14,8.07C-3.83,42.06-2.57,75.48,8.23,95.63a105.89,105.89,0,0,0,32.22,16.29,78.29,78.29,0,0,0,6.79-11,68.6,68.6,0,0,1-10.7-5.12c.9-.66,1.8-1.34,2.65-2a75.58,75.58,0,0,0,76,0c.85.71,1.75,1.39,2.65,2a68.6,68.6,0,0,1-10.7,5.12,78.29,78.29,0,0,0,6.79,11,105.89,105.89,0,0,0,32.22-16.29C130.66,75.48,131.72,42.06,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.88,46,53.88,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.12,46,96.12,53,91,65.69,84.69,65.69Z"/>
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white mb-0.5">
-                    เชิญบอทเข้าเซิร์ฟเวอร์ Discord
-                  </h3>
-                  <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium leading-relaxed mb-3">
-                    บอทต้องอยู่ในเซิร์ฟเวอร์ก่อน จึงจะสามารถส่งแจ้งเตือนไปยังห้องด้านล่างได้
-                  </p>
-                  <a
-                    href="https://discord.com/oauth2/authorize?client_id=1517039373097369610&permissions=134220800&integration_type=0&scope=bot+applications.commands"
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#5865F2] hover:bg-[#4752C4] active:scale-95 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-[#5865F2]/25 whitespace-nowrap"
-                  >
-                    <svg className="w-4 h-4 fill-white shrink-0" viewBox="0 0 127.14 96.36">
-                      <path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,52.88,6.83,77.19,77.19,0,0,0,49.58,0,105.15,105.15,0,0,0,19.14,8.07C-3.83,42.06-2.57,75.48,8.23,95.63a105.89,105.89,0,0,0,32.22,16.29,78.29,78.29,0,0,0,6.79-11,68.6,68.6,0,0,1-10.7-5.12c.9-.66,1.8-1.34,2.65-2a75.58,75.58,0,0,0,76,0c.85.71,1.75,1.39,2.65,2a68.6,68.6,0,0,1-10.7,5.12,78.29,78.29,0,0,0,6.79,11,105.89,105.89,0,0,0,32.22-16.29C130.66,75.48,131.72,42.06,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.88,46,53.88,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.12,46,96.12,53,91,65.69,84.69,65.69Z"/>
-                    </svg>
-                    เชิญบอทเข้าเซิร์ฟเวอร์
-                    <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            {/* Channel Config Card */}
-            <div className="bg-slate-50 dark:bg-slate-900/30 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-900 dark:text-slate-200 mb-1">
-                🤖 เชื่อมต่อห้องบอท Discord (Discord Bot Channels)
-              </h3>
-              <p className="text-[11px] text-slate-800 dark:text-slate-300 font-semibold leading-relaxed">
-                ระบุหมายเลขไอดีห้องดิสคอร์ด (Channel ID 18 หลัก) เพื่อให้ระบบส่งบอทแจ้งเตือนอัตโนมัติ
-              </p>
-            </div>
-
-            <div className="space-y-4 pt-3 border-t border-slate-200 dark:border-slate-800">
-              <div>
-                <label htmlFor="bot_class_channel" className="block text-xs font-bold text-slate-850 dark:text-slate-200 mb-1.5">
-                  ห้องแจ้งเปลี่ยนอาชีพ (Class Channel ID)
-                </label>
-                <input
-                  id="bot_class_channel"
-                  type="text"
-                  disabled={isLoading}
-                  value={discordClassChannelId}
-                  onChange={(e) => setDiscordClassChannelId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-650 bg-white dark:bg-slate-950 px-3.5 py-2 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 text-sm font-mono"
-                  placeholder="เช่น 1517392982754594966"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="bot_name_channel" className="block text-xs font-bold text-slate-850 dark:text-slate-200 mb-1.5">
-                  ห้องแจ้งเปลี่ยนชื่อ (Name Channel ID)
-                </label>
-                <input
-                  id="bot_name_channel"
-                  type="text"
-                  disabled={isLoading}
-                  value={discordNameChannelId}
-                  onChange={(e) => setDiscordNameChannelId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-650 bg-white dark:bg-slate-950 px-3.5 py-2 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 text-sm font-mono"
-                  placeholder="เช่น 1517393029554765955"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="bot_reserve_channel" className="block text-xs font-bold text-slate-850 dark:text-slate-200 mb-1.5">
-                  ห้องคิวจองประมูลไอเทม (Reserve Channel ID)
-                </label>
-                <input
-                  id="bot_reserve_channel"
-                  type="text"
-                  disabled={isLoading}
-                  value={discordReserveChannelId}
-                  onChange={(e) => setDiscordReserveChannelId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-650 bg-white dark:bg-slate-950 px-3.5 py-2 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 text-sm font-mono"
-                  placeholder="เช่น 1617393064400912494"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="bot_leave_channel" className="block text-xs font-bold text-slate-850 dark:text-slate-200 mb-1.5">
-                  ห้องแจ้งลากิจกรรม (Leave Channel ID)
-                </label>
-                <input
-                  id="bot_leave_channel"
-                  type="text"
-                  disabled={isLoading}
-                  value={discordLeaveChannelId}
-                  onChange={(e) => setDiscordLeaveChannelId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-650 bg-white dark:bg-slate-950 px-3.5 py-2 text-slate-900 dark:text-white outline-none transition focus:border-guild-primary focus:ring-2 focus:ring-guild-primary/20 text-sm font-mono"
-                  placeholder="เช่น 1717393064400912494"
-                />
-              </div>
-            </div>
-            </div>
-          </div>
-        )}
 
         {/* TAB 3: HALL OF FAME SELECTORS */}
         {activeTab === "hof" && (
@@ -794,28 +663,6 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
         {/* TAB 4: INVITE & URLS */}
         {activeTab === "invite" && (
           <div className="space-y-4 animate-in fade-in duration-200">
-
-            {/* Bot Invite Banner */}
-            <div className="flex items-center gap-3 rounded-2xl border border-[#5865F2]/30 bg-gradient-to-r from-[#5865F2]/10 to-[#5865F2]/5 dark:from-[#5865F2]/20 dark:to-[#5865F2]/10 px-4 py-3.5">
-              <div className="shrink-0 flex items-center justify-center w-9 h-9 rounded-xl bg-[#5865F2] shadow-md shadow-[#5865F2]/30">
-                <svg className="w-5 h-5 fill-white" viewBox="0 0 127.14 96.36">
-                  <path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,52.88,6.83,77.19,77.19,0,0,0,49.58,0,105.15,105.15,0,0,0,19.14,8.07C-3.83,42.06-2.57,75.48,8.23,95.63a105.89,105.89,0,0,0,32.22,16.29,78.29,78.29,0,0,0,6.79-11,68.6,68.6,0,0,1-10.7-5.12c.9-.66,1.8-1.34,2.65-2a75.58,75.58,0,0,0,76,0c.85.71,1.75,1.39,2.65,2a68.6,68.6,0,0,1-10.7,5.12,78.29,78.29,0,0,0,6.79,11,105.89,105.89,0,0,0,32.22-16.29C130.66,75.48,131.72,42.06,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.88,46,53.88,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.12,46,96.12,53,91,65.69,84.69,65.69Z"/>
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-slate-900 dark:text-white">เชิญบอทเข้าเซิร์ฟเวอร์ Discord</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">บอทต้องอยู่ในเซิร์ฟเวอร์ก่อน จึงจะส่งแจ้งเตือนได้</p>
-              </div>
-              <a
-                href="https://discord.com/oauth2/authorize?client_id=1517039373097369610&permissions=134220800&integration_type=0&scope=bot+applications.commands"
-                target="_blank"
-                rel="noreferrer noopener"
-                className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#5865F2] hover:bg-[#4752C4] active:scale-95 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-[#5865F2]/20"
-              >
-                เชิญบอท
-                <svg className="w-3 h-3 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-              </a>
-            </div>
 
             <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 relative shadow-inner">
               <div className="absolute top-4 right-4 text-slate-400 dark:text-slate-500">

@@ -3,7 +3,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSession } from './auth'
 import { revalidatePath } from 'next/cache'
-import { sendDiscordChannelMessage } from '@/lib/discord'
 
 export type ItemType = 'Album' | 'Puppet' | 'White' | 'RedBlack'
 
@@ -325,12 +324,6 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
     if (fetchError) throw fetchError
     if (!queue) return { success: false, error: 'ไม่พบรายการคิว' }
 
-    // ดึงข้อมูลกิลด์และ webhook
-    const { data: guildData } = await supabase
-      .from('guilds')
-      .select('discord_reserve_channel_id, name')
-      .eq('id', session.profile.guild_id)
-      .maybeSingle() as any
 
     // ดึงค่าลิมิตส่วนบุคคลของไอเทมชิ้นนี้ในเซสชันวันนี้
     const personalLimit = await getAuctionSessionPersonalLimit(supabase, session.profile.guild_id, queue.item_name as ItemType)
@@ -394,22 +387,6 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
         }
     }
 
-    // ส่งการแจ้งเตือนบอท Discord ไปยังห้องจองไอเทม
-    if (guildData?.discord_reserve_channel_id) {
-      const recipientName = queue.profiles?.display_name || queue.profiles?.uid_game || 'สมาชิกกิลด์';
-      const itemName = queue.item_name;
-      const qty = 1; // standard qty distributed is 1
-      await sendDiscordChannelMessage(guildData.discord_reserve_channel_id, {
-        embeds: [
-          {
-            title: "🎉 แจกจ่ายไอเทมสำเร็จ (Item Distributed)",
-            description: `🎉 **${recipientName}** has received **${qty}x ${itemName}**!`,
-            color: 5763719, // Green
-            timestamp: new Date().toISOString(),
-          }
-        ]
-      });
-    }
 
     revalidatePath('/')
     revalidatePath('/auction')
@@ -790,12 +767,6 @@ export async function clearQueueByItemType(itemType: ItemType) {
     const supabase = await createClient()
     const today = new Date().toISOString().split('T')[0]
 
-    // ดึงข้อมูลกิลด์และห้องจองไอเทม Discord
-    const { data: guildData } = await supabase
-      .from('guilds')
-      .select('discord_reserve_channel_id, name')
-      .eq('id', session.profile.guild_id)
-      .maybeSingle() as any
 
     // ล้างคิวทั้งหมดของประเภทไอเทมนี้ (ทั้งรอจัดสรร, ได้รับบางส่วน, และเสร็จสิ้นแล้ว)
     const { error: deleteError, count } = await supabase
@@ -807,19 +778,6 @@ export async function clearQueueByItemType(itemType: ItemType) {
 
     if (deleteError) throw deleteError
 
-    // ส่งการแจ้งเตือนบอท Discord ไปยังห้องจองไอเทม เคลียร์คิว/เริ่มรอบใหม่
-    if (guildData?.discord_reserve_channel_id) {
-      await sendDiscordChannelMessage(guildData.discord_reserve_channel_id, {
-        embeds: [
-          {
-            title: "📢 ล้างคิวสำเร็จ / เริ่มรอบใหม่ (Queue Reset)",
-            description: `📢 The queue for **${itemType}** has been reset. A new round is starting!`,
-            color: 16753920, // Orange
-            timestamp: new Date().toISOString(),
-          }
-        ]
-      });
-    }
 
     revalidatePath('/')
     revalidatePath('/auction')

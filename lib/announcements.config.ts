@@ -57,11 +57,10 @@ export const CURRENT_ANNOUNCEMENT: Announcement = {
   subtitle: 'มีการปรับปรุงและเพิ่มฟีเจอร์ใหม่ กรุณาอ่านรายละเอียดด้านล่าง',
   items: [
     {
-      icon: '🤖',
-      label: 'เชื่อมต่อบอท Discord ได้แล้ว!',
-      detail: 'สามารถเชิญบอทเข้าเซิร์ฟเวอร์ Discord และตั้งค่า Channel ID ได้จากหน้า "ตั้งค่าบอท" ใน Guild Settings — ดูวิดีโอสอนตั้งค่าด้านล่างได้เลย',
+      icon: '✨',
+      label: 'อัปเดตระบบจัดการกิลด์!',
+      detail: 'เปิดให้ใช้งานระบบจัดทีมปาร์ตี้ หน้าข้อมูลส่วนตัว และบอร์ดกิลด์อย่างเต็มรูปแบบ',
       color: 'blue',
-      youtubeUrl: 'https://youtu.be/Lo3N6FFQD0M?si=fV3CLspigDaLTUxa',
     },
   ],
   footer: 'ขอบคุณที่ใช้งานระบบครับ 🙏',

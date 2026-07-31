@@ -160,7 +160,7 @@ export default function BillingPage() {
       <header className="mb-8 pl-2 sm:pl-4">
         <h1 className="text-3xl font-bold mb-2">ระบบสมาชิกและค่าบริการกิลด์ 👑</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          เข้าถึงฟีเจอร์จองคิวประมูลไอเทมและระบบแจ้งเตือน Discord Bot แบบไม่จำกัดสมาชิก เพื่อกิลด์ที่แข็งแกร่งของคุณ
+          เข้าถึงฟีเจอร์จองคิวประมูลไอเทมและระบบจัดการกิลด์แบบไม่จำกัดสมาชิก เพื่อกิลด์ที่แข็งแกร่งของคุณ
         </p>
       </header>
 

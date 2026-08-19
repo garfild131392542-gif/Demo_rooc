@@ -198,6 +198,16 @@ export async function saveAnnouncementWithTargets(
   const supabase = await createAdminClient()
   const supabaseAny = supabase as any
 
+  // 0. ปิดการใช้งานประกาศเก่าที่ยัง active อยู่ทั้งหมดก่อน เพื่อไม่ให้กิลด์เดิมในประวัติติดประกาศค้าง
+  try {
+    await supabaseAny
+      .from('announcements')
+      .update({ is_active: false })
+      .eq('is_active', true)
+  } catch (deactivateErr) {
+    console.error('Error deactivating old announcements:', deactivateErr)
+  }
+
   // 1. Insert new announcement
   const { data: newAnn, error: annError } = await supabaseAny
     .from('announcements')

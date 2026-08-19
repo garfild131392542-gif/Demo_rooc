@@ -11,7 +11,7 @@ import {
   Check, 
   AlertCircle
 } from 'lucide-react'
-import { updateGuildPlanAndExpiry, saveAnnouncementWithTargets, saveUpdateTickerSetting } from '@/app/actions/admin-guilds'
+import { updateGuildPlanAndExpiry, saveAnnouncementCampaign, deleteAnnouncementCampaign, saveUpdateTickerSetting } from '@/app/actions/admin-guilds'
 
 type GuildItem = {
   id: string
@@ -51,11 +51,11 @@ type TickerConfig = {
 
 type Props = {
   initialGuilds: GuildItem[]
-  initialAnnouncement: AnnouncementConfig | null
+  initialAnnouncements: AnnouncementConfig[]
   initialTicker: TickerConfig
 }
 
-export default function AdminControlClient({ initialGuilds, initialAnnouncement, initialTicker }: Props) {
+export default function AdminControlClient({ initialGuilds, initialAnnouncements, initialTicker }: Props) {
   const [activeTab, setActiveTab] = useState<'guilds' | 'announcement'>('guilds')
 
   // Update Ticker Editor State
@@ -137,25 +137,64 @@ export default function AdminControlClient({ initialGuilds, initialAnnouncement,
   const [isSavingGuild, setIsSavingGuild] = useState(false)
   const [guildError, setGuildError] = useState<string | null>(null)
 
-  // Announcement Editor State
-  const [annTitle, setAnnTitle] = useState(initialAnnouncement?.title || '📢 อัปเดตระบบล่าสุด')
-  const [annSubtitle, setAnnSubtitle] = useState(initialAnnouncement?.subtitle || '')
-  const [annFooter, setAnnFooter] = useState(initialAnnouncement?.footer || '')
-  const [annIsActive, setAnnIsActive] = useState(initialAnnouncement?.is_active ?? true)
-  const [annItems, setAnnItems] = useState<AnnouncementConfig['items']>(
-    initialAnnouncement?.items || [
-      {
-        icon: '🤖',
-        label: 'รายละเอียดหัวข้อย่อย',
-        detail: 'อธิบายรายละเอียดของฟีเจอร์ใหม่...',
-        color: 'blue',
-        youtubeUrl: ''
-      }
-    ]
-  )
-  const [targetGuildIds, setTargetGuildIds] = useState<string[]>(initialAnnouncement?.targetGuildIds || [])
+  // 🌟 MULTI-ANNOUNCEMENT CAMPAIGN STATE
+  const [announcements, setAnnouncements] = useState<AnnouncementConfig[]>(initialAnnouncements || [])
+  const [selectedAnnId, setSelectedAnnId] = useState<string | null>(() => {
+    return initialAnnouncements && initialAnnouncements.length > 0 ? initialAnnouncements[0].id : null
+  })
+
+  // Current editing announcement state
+  const [annTitle, setAnnTitle] = useState(() => {
+    return (initialAnnouncements && initialAnnouncements.length > 0) ? initialAnnouncements[0].title : '📢 ประกาศใหม่'
+  })
+  const [annSubtitle, setAnnSubtitle] = useState(() => {
+    return (initialAnnouncements && initialAnnouncements.length > 0) ? initialAnnouncements[0].subtitle || '' : ''
+  })
+  const [annFooter, setAnnFooter] = useState(() => {
+    return (initialAnnouncements && initialAnnouncements.length > 0) ? initialAnnouncements[0].footer || '' : 'ขอบคุณที่ใช้งานระบบครับ 🙏'
+  })
+  const [annIsActive, setAnnIsActive] = useState(() => {
+    return (initialAnnouncements && initialAnnouncements.length > 0) ? initialAnnouncements[0].is_active : true
+  })
+  const [annItems, setAnnItems] = useState<AnnouncementConfig['items']>(() => {
+    return (initialAnnouncements && initialAnnouncements.length > 0 && initialAnnouncements[0].items && initialAnnouncements[0].items.length > 0)
+      ? initialAnnouncements[0].items
+      : [{ icon: '🤖', label: 'รายละเอียดหัวข้อย่อย', detail: 'อธิบายรายละเอียด...', color: 'blue', youtubeUrl: '' }]
+  })
+  const [targetGuildIds, setTargetGuildIds] = useState<string[]>(() => {
+    return (initialAnnouncements && initialAnnouncements.length > 0) ? initialAnnouncements[0].targetGuildIds || [] : []
+  })
   const [isSavingAnnouncement, setIsSavingAnnouncement] = useState(false)
+  const [isDeletingAnnouncement, setIsDeletingAnnouncement] = useState(false)
   const [annMsg, setAnnMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // Switch to an existing campaign
+  const handleSelectCampaign = (ann: AnnouncementConfig) => {
+    setSelectedAnnId(ann.id)
+    setAnnTitle(ann.title || '')
+    setAnnSubtitle(ann.subtitle || '')
+    setAnnFooter(ann.footer || '')
+    setAnnIsActive(ann.is_active)
+    setAnnItems(ann.items && ann.items.length > 0 ? ann.items : [
+      { icon: '🚀', label: 'รายละเอียดหัวข้อย่อย', detail: 'อธิบายรายละเอียด...', color: 'blue', youtubeUrl: '' }
+    ])
+    setTargetGuildIds(ann.targetGuildIds || [])
+    setAnnMsg(null)
+  }
+
+  // Create a new blank campaign
+  const handleNewCampaign = () => {
+    setSelectedAnnId(null)
+    setAnnTitle('📢 ประกาศชุดใหม่')
+    setAnnSubtitle('')
+    setAnnFooter('ขอบคุณที่ใช้งานระบบครับ 🙏')
+    setAnnIsActive(true)
+    setAnnItems([
+      { icon: '🤖', label: 'หัวข้อย่อย', detail: 'กรอกเนื้อหาที่ต้องการแจ้งเตือน...', color: 'blue', youtubeUrl: '' }
+    ])
+    setTargetGuildIds([])
+    setAnnMsg(null)
+  }
 
   // Guild Edit Modal Functions
   const openEditModal = (guild: GuildItem) => {
@@ -223,26 +262,76 @@ export default function AdminControlClient({ initialGuilds, initialAnnouncement,
     setTargetGuildIds([])
   }
 
-  // Save Announcement
+  // Save Announcement Campaign
   const handleSaveAnnouncement = async () => {
     setIsSavingAnnouncement(true)
     setAnnMsg(null)
 
-    const result = await saveAnnouncementWithTargets({
-      title: annTitle,
-      subtitle: annSubtitle || undefined,
+    const payload = {
+      id: selectedAnnId || undefined,
+      title: annTitle.trim() || '📢 ประกาศระบบ',
+      subtitle: annSubtitle.trim() || undefined,
       items: annItems,
-      footer: annFooter || undefined,
+      footer: annFooter.trim() || undefined,
       is_active: annIsActive
-    }, targetGuildIds)
+    }
+
+    const result = await saveAnnouncementCampaign(payload, targetGuildIds)
 
     setIsSavingAnnouncement(false)
 
     if (result.success) {
-      setAnnMsg({ type: 'success', text: 'บันทึกข้อมูลประกาศและกลุ่มเป้าหมายเรียบร้อยแล้ว!' })
+      const newId = result.id || selectedAnnId || 'temp-id'
+      setAnnMsg({ type: 'success', text: selectedAnnId ? 'อัปเดตชุดประกาศเรียบร้อยแล้ว!' : 'สร้างชุดประกาศใหม่เรียบร้อยแล้ว!' })
+      
+      const updatedCampaign: AnnouncementConfig = {
+        id: newId,
+        title: payload.title,
+        subtitle: payload.subtitle || null,
+        items: payload.items,
+        footer: payload.footer || null,
+        is_active: payload.is_active,
+        targetGuildIds: targetGuildIds
+      }
+
+      setAnnouncements(prev => {
+        const exists = prev.some(a => a.id === updatedCampaign.id)
+        if (exists) {
+          return prev.map(a => a.id === updatedCampaign.id ? updatedCampaign : a)
+        } else {
+          return [updatedCampaign, ...prev]
+        }
+      })
+      setSelectedAnnId(newId)
       setTimeout(() => setAnnMsg(null), 3000)
     } else {
       setAnnMsg({ type: 'error', text: result.error || 'ไม่สามารถบันทึกประกาศได้' })
+    }
+  }
+
+  // Delete Announcement Campaign
+  const handleDeleteAnnouncement = async () => {
+    if (!selectedAnnId) return
+    if (!window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบชุดประกาศนี้?')) return
+
+    setIsDeletingAnnouncement(true)
+    setAnnMsg(null)
+
+    const result = await deleteAnnouncementCampaign(selectedAnnId)
+    setIsDeletingAnnouncement(false)
+
+    if (result.success) {
+      setAnnMsg({ type: 'success', text: 'ลบชุดประกาศเรียบร้อยแล้ว' })
+      const remaining = announcements.filter(a => a.id !== selectedAnnId)
+      setAnnouncements(remaining)
+      if (remaining.length > 0) {
+        handleSelectCampaign(remaining[0])
+      } else {
+        handleNewCampaign()
+      }
+      setTimeout(() => setAnnMsg(null), 3000)
+    } else {
+      setAnnMsg({ type: 'error', text: result.error || 'ไม่สามารถลบประกาศได้' })
     }
   }
 
@@ -385,14 +474,86 @@ export default function AdminControlClient({ initialGuilds, initialAnnouncement,
 
         {/* Tab content 2: Targeted Announcement modal builder */}
         {activeTab === 'announcement' && (
-          <>
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* 🌟 Multi-Campaign Selector Bar */}
+            <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-3xl p-5 md:p-6 shadow-xl backdrop-blur-md">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
+                <div>
+                  <h3 className="text-base md:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>📢</span> รายการชุดประกาศทั้งหมด ({announcements.length})
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    คลิกแท็บเพื่อสลับแก้ไขประกาศของแต่ละกิลด์ หรือกดปุ่ม <strong>+ เพิ่มชุดประกาศใหม่</strong>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleNewCampaign}
+                  className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  เพิ่มชุดประกาศใหม่
+                </button>
+              </div>
+
+              {/* Campaign Tabs */}
+              <div className="flex items-center gap-2.5 overflow-x-auto pt-4 pb-1">
+                {announcements.map((ann, idx) => {
+                  const isSelected = selectedAnnId === ann.id
+                  return (
+                    <button
+                      key={ann.id}
+                      type="button"
+                      onClick={() => handleSelectCampaign(ann)}
+                      className={`cursor-pointer px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shrink-0 flex items-center gap-2.5 border ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/25'
+                          : 'bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${ann.is_active ? (isSelected ? 'bg-emerald-300' : 'bg-emerald-500') : 'bg-slate-400'}`} />
+                      <span className="max-w-[150px] truncate">{ann.title || `ชุดที่ ${idx + 1}`}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold ${
+                        isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400'
+                      }`}>
+                        🎯 {ann.targetGuildIds?.length || 0} กิลด์
+                      </span>
+                    </button>
+                  )
+                })}
+                {announcements.length === 0 && (
+                  <p className="text-xs text-slate-400 dark:text-slate-500 py-2">
+                    ยังไม่มีชุดประกาศในระบบ กดปุ่ม &quot;+ เพิ่มชุดประกาศใหม่&quot; ด้านบนเพื่อสร้างประกาศแรก
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Editor Grid: Form on Left, Guild Selector on Right */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             
             {/* Col 1 & 2: Announcement Editor Form */}
             <div className="lg:col-span-2 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-3xl p-6 md:p-8 space-y-6 shadow-xl backdrop-blur-md">
-              <div className="border-b border-slate-200 dark:border-white/10 pb-4">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">แก้ไขเนื้อหาของประกาศโพลแอป (Modal)</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">ประกาศนี้จะเด้งแสดงผลตอนล็อกอินแรกสุดของวัน เฉพาะกิลด์ที่ถูกติ๊กเลือกเท่านั้น</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    {selectedAnnId ? '✏️ แก้ไขชุดประกาศ' : '✨ สร้างชุดประกาศใหม่'}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    กำหนดหัวข้อ เนื้อหา และติ๊กเลือกกิลด์เป้าหมายเฉพาะที่ต้องการให้เห็นประกาศนี้
+                  </p>
+                </div>
+                {selectedAnnId && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteAnnouncement}
+                    disabled={isDeletingAnnouncement || isSavingAnnouncement}
+                    className="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold border border-red-500/20 transition-all shrink-0 self-start sm:self-auto"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {isDeletingAnnouncement ? 'กำลังลบ...' : 'ลบชุดประกาศนี้'}
+                  </button>
+                )}
               </div>
 
               {/* Status Message */}
@@ -718,7 +879,7 @@ export default function AdminControlClient({ initialGuilds, initialAnnouncement,
               </button>
             </div>
           </div>
-          </>
+          </div>
         )}
 
       </div>

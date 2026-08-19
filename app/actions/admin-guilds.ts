@@ -142,49 +142,71 @@ export async function updateGuildPlanAndExpiry(
 /**
  * Fetches the latest announcement and lists the guild IDs it targets.
  */
-export async function getLatestAnnouncementForAdmin() {
+/**
+ * Fetches all announcements and lists the guild IDs they target.
+ */
+export async function getAllAnnouncementsForAdmin() {
   await checkSystemAdmin()
 
   const supabase = await createAdminClient()
   const supabaseAny = supabase as any
 
-  const { data: announcement, error: annError } = await supabaseAny
+  const { data: announcements, error: annError } = await supabaseAny
     .from('announcements')
     .select('*')
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
 
-  if (annError) {
-    console.error('Error fetching latest announcement:', annError.message)
-    return null
+  if (annError || !announcements) {
+    console.error('Error fetching all announcements:', annError?.message)
+    return []
   }
 
-  if (!announcement) {
-    return null
-  }
-
+  // ดึงเป้าหมายกิลด์ของทุกประกาศ
   const { data: targets, error: targetsError } = await supabaseAny
     .from('announcement_guilds')
-    .select('guild_id')
-    .eq('announcement_id', announcement.id)
+    .select('announcement_id, guild_id')
 
   if (targetsError) {
     console.error('Error fetching announcement targets:', targetsError.message)
   }
 
-  return {
-    ...announcement,
-    targetGuildIds: targets?.map((t: any) => t.guild_id) || []
+  const targetsMap: Record<string, string[]> = {}
+  if (targets) {
+    for (const t of targets) {
+      if (!targetsMap[t.announcement_id]) {
+        targetsMap[t.announcement_id] = []
+      }
+      targetsMap[t.announcement_id].push(t.guild_id)
+    }
   }
+
+  return announcements.map((ann: any) => ({
+    id: ann.id,
+    title: ann.title,
+    subtitle: ann.subtitle,
+    items: ann.items || [],
+    footer: ann.footer,
+    is_active: ann.is_active,
+    created_at: ann.created_at,
+    updated_at: ann.updated_at,
+    targetGuildIds: targetsMap[ann.id] || []
+  }))
 }
 
 /**
- * Saves a new announcement and configures its target guilds.
- * Every save creates a new announcement ID to reset the "seen" status.
+ * Fetches the latest announcement and lists the guild IDs it targets (Legacy helper).
  */
-export async function saveAnnouncementWithTargets(
+export async function getLatestAnnouncementForAdmin() {
+  const all = await getAllAnnouncementsForAdmin()
+  return all.length > 0 ? all[0] : null
+}
+
+/**
+ * Saves or updates a specific announcement campaign and its target guilds.
+ */
+export async function saveAnnouncementCampaign(
   announcementData: {
+    id?: string
     title: string
     subtitle?: string
     items: any[]
@@ -198,38 +220,58 @@ export async function saveAnnouncementWithTargets(
   const supabase = await createAdminClient()
   const supabaseAny = supabase as any
 
-  // 0. ปิดการใช้งานประกาศเก่าที่ยัง active อยู่ทั้งหมดก่อน เพื่อไม่ให้กิลด์เดิมในประวัติติดประกาศค้าง
-  try {
-    await supabaseAny
+  let announcementId = announcementData.id
+
+  if (announcementId) {
+    // อัปเดตประกาศเดิม
+    const { error: updateError } = await supabaseAny
       .from('announcements')
-      .update({ is_active: false })
-      .eq('is_active', true)
-  } catch (deactivateErr) {
-    console.error('Error deactivating old announcements:', deactivateErr)
+      .update({
+        title: announcementData.title,
+        subtitle: announcementData.subtitle || null,
+        items: announcementData.items,
+        footer: announcementData.footer || null,
+        is_active: announcementData.is_active,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', announcementId)
+
+    if (updateError) {
+      console.error('Error updating announcement:', updateError.message)
+      return { success: false, error: 'อัปเดตประกาศไม่สำเร็จ: ' + updateError.message }
+    }
+
+    // ลบกิลด์เป้าหมายเดิมออกก่อน
+    await supabaseAny
+      .from('announcement_guilds')
+      .delete()
+      .eq('announcement_id', announcementId)
+  } else {
+    // สร้างประกาศชุดใหม่
+    const { data: newAnn, error: insertError } = await supabaseAny
+      .from('announcements')
+      .insert([{
+        title: announcementData.title,
+        subtitle: announcementData.subtitle || null,
+        items: announcementData.items,
+        footer: announcementData.footer || null,
+        is_active: announcementData.is_active
+      }])
+      .select('id')
+      .single()
+
+    if (insertError) {
+      console.error('Error inserting announcement:', insertError.message)
+      return { success: false, error: 'สร้างประกาศไม่สำเร็จ: ' + insertError.message }
+    }
+
+    announcementId = newAnn.id
   }
 
-  // 1. Insert new announcement
-  const { data: newAnn, error: annError } = await supabaseAny
-    .from('announcements')
-    .insert([{
-      title: announcementData.title,
-      subtitle: announcementData.subtitle || null,
-      items: announcementData.items,
-      footer: announcementData.footer || null,
-      is_active: announcementData.is_active
-    }])
-    .select('id')
-    .single()
-
-  if (annError) {
-    console.error('Error saving announcement:', annError.message)
-    return { success: false, error: 'บันทึกประกาศไม่สำเร็จ: ' + annError.message }
-  }
-
-  // 2. Insert target guilds if there are any
-  if (targetGuildIds.length > 0) {
+  // บันทึกกิลด์เป้าหมายใหม่
+  if (targetGuildIds.length > 0 && announcementId) {
     const targets = targetGuildIds.map((guildId) => ({
-      announcement_id: newAnn.id,
+      announcement_id: announcementId,
       guild_id: guildId
     }))
 
@@ -245,7 +287,71 @@ export async function saveAnnouncementWithTargets(
 
   revalidatePath('/admin-control')
   revalidatePath('/')
+  return { success: true, id: announcementId }
+}
+
+/**
+ * Deletes an announcement campaign and its target links.
+ */
+export async function deleteAnnouncementCampaign(announcementId: string) {
+  await checkSystemAdmin()
+
+  const supabase = await createAdminClient()
+  const supabaseAny = supabase as any
+
+  const { error } = await supabaseAny
+    .from('announcements')
+    .delete()
+    .eq('id', announcementId)
+
+  if (error) {
+    console.error('Error deleting announcement:', error.message)
+    return { success: false, error: 'ลบประกาศไม่สำเร็จ: ' + error.message }
+  }
+
+  revalidatePath('/admin-control')
+  revalidatePath('/')
   return { success: true }
+}
+
+/**
+ * Toggle active status of an announcement campaign.
+ */
+export async function toggleAnnouncementCampaignStatus(announcementId: string, isActive: boolean) {
+  await checkSystemAdmin()
+
+  const supabase = await createAdminClient()
+  const supabaseAny = supabase as any
+
+  const { error } = await supabaseAny
+    .from('announcements')
+    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+    .eq('id', announcementId)
+
+  if (error) {
+    console.error('Error toggling announcement status:', error.message)
+    return { success: false, error: 'เปลี่ยนสถานะไม่สำเร็จ: ' + error.message }
+  }
+
+  revalidatePath('/admin-control')
+  revalidatePath('/')
+  return { success: true }
+}
+
+/**
+ * Saves a new announcement and configures its target guilds (Legacy wrapper).
+ */
+export async function saveAnnouncementWithTargets(
+  announcementData: {
+    title: string
+    subtitle?: string
+    items: any[]
+    footer?: string
+    is_active: boolean
+  },
+  targetGuildIds: string[]
+) {
+  return saveAnnouncementCampaign(announcementData, targetGuildIds)
 }
 
 /**

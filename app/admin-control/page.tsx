@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSession } from '@/app/actions/auth'
 import { redirect } from 'next/navigation'
-import { getManageableGuilds, getLatestAnnouncementForAdmin, getUpdateTickerSetting } from '@/app/actions/admin-guilds'
+import { getManageableGuilds, getAllAnnouncementsForAdmin, getUpdateTickerSetting } from '@/app/actions/admin-guilds'
 import AdminControlClient from './AdminControlClient'
 
 export const dynamic = 'force-dynamic'
@@ -26,17 +26,17 @@ export default async function AdminControlPage() {
     redirect('/')
   }
 
-  // 3. Fetch Initial Guilds, Latest Announcement, and Update Ticker Settings
-  const [guilds, announcement, ticker] = await Promise.all([
+  // 3. Fetch Initial Guilds, All Announcements, and Update Ticker Settings
+  const [guilds, announcements, ticker] = await Promise.all([
     getManageableGuilds(),
-    getLatestAnnouncementForAdmin(),
+    getAllAnnouncementsForAdmin(),
     getUpdateTickerSetting()
   ])
 
   return (
     <AdminControlClient 
       initialGuilds={guilds}
-      initialAnnouncement={announcement}
+      initialAnnouncements={announcements}
       initialTicker={ticker}
     />
   )

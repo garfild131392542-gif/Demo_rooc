@@ -95,8 +95,8 @@ export default async function RootLayout({
             {/* 2. วางน้อง Poring ไว้ตรงนี้ครับ น้องจะลอยตามไปทุกๆ หน้า */}
             <PoringAssistant />
 
-            {/* 3. Announcement Modal — เด้งวันละ 1 ครั้ง แจ้งเตือนอัปเดต (คอมเมนต์ออกตามคำสั่ง มีการส่งค่าประกาศแบบไดนามิกจาก DB) */}
-            {/* {activeAnnouncement && <AnnouncementModal announcement={activeAnnouncement} />} */}
+            {/* 3. Announcement Modal — เด้งแจ้งเตือนสำหรับกิลด์ที่ถูกเลือก */}
+            {activeAnnouncement && <AnnouncementModal announcement={activeAnnouncement} />}
           </QueryProvider>
         </ThemeProvider>
       </body>

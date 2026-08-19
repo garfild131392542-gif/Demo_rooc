@@ -1,8 +1,44 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
-    const { question, context } = await req.json();
+    // 🛡️ ป้องกัน DoS & Quota Drain ด้วย Rate Limiting (สูงสุด 6 คำถามต่อ 1 นาทีต่อ IP)
+    const clientIp = getClientIp(req.headers);
+    const rateLimit = checkRateLimit(`poring-chat:${clientIp}`, {
+      limit: 6,
+      windowMs: 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+      return Response.json(
+        {
+          answer: `ขออภัยท่านนักผจญภัย ท่านส่งคำถามถี่เกินไป กรุณารอสักครู่ (${rateLimit.retryAfterSeconds} วินาที) แล้วลองใหม่อีกครั้งครับ`,
+        },
+        { status: 429 }
+      );
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const question = typeof body.question === 'string' ? body.question.trim() : '';
+    const rawContext = typeof body.context === 'string' ? body.context : '';
+
+    if (!question) {
+      return Response.json(
+        { answer: "กรุณาระบุคำถามที่ท่านต้องการสอบถามครับ" },
+        { status: 400 }
+      );
+    }
+
+    // 🛡️ ป้องกัน Payload Size DoS: จำกัดความยาวคำถามไม่เกิน 500 ตัวอักษร และ Context ไม่เกิน 15,000 ตัวอักษร
+    if (question.length > 500) {
+      return Response.json(
+        { answer: "คำถามของท่านยาวเกินกำหนด (จำกัดไม่เกิน 500 ตัวอักษร) กรุณาย่อคำถามให้กระชับครับ" },
+        { status: 400 }
+      );
+    }
+
+    const context = rawContext.length > 15000 ? rawContext.slice(0, 15000) : rawContext;
 
     // 💡 นำเทคนิคสุ่ม API Key ของคุณมาใช้งานตรงนี้
     const apiKeys = [

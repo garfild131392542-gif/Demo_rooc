@@ -148,6 +148,13 @@ export async function deleteTacticalPlan(planId: string) {
   }
 }
 
+import { 
+  validateAndModerateImage, 
+  MAX_IMAGE_SIZE_BYTES, 
+  MAX_AUDIO_SIZE_BYTES, 
+  MAX_VIDEO_SIZE_BYTES 
+} from '@/lib/image-moderation'
+
 /**
  * Upload a custom map image to guild-maps bucket
  */
@@ -173,9 +180,20 @@ export async function uploadTacticalMap(formData: FormData) {
       return { success: false, error: 'ไม่พบไฟล์ภาพที่ต้องการอัปโหลด' }
     }
 
+    // 🛡️ ดักขนาดไฟล์ทันทีเพื่อป้องกัน Memory Allocation DoS
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      return { success: false, error: 'ขนาดไฟล์ภาพแผนที่ต้องไม่เกิน 5MB' }
+    }
+
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
+
+    // 🛡️ ตรวจสอบเนื้อหาภาพด้วย Gemini AI (ป้องกันภาพโป๊เปลือย/ไม่เหมาะสม)
+    const moderation = await validateAndModerateImage(buffer, file.type, file.size, MAX_IMAGE_SIZE_BYTES)
+    if (!moderation.allowed) {
+      return { success: false, error: `❌ ไม่อนุญาตให้อัปโหลด: ${moderation.reason}` }
+    }
 
     const supabase = (await createAdminClient()) as any
     const fileExt = file.name.split('.').pop()
@@ -224,6 +242,11 @@ export async function uploadTacticalAudio(formData: FormData) {
     const file = formData.get('file') as File
     if (!file) {
       return { success: false, error: 'ไม่พบไฟล์เสียงที่ต้องการอัปโหลด' }
+    }
+
+    // 🛡️ ดักขนาดไฟล์เสียงป้องกัน DoS (สูงสุด 10MB)
+    if (file.size > MAX_AUDIO_SIZE_BYTES) {
+      return { success: false, error: 'ขนาดไฟล์เสียงต้องไม่เกิน 10MB' }
     }
 
     // Convert file to buffer
@@ -277,6 +300,11 @@ export async function uploadTacticalVideo(formData: FormData) {
     const file = formData.get('file') as File
     if (!file) {
       return { success: false, error: 'ไม่พบไฟล์วิดีโอที่ต้องการอัปโหลด' }
+    }
+
+    // 🛡️ ดักขนาดไฟล์วิดีโอป้องกัน DoS (สูงสุด 50MB)
+    if (file.size > MAX_VIDEO_SIZE_BYTES) {
+      return { success: false, error: 'ขนาดไฟล์วิดีโอต้องไม่เกิน 50MB' }
     }
 
     // Convert file to buffer

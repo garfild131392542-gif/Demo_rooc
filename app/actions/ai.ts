@@ -7,6 +7,15 @@ export async function extractStatsFromImage(
   mimeType: string,
 ) {
   try {
+    // 🛡️ ป้องกัน Base64 Payload Size DoS (จำกัดขนาดสตริงไม่เกิน ~8MB ซึ่งเทียบเท่าไฟล์ประมาณ 5-6MB)
+    if (!base64Image || typeof base64Image !== 'string') {
+      return { success: false, error: 'ไม่พบข้อมูลรูปภาพที่ถูกต้อง' };
+    }
+
+    if (base64Image.length > 8 * 1024 * 1024) {
+      return { success: false, error: 'ขนาดรูปภาพใหญ่เกินไป กรุณาใช้รูปภาพขนาดไม่เกิน 5MB' };
+    }
+
     const apiKeys = [
       process.env.GEMINI_API_KEY_1,
       process.env.GEMINI_API_KEY_2,

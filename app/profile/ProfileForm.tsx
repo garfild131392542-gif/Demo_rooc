@@ -6,6 +6,7 @@ import MemberForm from "@/components/auction/MemberForm";
 import Link from 'next/link';
 import { updateCharacterInfoAction, updateCharacterStatsAction } from "@/app/actions/profile";
 import { extractStatsFromImage } from "@/app/actions/ai";
+import { checkImageSafetyAction } from "@/app/actions/moderation";
 import { toggleMemberLeave } from "@/app/actions/admin";
 // ✨ เปลี่ยนมารับ syncUserAuctionQueues และเอา joinAuctionQueues ออก
 import { getMyAuctionReservations, updateAuctionQueueReservation, deleteAuctionQueueReservation, syncUserAuctionQueues } from "@/app/actions/auction";
@@ -141,7 +142,6 @@ export default function ProfileForm({
 
   const [showcaseUrl, setShowcaseUrl] = useState((initialProfile as any).character_showcase_url || "");
   const [isShowcaseUploading, setIsShowcaseUploading] = useState(false);
-  const [removeBgAutomatic, setRemoveBgAutomatic] = useState(true);
 
   useEffect(() => {
     return () => {
@@ -152,7 +152,7 @@ export default function ProfileForm({
   const loadingText = isAiLoading
     ? "กำลังอ่านภาพจาก AI..."
     : isShowcaseUploading
-      ? (removeBgAutomatic ? "🔮 AI กำลังลบพื้นหลัง..." : "กำลังอัปโหลดรูปตัวละคร...")
+      ? "กำลังอัปโหลดรูปตัวละคร..."
       : isPending
         ? "กำลังบันทึกข้อมูล..."
         : "";
@@ -270,6 +270,7 @@ export default function ProfileForm({
   };
 
   const [isOnLeave, setIsOnLeave] = useState(!!initialProfile.is_on_leave);
+  const [isLeaveToggling, setIsLeaveToggling] = useState(false);
 
   const [stats, setStats] = useState({
     cp: initialProfile.cp ? String(initialProfile.cp) : "",
@@ -313,23 +314,22 @@ export default function ProfileForm({
       setMessage(null);
 
       try {
-        let fileToUpload = file;
-        if (removeBgAutomatic) {
-          try {
-            // Dynamic import to support client-side only WASM/ONNX models
-            const { removeBackground } = await import("@imgly/background-removal");
-            const resultBlob = await removeBackground(file);
-            fileToUpload = new File([resultBlob], "showcase_image.png", { type: "image/png" });
-          } catch (bgError: any) {
-            console.error("Failed to remove background:", bgError);
-            setMessage({ type: "error", text: "⚠️ ไม่สามารถลบพื้นหลังด้วย AI ได้ ระบบจะอัปโหลดรูปภาพแบบปกติแทนครับ" });
-            fileToUpload = file;
-          }
+        // 🛡️ 1. ตรวจสอบความเหมาะสมและเนื้อหาภาพด้วย Gemini AI (ป้องกันภาพโป๊เปลือย/ไม่เหมาะสม)
+        const checkFormData = new FormData();
+        checkFormData.append("file", file);
+        const safetyCheck = await checkImageSafetyAction(checkFormData);
+
+        if (!safetyCheck.allowed) {
+          setMessage({
+            type: "error",
+            text: `❌ ไม่อนุญาตให้อัปโหลด: ${safetyCheck.error || "รูปภาพไม่เหมาะสมหรือขัดต่อข้อกำหนดการใช้งาน"}`,
+          });
+          setIsShowcaseUploading(false);
+          return;
         }
 
+        // 2. หลีกเลี่ยงไฟล์ขยะพูนสะสม: ลบไฟล์เก่าออกก่อนถ้ามี
         const supabase = createClient();
-        
-        // 3. หลีกเลี่ยงไฟล์ขยะพูนสะสม: ลบไฟล์เก่าออกก่อนถ้ามี
         if (showcaseUrl && showcaseUrl.includes("guild-logos/")) {
           const oldPath = showcaseUrl.split("guild-logos/")[1];
           if (oldPath) {
@@ -340,10 +340,10 @@ export default function ProfileForm({
         const fileName = `showcase_image`;
         const filePath = `showcases/${initialProfile.id}/${fileName}`;
 
-        // 4. อัปโหลดรูปภาพลง Storage
+        // 3. อัปโหลดรูปภาพลง Storage
         const { error: uploadError } = await supabase.storage
           .from("guild-logos")
-          .upload(filePath, fileToUpload, { upsert: true });
+          .upload(filePath, file, { upsert: true });
 
         if (uploadError) {
           throw new Error("อัปโหลดล้มเหลว: " + uploadError.message);
@@ -390,31 +390,31 @@ export default function ProfileForm({
     setStats((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleToggleLeave = () => {
+  const handleToggleLeave = async () => {
     const newStatus = !isOnLeave;
     setIsOnLeave(newStatus);
+    setIsLeaveToggling(true);
     setMessage(null);
 
-    startTransition(async () => {
-      try {
-        const result = await toggleMemberLeave(initialProfile.id, newStatus);
-        if (!result?.success) {
-          setIsOnLeave(!newStatus);
-          setMessage({ type: "error", text: result?.error || "ไม่สามารถอัปเดตสถานะลากิจกรรมได้" });
-        } else {
-          setMessage({
-            type: "success",
-            text: newStatus ? "🏖️ เปิดสถานะลากิจกรรมเรียบร้อยแล้ว" : "✅ ปิดสถานะลากิจกรรม (พร้อมเข้าร่วมปกติ)",
-          });
-        }
-      } catch {
+    try {
+      const result = await toggleMemberLeave(initialProfile.id, newStatus);
+      if (!result?.success) {
         setIsOnLeave(!newStatus);
-        setMessage({ type: "error", text: "ระบบขัดข้อง กรุณาลองใหม่อีกครั้ง" });
-      } finally {
-        if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
-        alertTimerRef.current = setTimeout(() => { setMessage(null); }, 2000);
+        setMessage({ type: "error", text: result?.error || "ไม่สามารถอัปเดตสถานะลากิจกรรมได้" });
+      } else {
+        setMessage({
+          type: "success",
+          text: newStatus ? "🏖️ เปิดสถานะลากิจกรรมเรียบร้อยแล้ว" : "✅ ปิดสถานะลากิจกรรม (พร้อมเข้าร่วมปกติ)",
+        });
       }
-    });
+    } catch {
+      setIsOnLeave(!newStatus);
+      setMessage({ type: "error", text: "ระบบขัดข้อง กรุณาลองใหม่อีกครั้ง" });
+    } finally {
+      setIsLeaveToggling(false);
+      if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+      alertTimerRef.current = setTimeout(() => { setMessage(null); }, 2000);
+    }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -582,7 +582,7 @@ export default function ProfileForm({
       )}
 
       <div
-        className={`${isAiLoading || isPending ? "pointer-events-none opacity-70 blur-sm" : ""} transition-all duration-300 space-y-6`}
+        className={`${isAiLoading ? "pointer-events-none opacity-80" : ""} transition-all duration-300 space-y-6`}
       >
         {/* ═══════════════════════════════════════════════════════ */}
         {/* ROW 1: ข้อมูลตัวละคร + สถานะ + รูป Showcase (แถวบน) */}
@@ -598,15 +598,15 @@ export default function ProfileForm({
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                       ลากิจกรรม
                     </h3>
-                    <p className={`text-xs mt-0.5 font-bold ${isPending ? 'text-slate-400 dark:text-slate-500' : (isOnLeave ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}`}>
-                      {isPending ? "⏳ กำลังอัปเดตสถานะ..." : (isOnLeave ? "🔴 ลากิจกรรม" : "🟢 สะดวกเข้าร่วมกิจกรรม")}
+                    <p className={`text-xs mt-0.5 font-bold ${isLeaveToggling ? 'text-slate-400 dark:text-slate-500' : (isOnLeave ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}`}>
+                      {isLeaveToggling ? "⏳ กำลังอัปเดตสถานะ..." : (isOnLeave ? "🔴 ลากิจกรรม" : "🟢 สะดวกเข้าร่วมกิจกรรม")}
                     </p>
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 leading-relaxed">
                       *หากเปิดไว้ ระบบจะแสดงกรอบสีแดงในระบบ และหัวหน้ากิลด์จะไม่สามารถจัดคุณเข้าปาร์ตี้กิจกรรมได้
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" checked={isOnLeave} onChange={handleToggleLeave} disabled={isPending || isAiLoading || isShowcaseUploading} />
+                    <input type="checkbox" className="sr-only peer" checked={isOnLeave} onChange={handleToggleLeave} disabled={isLeaveToggling || isAiLoading || isShowcaseUploading} />
                     <div className="w-11 h-6 rounded-full bg-slate-200 peer-checked:bg-indigo-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform"></div>
                   </label>
                 </div>
@@ -698,19 +698,14 @@ export default function ProfileForm({
                         </button>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        id="remove_bg_toggle"
-                        type="checkbox"
-                        checked={removeBgAutomatic}
-                        onChange={(e) => setRemoveBgAutomatic(e.target.checked)}
-                        disabled={isShowcaseUploading || isPending}
-                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 cursor-pointer"
-                      />
-                      <label htmlFor="remove_bg_toggle" className="text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer select-none">
-                        🔮 ลบพื้นหลังอัตโนมัติด้วย AI
-                      </label>
+                    {/* กล่องคำแนะนำสำหรับอัปโหลดภาพตัวละคร */}
+                    <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 flex items-start gap-2">
+                      <span className="text-amber-500 text-sm shrink-0">💡</span>
+                      <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
+                        <strong>คำแนะนำ:</strong> เพื่อให้ภาพตัวละครแสดงผลได้สวยงามที่สุด แนะนำให้<strong>ลบพื้นหลังออกให้เรียบร้อย</strong> และแนบเป็นไฟล์ <strong>PNG (พื้นหลังโปร่งใส)</strong> ครับ
+                      </p>
                     </div>
+
                     {isShowcaseUploading ? (
                       <div className="flex-1 min-h-[120px] p-3 bg-slate-50/50 dark:bg-slate-900/40 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-2">
                         <svg className="animate-spin h-6 w-6 text-indigo-500" viewBox="0 0 24 24" fill="none">
@@ -718,7 +713,7 @@ export default function ProfileForm({
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
                         </svg>
                         <p className="text-xs text-slate-500 dark:text-slate-400 text-center font-semibold">
-                          {removeBgAutomatic ? "🔮 AI กำลังลบพื้นหลังรูปภาพ..." : "กำลังอัปโหลดรูปตัวละคร..."}
+                          กำลังอัปโหลดรูปตัวละคร...
                         </p>
                       </div>
                     ) : showcaseUrl ? (

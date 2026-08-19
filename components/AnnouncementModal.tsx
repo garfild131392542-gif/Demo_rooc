@@ -132,20 +132,12 @@ export default function AnnouncementModal({ announcement }: Props) {
   const pathname = usePathname()
 
   useEffect(() => {
-    // ตรวจสอบ flag โดยไม่ลบออกก่อน
-    // (React Strict Mode dev รัน effect 2 รอบ — ถ้าลบใน effect body
-    //  รอบแรกจะลบ flag ทิ้ง รอบสองไม่เจอ flag แล้ว → modal ไม่เด้ง)
-    const justLoggedIn = sessionStorage.getItem('just-logged-in')
-    if (!justLoggedIn) return
-
+    // ถ้าเคยเห็นและบันทึกว่าไม่ต้องแสดงวันนี้แล้ว ให้ข้าม
     if (hasSeenToday(announcement.id)) return
 
-    // ย้าย removeItem เข้าไปใน timer callback
-    // ถ้า cleanup ยกเลิก timer → flag ยังอยู่ให้ effect รอบใหม่อ่านได้
     const timer = setTimeout(() => {
-      sessionStorage.removeItem('just-logged-in')
       setIsOpen(true)
-    }, 800)
+    }, 600)
 
     return () => clearTimeout(timer)
   }, [pathname, announcement.id])

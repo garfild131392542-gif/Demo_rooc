@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { updateGuildAction } from "@/app/actions/guild";
+import { checkImageSafetyAction } from "@/app/actions/moderation";
 import { createClient } from "@/lib/supabase/client";
 import { getJobIconUrl } from "@/components/helpers";
 
@@ -129,6 +130,17 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
 
     if (logoFile) {
       try {
+        // 🛡️ 1. ตรวจสอบความปลอดภัยและเนื้อหาภาพด้วย Gemini AI (ป้องกันภาพโป๊เปลือย/ไม่เหมาะสม)
+        const checkFormData = new FormData();
+        checkFormData.append('file', logoFile);
+        const safetyCheck = await checkImageSafetyAction(checkFormData);
+
+        if (!safetyCheck.allowed) {
+          setError(`❌ ไม่อนุญาตให้อัปโหลด: ${safetyCheck.error || 'รูปภาพไม่เหมาะสมหรือขัดต่อข้อกำหนดการใช้งาน'}`);
+          setIsLoading(false);
+          return;
+        }
+
         const supabase = createClient();
         const fileExt = logoFile.name.split('.').pop();
         const fileName = `logo_${Date.now()}.${fileExt}`;

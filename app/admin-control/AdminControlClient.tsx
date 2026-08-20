@@ -9,7 +9,8 @@ import {
   Plus, 
   Trash2, 
   Check, 
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react'
 import { updateGuildPlanAndExpiry, saveAnnouncementCampaign, deleteAnnouncementCampaign, saveUpdateTickerSetting } from '@/app/actions/admin-guilds'
 
@@ -130,10 +131,10 @@ export default function AdminControlClient({ initialGuilds, initialAnnouncements
 
   const [guilds, setGuilds] = useState<GuildItem[]>(() => sortGuilds(initialGuilds))
   
-  // Expiry / Plan Edit Modal State
+  // Expiry Edit Modal State
   const [editingGuild, setEditingGuild] = useState<GuildItem | null>(null)
-  const [editPlanType, setEditPlanType] = useState<string>('free')
   const [editExpiryDate, setEditExpiryDate] = useState<string>('')
+  const [isPermanent, setIsPermanent] = useState(false)
   const [isSavingGuild, setIsSavingGuild] = useState(false)
   const [guildError, setGuildError] = useState<string | null>(null)
 
@@ -199,13 +200,36 @@ export default function AdminControlClient({ initialGuilds, initialAnnouncements
   // Guild Edit Modal Functions
   const openEditModal = (guild: GuildItem) => {
     setEditingGuild(guild)
-    setEditPlanType(guild.plan_type)
     if (guild.trial_ends_at) {
+      setIsPermanent(false)
       setEditExpiryDate(new Date(guild.trial_ends_at).toISOString().split('T')[0])
     } else {
+      setIsPermanent(true)
       setEditExpiryDate('')
     }
     setGuildError(null)
+  }
+
+  const handleAdjustDays = (days: number) => {
+    setIsPermanent(false)
+    let base = new Date()
+    if (editExpiryDate) {
+      const current = new Date(editExpiryDate)
+      if (current.getTime() > Date.now() && days > 0) {
+        base = current
+      } else if (days < 0) {
+        base = current
+      }
+    }
+    base.setDate(base.getDate() + days)
+    setEditExpiryDate(base.toISOString().split('T')[0])
+  }
+
+  const handleSetDaysFromToday = (days: number) => {
+    setIsPermanent(false)
+    const base = new Date()
+    base.setDate(base.getDate() + days)
+    setEditExpiryDate(base.toISOString().split('T')[0])
   }
 
   const handleSaveGuild = async () => {
@@ -213,17 +237,24 @@ export default function AdminControlClient({ initialGuilds, initialAnnouncements
     setIsSavingGuild(true)
     setGuildError(null)
 
-    const trial_ends_at = editExpiryDate ? new Date(editExpiryDate).toISOString() : null
+    const trial_ends_at = isPermanent 
+      ? null 
+      : editExpiryDate 
+        ? new Date(editExpiryDate + 'T23:59:59').toISOString() 
+        : null
+
+    const newDays = trial_ends_at ? getDaysRemaining(trial_ends_at) : Infinity
+    const plan_type = newDays > 14 ? 'pro' : 'free'
 
     const result = await updateGuildPlanAndExpiry(editingGuild.id, {
-      plan_type: editPlanType,
+      plan_type,
       trial_ends_at
     })
 
     setIsSavingGuild(false)
 
     if (result.success) {
-      const updated = guilds.map(g => g.id === editingGuild.id ? { ...g, plan_type: editPlanType, trial_ends_at } : g)
+      const updated = guilds.map(g => g.id === editingGuild.id ? { ...g, plan_type, trial_ends_at } : g)
       setGuilds(sortGuilds(updated))
       setEditingGuild(null)
     } else {
@@ -888,74 +919,212 @@ export default function AdminControlClient({ initialGuilds, initialAnnouncements
 
       </div>
 
-      {/* Expiry & Plan Edit Modal */}
-      {editingGuild && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      {/* Expiry & Plan Edit Card Pop-up */}
+      {editingGuild && (() => {
+        const previewDaysRemaining = isPermanent 
+          ? Infinity 
+          : editExpiryDate 
+            ? getDaysRemaining(editExpiryDate + 'T23:59:59')
+            : 0
+        const previewIsExpired = previewDaysRemaining <= 0
+
+        return (
           <div 
-            className="w-full max-w-sm p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl relative space-y-4 text-slate-800 dark:text-slate-200"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 dark:bg-black/50 animate-in fade-in duration-150"
+            onClick={() => setEditingGuild(null)}
           >
-            <div>
-              <h4 className="text-lg font-bold text-slate-900 dark:text-white">แก้ไขข้อมูลสิทธิ์กิลด์</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">กิลด์: <span className="text-slate-900 dark:text-white font-bold">{editingGuild.name}</span></p>
-            </div>
-
-            {guildError && (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300 text-xs font-semibold rounded-xl text-center">
-                {guildError}
-              </div>
-            )}
-
-            <div className="space-y-4">
-              {/* Plan Type dropdown */}
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1.5">แผนการใช้งาน (Plan Type)</label>
-                <select
-                  value={editPlanType}
-                  onChange={(e) => setEditPlanType(e.target.value)}
-                  className="cursor-pointer w-full rounded-xl border border-slate-300 dark:border-white/15 bg-white dark:bg-slate-950 px-3 py-2.5 text-slate-900 dark:text-white shadow-inner focus:border-blue-500 text-xs font-bold"
-                >
-                  <option value="free">🆓 FREE Trial (ทดลองฟรี 14 วัน)</option>
-                  <option value="pro">🏆 PRO Plan (ต่ออายุทีละ 30 วัน)</option>
-                </select>
-              </div>
-
-              {/* Expiry datepicker */}
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1.5">วันสิ้นสุดอายุการใช้งาน (Expiry Date)</label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={editExpiryDate}
-                    onChange={(e) => setEditExpiryDate(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 dark:border-white/15 bg-white dark:bg-slate-955 px-3 py-2.5 text-slate-900 dark:text-white shadow-inner focus:border-blue-500 text-xs font-bold"
-                  />
+            <div 
+              className="w-full max-w-md p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl relative space-y-5 text-slate-800 dark:text-slate-200 animate-in zoom-in-95 duration-150"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Card Header */}
+              <div className="flex items-start justify-between border-b border-slate-100 dark:border-white/10 pb-3.5">
+                <div>
+                  <h4 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>⚡</span> ปรับอายุการใช้งานกิลด์
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    กิลด์: <span className="font-bold text-blue-600 dark:text-blue-400">{editingGuild.name}</span>
+                  </p>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1.5">* เว้นว่างไว้หากไม่มีกำหนดหมดอายุการใช้งาน (Pro ถาวร)</p>
+                <button
+                  type="button"
+                  onClick={() => setEditingGuild(null)}
+                  className="cursor-pointer p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            </div>
 
-            {/* Modal Actions */}
-            <div className="flex gap-3 pt-3">
-              <button
-                type="button"
-                onClick={() => setEditingGuild(null)}
-                className="cursor-pointer flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white text-xs font-bold transition-all"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveGuild}
-                disabled={isSavingGuild}
-                className="cursor-pointer flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md shadow-blue-500/10"
-              >
-                {isSavingGuild ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
-              </button>
+              {guildError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300 text-xs font-semibold rounded-xl text-center">
+                  {guildError}
+                </div>
+              )}
+
+              {/* Status Comparison Preview Box */}
+              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 text-xs">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block mb-1">สถานะปัจจุบัน</span>
+                  <div className="font-semibold text-slate-700 dark:text-slate-300 truncate">
+                    {formatDateString(editingGuild.trial_ends_at)}
+                  </div>
+                  <div className="text-[11px] font-bold mt-1 text-slate-500">
+                    {editingGuild.trial_ends_at ? (
+                      getDaysRemaining(editingGuild.trial_ends_at) <= 0 
+                        ? '🚨 หมดอายุแล้ว' 
+                        : `⌛ เหลืออีก ${getDaysRemaining(editingGuild.trial_ends_at)} วัน`
+                    ) : '♾️ Pro ถาวร'}
+                  </div>
+                </div>
+                <div className="border-l border-slate-200 dark:border-white/10 pl-3">
+                  <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 block mb-1">สถานะใหม่ที่จะได้รับ</span>
+                  <div className="font-bold text-slate-900 dark:text-white truncate">
+                    {isPermanent ? 'ไม่มีวันหมดอายุ (ถาวร)' : editExpiryDate ? formatDateString(editExpiryDate + 'T23:59:59') : 'ยังไม่ได้ระบุ'}
+                  </div>
+                  <div className="mt-1">
+                    {isPermanent ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-300/30">
+                        ⭐ Subscribed (ถาวร)
+                      </span>
+                    ) : previewIsExpired ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 border border-red-300/30">
+                        🚨 Expired (หมดอายุ)
+                      </span>
+                    ) : previewDaysRemaining > 14 ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-300/30">
+                        ⭐ Subscribed ({previewDaysRemaining} วัน)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-500/20 text-slate-700 dark:text-slate-300 border border-slate-300/30">
+                        🆓 FREE Trial ({previewDaysRemaining} วัน)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Increase / Decrease Days Buttons */}
+              <div className="space-y-2">
+                <label className="block text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
+                  ⚡ เพิ่ม / ลด อายุการใช้งาน (Quick Adjust)
+                </label>
+                
+                {/* Add Days */}
+                <div className="grid grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleAdjustDays(7)}
+                    className="cursor-pointer py-2 px-1 rounded-xl bg-blue-50 dark:bg-blue-600/15 hover:bg-blue-100 dark:hover:bg-blue-600/25 border border-blue-200 dark:border-blue-500/20 text-blue-700 dark:text-blue-300 text-xs font-bold transition-all hover:scale-105 active:scale-95 text-center"
+                  >
+                    +7 วัน
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAdjustDays(14)}
+                    className="cursor-pointer py-2 px-1 rounded-xl bg-blue-50 dark:bg-blue-600/15 hover:bg-blue-100 dark:hover:bg-blue-600/25 border border-blue-200 dark:border-blue-500/20 text-blue-700 dark:text-blue-300 text-xs font-bold transition-all hover:scale-105 active:scale-95 text-center"
+                  >
+                    +14 วัน
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAdjustDays(30)}
+                    className="cursor-pointer py-2 px-1 rounded-xl bg-purple-50 dark:bg-purple-600/15 hover:bg-purple-100 dark:hover:bg-purple-600/25 border border-purple-200 dark:border-purple-500/20 text-purple-700 dark:text-purple-300 text-xs font-bold transition-all hover:scale-105 active:scale-95 text-center"
+                  >
+                    +30 วัน
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAdjustDays(90)}
+                    className="cursor-pointer py-2 px-1 rounded-xl bg-purple-50 dark:bg-purple-600/15 hover:bg-purple-100 dark:hover:bg-purple-600/25 border border-purple-200 dark:border-purple-500/20 text-purple-700 dark:text-purple-300 text-xs font-bold transition-all hover:scale-105 active:scale-95 text-center"
+                  >
+                    +90 วัน
+                  </button>
+                </div>
+
+                {/* Reduce Days / Presets */}
+                <div className="grid grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleAdjustDays(-7)}
+                    className="cursor-pointer py-1.5 px-1 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-all text-center"
+                  >
+                    -7 วัน
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAdjustDays(-30)}
+                    className="cursor-pointer py-1.5 px-1 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-all text-center"
+                  >
+                    -30 วัน
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetDaysFromToday(14)}
+                    className="cursor-pointer py-1.5 px-1 rounded-xl bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-300 text-[11px] font-bold transition-all text-center"
+                  >
+                    รีเซ็ต 14 วัน
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIsPermanent(true); setEditExpiryDate(''); }}
+                    className={`cursor-pointer py-1.5 px-1 rounded-xl border text-[11px] font-bold transition-all text-center ${
+                      isPermanent
+                        ? 'bg-purple-600 text-white border-purple-600 shadow-sm shadow-purple-500/20'
+                        : 'bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    ♾️ ถาวร
+                  </button>
+                </div>
+              </div>
+
+              {/* Specific Date Picker Input */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
+                    📅 กำหนดวันหมดอายุเจาะจง
+                  </label>
+                  {isPermanent && (
+                    <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold">
+                      (เปิดโหมดถาวรอยู่)
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="date"
+                  disabled={isPermanent}
+                  value={editExpiryDate}
+                  onChange={(e) => {
+                    setIsPermanent(false)
+                    setEditExpiryDate(e.target.value)
+                  }}
+                  className="w-full rounded-xl border border-slate-300 dark:border-white/15 bg-white dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-white shadow-inner focus:border-blue-500 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex gap-2.5 pt-2 border-t border-slate-100 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setEditingGuild(null)}
+                  className="cursor-pointer flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveGuild}
+                  disabled={isSavingGuild}
+                  className="cursor-pointer flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-md shadow-blue-500/10 hover:scale-105 active:scale-95"
+                >
+                  {isSavingGuild ? 'กำลังบันทึก...' : '💾 บันทึก'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
     </div>
   )

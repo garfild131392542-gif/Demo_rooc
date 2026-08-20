@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useMemo } from 'react'
 import { 
   Shield, 
   Users, 
@@ -10,7 +10,12 @@ import {
   Trash2, 
   Check, 
   AlertCircle,
-  X
+  X,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react'
 import { updateGuildPlanAndExpiry, saveAnnouncementCampaign, deleteAnnouncementCampaign, saveUpdateTickerSetting } from '@/app/actions/admin-guilds'
 
@@ -131,6 +136,82 @@ export default function AdminControlClient({ initialGuilds, initialAnnouncements
 
   const [guilds, setGuilds] = useState<GuildItem[]>(() => sortGuilds(initialGuilds))
   
+  // Search, Filter & Pagination States
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'subscribed' | 'trial' | 'expired'>('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+
+  // Status counts
+  const statusCounts = useMemo(() => {
+    let subscribed = 0
+    let trial = 0
+    let expired = 0
+
+    guilds.forEach(g => {
+      const days = getDaysRemaining(g.trial_ends_at)
+      if (days <= 0) {
+        expired++
+      } else if (days > 14) {
+        subscribed++
+      } else {
+        trial++
+      }
+    })
+
+    return { total: guilds.length, subscribed, trial, expired }
+  }, [guilds])
+
+  // Filtered & Sorted guilds
+  const filteredGuilds = useMemo(() => {
+    let list = sortGuilds(guilds)
+
+    if (statusFilter !== 'all') {
+      list = list.filter(g => {
+        const days = getDaysRemaining(g.trial_ends_at)
+        const isExp = days <= 0
+        if (statusFilter === 'expired') return isExp
+        if (statusFilter === 'subscribed') return !isExp && days > 14
+        if (statusFilter === 'trial') return !isExp && days <= 14
+        return true
+      })
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim()
+      list = list.filter(g => 
+        g.name.toLowerCase().includes(q) ||
+        (g.server_name && g.server_name.toLowerCase().includes(q)) ||
+        (g.owner?.display_name && g.owner.display_name.toLowerCase().includes(q)) ||
+        (g.owner?.email && g.owner.email.toLowerCase().includes(q))
+      )
+    }
+
+    return list
+  }, [guilds, statusFilter, searchQuery])
+
+  const totalPages = Math.ceil(filteredGuilds.length / pageSize) || 1
+  const paginatedGuilds = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredGuilds.slice(start, start + pageSize)
+  }, [filteredGuilds, currentPage, pageSize])
+
+  // Reset to page 1 on filter or search change
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val)
+    setCurrentPage(1)
+  }
+
+  const handleStatusFilterChange = (val: 'all' | 'subscribed' | 'trial' | 'expired') => {
+    setStatusFilter(val)
+    setCurrentPage(1)
+  }
+
+  const handlePageSizeChange = (val: number) => {
+    setPageSize(val)
+    setCurrentPage(1)
+  }
+
   // Expiry Edit Modal State
   const [editingGuild, setEditingGuild] = useState<GuildItem | null>(null)
   const [editExpiryDate, setEditExpiryDate] = useState<string>('')
@@ -416,25 +497,101 @@ export default function AdminControlClient({ initialGuilds, initialAnnouncements
         {/* Tab content 1: Guilds List & Expiry management */}
         {activeTab === 'guilds' && (
           <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-3xl overflow-hidden shadow-xl backdrop-blur-md transition-all duration-200">
-            <div className="p-6 border-b border-slate-200 dark:border-white/10">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">รายชื่อกิลด์และอายุสมาชิกในระบบ</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">แสดงข้อมูลภาพรวมเรียงลำดับกิลด์ที่ยังไม่หมดอายุไว้ด้านบนสุด</p>
+            {/* Header & Search / Filter Controls */}
+            <div className="p-6 border-b border-slate-200 dark:border-white/10 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">รายชื่อกิลด์และอายุสมาชิกในระบบ</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">แสดงข้อมูลภาพรวมเรียงลำดับกิลด์ที่ยังไม่หมดอายุไว้ด้านบนสุด</p>
+                </div>
+                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl self-start sm:self-auto border border-slate-200 dark:border-slate-700">
+                  ทั้งหมด <span className="text-blue-600 dark:text-blue-400 font-bold">{guilds.length}</span> กิลด์
+                </div>
+              </div>
+
+              {/* Search & Filter Toolbar */}
+              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pt-2">
+                {/* Search Box */}
+                <div className="relative flex-1 max-w-md">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder="ค้นหากิลด์, เซิร์ฟเวอร์, หัวหน้ากิลด์, อีเมล..."
+                    className="w-full pl-10 pr-9 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/50"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => handleSearchChange('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+                  <button
+                    onClick={() => handleStatusFilterChange('all')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                      statusFilter === 'all'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    ทั้งหมด ({statusCounts.total})
+                  </button>
+                  <button
+                    onClick={() => handleStatusFilterChange('subscribed')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                      statusFilter === 'subscribed'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40 border border-purple-200/50 dark:border-purple-800/50'
+                    }`}
+                  >
+                    ⭐ Subscribed ({statusCounts.subscribed})
+                  </button>
+                  <button
+                    onClick={() => handleStatusFilterChange('trial')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                      statusFilter === 'trial'
+                        ? 'bg-slate-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    🆓 FREE Trial ({statusCounts.trial})
+                  </button>
+                  <button
+                    onClick={() => handleStatusFilterChange('expired')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                      statusFilter === 'expired'
+                        ? 'bg-red-600 text-white shadow-xs'
+                        : 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200/50 dark:border-red-800/50'
+                    }`}
+                  >
+                    🚨 Expired ({statusCounts.expired})
+                  </button>
+                </div>
+              </div>
             </div>
             
-            <div className="overflow-x-auto">
+            {/* Table Area */}
+            <div className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
               <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-100/50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    <th className="px-6 py-4">ข้อมูลกิลด์</th>
-                    <th className="px-6 py-4">หัวหน้ากิลด์</th>
-                    <th className="px-6 py-4 text-center">สมาชิก</th>
-                    <th className="px-6 py-4">แผนการใช้งาน</th>
-                    <th className="px-6 py-4">วันหมดอายุกิลด์</th>
-                    <th className="px-6 py-4 text-center">การจัดการ</th>
+                <thead className="sticky top-0 z-10 bg-slate-100/95 dark:bg-slate-900/95 backdrop-blur-md shadow-xs">
+                  <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th className="px-6 py-4 bg-slate-100/95 dark:bg-slate-900/95">ข้อมูลกิลด์</th>
+                    <th className="px-6 py-4 bg-slate-100/95 dark:bg-slate-900/95">หัวหน้ากิลด์</th>
+                    <th className="px-6 py-4 text-center bg-slate-100/95 dark:bg-slate-900/95">สมาชิก</th>
+                    <th className="px-6 py-4 bg-slate-100/95 dark:bg-slate-900/95">แผนการใช้งาน</th>
+                    <th className="px-6 py-4 bg-slate-100/95 dark:bg-slate-900/95">วันหมดอายุกิลด์</th>
+                    <th className="px-6 py-4 text-center bg-slate-100/95 dark:bg-slate-900/95">การจัดการ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-sm text-slate-800 dark:text-slate-200">
-                  {guilds.map((guild) => {
+                  {paginatedGuilds.map((guild) => {
                     const daysRemaining = getDaysRemaining(guild.trial_ends_at)
                     const isExpired = daysRemaining <= 0
                     
@@ -494,16 +651,83 @@ export default function AdminControlClient({ initialGuilds, initialAnnouncements
                       </tr>
                     )
                   })}
-                  {guilds.length === 0 && (
+                  {paginatedGuilds.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-slate-400 dark:text-slate-500 font-medium">
-                        ไม่พบข้อมูลกิลด์ในระบบ
+                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400 dark:text-slate-500 font-medium">
+                        {searchQuery || statusFilter !== 'all' ? 'ไม่พบกิลด์ที่ตรงกับเงื่อนไขการค้นหา' : 'ไม่พบข้อมูลกิลด์ในระบบ'}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls Bar */}
+            {filteredGuilds.length > 0 && (
+              <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-white/2 text-xs">
+                {/* Left: Range Info & Page Size */}
+                <div className="flex items-center gap-3">
+                  <span className="text-slate-500 dark:text-slate-400">
+                    แสดง <span className="font-bold text-slate-800 dark:text-slate-200">{(currentPage - 1) * pageSize + 1}</span> - <span className="font-bold text-slate-800 dark:text-slate-200">{Math.min(currentPage * pageSize, filteredGuilds.length)}</span> จากทั้งหมด <span className="font-bold text-slate-800 dark:text-slate-200">{filteredGuilds.length}</span> กิลด์
+                  </span>
+
+                  <div className="flex items-center gap-1.5 pl-3 border-l border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-400">แสดงต่อหน้า:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                      className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 font-bold text-slate-700 dark:text-slate-300 focus:outline-hidden cursor-pointer"
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Right: Page Navigation Buttons */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                    title="หน้าแรก"
+                  >
+                    <ChevronsLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                    title="หน้าก่อนหน้า"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  <div className="px-3 py-1 font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                    หน้า {currentPage} / {totalPages}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                    title="หน้าถัดไป"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage >= totalPages}
+                    className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                    title="หน้าสุดท้าย"
+                  >
+                    <ChevronsRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

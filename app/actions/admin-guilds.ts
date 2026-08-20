@@ -47,6 +47,7 @@ export async function getManageableGuilds() {
       plan_type,
       trial_ends_at,
       owner_id,
+      contact_email,
       created_at
     `)
     .order('created_at', { ascending: false })
@@ -56,14 +57,25 @@ export async function getManageableGuilds() {
     throw new Error('ไม่สามารถดึงข้อมูลกิลด์ได้: ' + guildsError.message)
   }
 
-  // 2. Fetch all profiles to calculate member count and get display name in memory
-  const { data: profiles, error: profilesError } = await supabaseAny
-    .from('profiles')
-    .select('id, guild_id, display_name')
+  // 2. Fetch all profiles in chunks of 1000 to overcome Supabase PostgREST 1000 row limit
+  let allProfiles: any[] = []
+  let from = 0
+  const CHUNK_SIZE = 1000
+  while (true) {
+    const { data: chunk, error: chunkError } = await supabaseAny
+      .from('profiles')
+      .select('id, guild_id, display_name, role, uid_game')
+      .range(from, from + CHUNK_SIZE - 1)
 
-  if (profilesError) {
-    console.error('Error fetching profiles:', profilesError.message)
-    throw new Error('ไม่สามารถคำนวณจำนวนสมาชิกกิลด์ได้')
+    if (chunkError) {
+      console.error('Error fetching profiles chunk:', chunkError.message)
+      break
+    }
+
+    if (!chunk || chunk.length === 0) break
+    allProfiles = allProfiles.concat(chunk)
+    if (chunk.length < CHUNK_SIZE) break
+    from += CHUNK_SIZE
   }
 
   // 3. Fetch all guild owners to get their contact email in memory
@@ -77,10 +89,15 @@ export async function getManageableGuilds() {
 
   const countsMap: Record<string, number> = {}
   const profilesMap: Record<string, any> = {}
-  profiles?.forEach((p: any) => {
+  const guildAdminsMap: Record<string, any> = {}
+
+  allProfiles.forEach((p: any) => {
     profilesMap[p.id] = p
     if (p.guild_id) {
       countsMap[p.guild_id] = (countsMap[p.guild_id] || 0) + 1
+      if (p.role === 'admin' && !guildAdminsMap[p.guild_id]) {
+        guildAdminsMap[p.guild_id] = p
+      }
     }
   })
 
@@ -91,7 +108,7 @@ export async function getManageableGuilds() {
 
   // 4. Map member counts and format owner profile
   return (guilds || []).map((guild: any) => {
-    const profile = profilesMap[guild.owner_id]
+    const profile = profilesMap[guild.owner_id] || guildAdminsMap[guild.id]
     const ownerContact = ownersMap[guild.owner_id]
     
     return {
@@ -105,7 +122,7 @@ export async function getManageableGuilds() {
       member_count: countsMap[guild.id] || 0,
       owner: {
         display_name: profile?.display_name || 'ไม่พบหัวหน้ากิลด์',
-        email: ownerContact?.email || null
+        email: ownerContact?.email || guild.contact_email || null
       }
     }
   })

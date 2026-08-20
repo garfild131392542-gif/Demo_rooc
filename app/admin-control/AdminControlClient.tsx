@@ -421,9 +421,13 @@ export default function AdminControlClient({ initialGuilds, initialAnnouncements
                           {guild.member_count} คน
                         </td>
                         <td className="px-6 py-4">
-                          {guild.plan_type === 'pro' ? (
+                          {isExpired ? (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 border border-red-300/30 dark:border-red-500/30">
+                              🚨 Expired
+                            </span>
+                          ) : daysRemaining > 14 ? (
                             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-black bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-300/30 dark:border-purple-500/30">
-                              🏆 PRO Plan
+                              ⭐ Subscribed
                             </span>
                           ) : (
                             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-500/20 text-slate-700 dark:text-slate-300 border border-slate-300/30 dark:border-slate-500/30">

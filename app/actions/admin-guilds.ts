@@ -299,6 +299,17 @@ export async function deleteAnnouncementCampaign(announcementId: string) {
   const supabase = await createAdminClient()
   const supabaseAny = supabase as any
 
+  // 1. ลบเป้าหมายกิลด์ที่ผูกกับประกาศนี้ออกก่อน
+  try {
+    await supabaseAny
+      .from('announcement_guilds')
+      .delete()
+      .eq('announcement_id', announcementId)
+  } catch (linkErr) {
+    console.error('Error removing announcement_guilds links:', linkErr)
+  }
+
+  // 2. ลบตัวชุดประกาศออกจากตาราง announcements
   const { error } = await supabaseAny
     .from('announcements')
     .delete()

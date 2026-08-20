@@ -245,12 +245,30 @@ export async function getTodayAuctionDashboard() {
         queue_timestamp: q.queue_timestamp
       }))
 
+    // 🌟 ดึงรายชื่อสมาชิกในกิลด์ทั้งหมดสำหรับแอดมินใช้ในการจองแทน
+    let guildMembers: { id: string; display_name: string; uid_game: string; role: string; avatar_url?: string }[] = []
+    if (session.profile.role === 'admin' && session.profile.guild_id) {
+      const { data: members } = await supabase
+        .from('profiles')
+        .select('id, display_name, uid_game, role, avatar_url')
+        .eq('guild_id', session.profile.guild_id)
+        .order('display_name', { ascending: true })
+      guildMembers = (members || []).map((m: any) => ({
+        id: String(m.id),
+        display_name: m.display_name || 'ไม่ระบุชื่อ',
+        uid_game: m.uid_game || '-',
+        role: m.role || 'member',
+        avatar_url: m.avatar_url || undefined
+      }))
+    }
+
     return {
       success: true,
       isAdmin: session.profile.role === 'admin',
       myProfile: { display_name: session.profile.display_name, uid_game: session.profile.uid_game },
       todayItems: todayItems || [],
-      memberQueues: processedQueues
+      memberQueues: processedQueues,
+      guildMembers: guildMembers
     }
   } catch (err: any) {
     return { success: false, error: err.message }
@@ -668,11 +686,99 @@ export async function deleteAuctionQueueReservation(id: string | number) {
 }
 
 
+// 10.1 หัวกิลด์/แอดมินจองคิวประมูลแทนสมาชิกในกิลด์ (Proxy Booking)
+export async function adminBookAuctionQueueForMember(
+  targetUserId: string,
+  items: { itemType: ItemType; requestedQty: number }[]
+) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin') {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const supabase = await createClient()
+
+    // ตรวจสอบว่า targetUserId อยู่ในกิลด์เดียวกันกับ admin จริงหรือไม่
+    const { data: targetProfile, error: targetError } = await supabase
+      .from('profiles')
+      .select('id, display_name, guild_id')
+      .eq('id', targetUserId)
+      .maybeSingle()
+
+    if (targetError || !targetProfile || targetProfile.guild_id !== session.profile.guild_id) {
+      return { success: false, error: 'ไม่พบสมาชิก หรือสมาชิกไม่ได้อยู่ในกิลด์ของคุณ' }
+    }
+
+    // ตรวจสอบโควต้าแต่ละไอเทมก่อนดำเนินการ
+    for (const { itemType, requestedQty } of items) {
+      if (requestedQty <= 0) continue
+
+      const { data: existingQueues, error: fetchCountError } = await supabase
+        .from('auction_queues')
+        .select('id')
+        .eq('user_id', targetUserId)
+        .eq('item_name', itemType)
+        .in('status', ['waiting', 'partial', 'completed'])
+
+      if (fetchCountError) throw fetchCountError
+      const currentCount = existingQueues?.length ?? 0
+      if (currentCount + requestedQty > 10) {
+        const itemLabel = ITEM_NAMES[itemType] || itemType
+        return { success: false, error: `${targetProfile.display_name} สามารถจอง ${itemLabel} ได้ไม่เกิน 10 ชิ้น (ปัจจุบันมีแล้ว ${currentCount} ชิ้น)` }
+      }
+    }
+
+    const inserts: any[] = []
+
+    for (const { itemType, requestedQty } of items) {
+      if (requestedQty <= 0) continue
+
+      const { data: existingSlots } = await supabase
+        .from('auction_queues')
+        .select('slot_number' as any)
+        .eq('user_id', targetUserId)
+        .eq('item_name', itemType)
+        .order('slot_number' as any, { ascending: false })
+        .limit(1)
+
+      const maxSlotNumber = ((existingSlots as any)?.[0]?.slot_number ?? 0) as number
+
+      for (let i = 0; i < requestedQty; i++) {
+        inserts.push({
+          guild_id: session.profile.guild_id,
+          user_id: targetUserId,
+          item_name: itemType,
+          requested_qty: 1,
+          received_qty: 0,
+          status: 'waiting' as const,
+          slot_number: maxSlotNumber + i + 1,
+          queue_timestamp: new Date().toISOString()
+        })
+      }
+    }
+
+    if (inserts.length > 0) {
+      const { error } = await supabase.from('auction_queues').insert(inserts as any)
+      if (error) throw error
+    }
+
+    revalidatePath('/')
+    revalidatePath('/auction')
+    revalidatePath('/profile')
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+
+// 10.2 แอดมิน Sync จำนวนคิวของสมาชิก (ปรับเพิ่ม/ลดให้ตรงกับจำนวนที่ระบุ)
 export async function syncMemberAuctionQueue(userId: string, itemType: string, qty: number) {
   try {
     const session = await getSession()
-    if (!session?.profile) return { success: false, error: 'กรุณาเข้าสู่ระบบ' }
-    // (ทางที่ดีควรเช็คเพิ่มตรงนี้ว่า session.profile เป็น Admin หรือไม่)
+    if (!session?.profile || session.profile.role !== 'admin') {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
 
     if (qty > 10) {
       const itemLabel = ITEM_NAMES[itemType as ItemType] || itemType
@@ -680,9 +786,21 @@ export async function syncMemberAuctionQueue(userId: string, itemType: string, q
     }
 
     const supabase = await createClient()
+
+    // ตรวจสอบสมาชิกว่าอยู่ในกิลด์เดียวกัน
+    const { data: targetProfile } = await supabase
+      .from('profiles')
+      .select('id, guild_id')
+      .eq('id', userId)
+      .maybeSingle()
+
+    if (!targetProfile || targetProfile.guild_id !== session.profile.guild_id) {
+      return { success: false, error: 'ไม่พบสมาชิก หรือสมาชิกไม่ได้อยู่ในกิลด์ของคุณ' }
+    }
+
     const today = new Date().toISOString().split('T')[0]
 
-    // 1. ดึงคิวทั้งหมดของ สมาชิกคนนี้ สำหรับไอเทมชิ้นนี้ (รวมทุกสถานะไม่กรองเพื่อไม่ให้ชน unique constraint)
+    // 1. ดึงคิวทั้งหมดของ สมาชิกคนนี้ สำหรับไอเทมชิ้นนี้
     const { data: rawQueues } = await supabase
       .from('auction_queues')
       .select('id, status, slot_number, queue_timestamp, guild_id, updated_at')
@@ -690,13 +808,8 @@ export async function syncMemberAuctionQueue(userId: string, itemType: string, q
       .eq('item_name', itemType)
 
     const queues = (rawQueues as any[]) || []
-
-    // คำนวณหา max slot_number จากคิวทั้งหมดในระบบ
     const maxSlotNumber = Math.max(...queues.map(q => q.slot_number || 0), 0)
 
-    // คิวที่ถือว่ายังอยู่ในกระดานวันนี้: 
-    // - คิวที่รออยู่ (waiting) ไม่ว่าจะจองวันไหน (ทบยอด)
-    // - คิวที่สำเร็จ/แจกบางส่วนแล้ว (completed/partial) ของวันนี้เท่านั้น
     const activeQueues = queues.filter(q => {
       if (q.status !== 'waiting' && q.status !== 'partial' && q.status !== 'completed') return false;
       if (q.status === 'waiting') return true;
@@ -704,25 +817,19 @@ export async function syncMemberAuctionQueue(userId: string, itemType: string, q
       return queueDate === today;
     })
     
-    // แยกคิวรอแจก เรียงจากใหม่ไปเก่า (เพื่อเวลาลบ จะได้ลบคิวท้ายแถวก่อน)
     const waitingQueues = activeQueues
       .filter(q => q.status === 'waiting') 
       .sort((a, b) => new Date(b.queue_timestamp).getTime() - new Date(a.queue_timestamp).getTime())
     
-    // นับคิวที่ได้ของไปแล้ว
     const nonWaitingCount = activeQueues.filter(q => q.status !== 'waiting').length
 
-    // 2. คำนวณหาเป้าหมายคิวรอ
     const targetWaitingCount = Math.max(0, qty - nonWaitingCount)
     const currentWaitingCount = waitingQueues.length
     const diff = targetWaitingCount - currentWaitingCount
 
     if (diff > 0) {
-      // ➕ กรณีคีย์ตัวเลขเพิ่มขึ้น -> สร้างคิวรอเพิ่มต่อท้าย
-      const guildId = queues[0]?.guild_id || session.profile.guild_id || null;
-
       const inserts = Array.from({ length: diff }, (_, i) => ({
-        guild_id: guildId,
+        guild_id: session.profile.guild_id,
         user_id: userId,
         item_name: itemType,
         requested_qty: 1,
@@ -736,7 +843,6 @@ export async function syncMemberAuctionQueue(userId: string, itemType: string, q
       if (error) throw error
 
     } else if (diff < 0) {
-      // ➖ กรณีคีย์ตัวเลขน้อยลง -> ลบคิวรอส่วนเกินทิ้งจากท้ายแถว
       const countToDelete = Math.abs(diff)
       const idsToDelete = waitingQueues.slice(0, countToDelete).map(q => q.id)
 
@@ -750,6 +856,36 @@ export async function syncMemberAuctionQueue(userId: string, itemType: string, q
       }
     }
 
+    revalidatePath('/')
+    revalidatePath('/auction')
+    revalidatePath('/profile')
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+
+// 10.3 แอดมิน Sync หลายไอเทมพร้อมกันให้สมาชิกคนหนึ่ง
+export async function adminSyncMemberAllAuctionQueues(
+  targetUserId: string,
+  items: { itemType: ItemType; qty: number }[]
+) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin') {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    for (const item of items) {
+      const res = await syncMemberAuctionQueue(targetUserId, item.itemType, item.qty)
+      if (!res.success) {
+        return res
+      }
+    }
+
+    revalidatePath('/')
+    revalidatePath('/auction')
+    revalidatePath('/profile')
     return { success: true }
   } catch (err: any) {
     return { success: false, error: err.message }

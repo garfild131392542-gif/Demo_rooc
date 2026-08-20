@@ -22,7 +22,7 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
     refetchInterval: 15000, // Auto-poll every 15s to sync real-time changes
   })
   
-  const { isAdmin, todayItems, memberQueues, myProfile, history = [] } = data
+  const { isAdmin, todayItems, memberQueues, myProfile, history = [], guildMembers = [] } = data
   
   const [currentPage, setCurrentPage] = useState(1)
   const [activeSubTab, setActiveSubTab] = useState<'all' | 'Album' | 'Puppet' | 'Feathers'>('all')
@@ -294,6 +294,7 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
           setCurrentPage={setCurrentPage}
           totalPages={totalPages}
           currentSlots={currentSlots} 
+          guildMembers={guildMembers}
           onRefresh={handleRefresh}
           isSaving={isSaving} 
         />

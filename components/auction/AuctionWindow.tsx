@@ -47,6 +47,7 @@ import {
   clearQueueByItemType,
 } from "@/app/actions/auction";
 import QueueSummaryTable from "./QueueSummaryTable";
+import AdminProxyBooking from "./AdminProxyBooking";
 import { captureAndDownload } from "@/lib/export-image";
 
 type AuctionWindowProps = {
@@ -62,6 +63,13 @@ type AuctionWindowProps = {
     received_qty: number;
     status: string;
     queue_timestamp: string | null;
+  }[];
+  guildMembers?: {
+    id: string;
+    display_name: string;
+    uid_game: string;
+    role: string;
+    avatar_url?: string;
   }[];
   mappedSlots: AuctionSlot[];
   waitlistSlots?: AuctionSlot[];
@@ -92,6 +100,7 @@ export default function AuctionWindow({
   isAdmin,
   history = [],
   memberQueues = [],
+  guildMembers = [],
   mappedSlots,
   waitlistSlots = [],
   rawSlots = [],
@@ -105,7 +114,7 @@ export default function AuctionWindow({
   onRefresh,
   isSaving,
 }: AuctionWindowProps) {
-  const [viewMode, setViewMode] = useState<"slots" | "history" | "queue" | "summary">(
+  const [viewMode, setViewMode] = useState<"slots" | "history" | "queue" | "summary" | "proxy">(
     "slots",
   );
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
@@ -131,7 +140,7 @@ export default function AuctionWindow({
 
   const handleSaveEdit = async () => {
     if (!editingQueue || !editingQueue.user_id) return;
-    
+
     // 💡 คำนวณหายอดที่ได้ของแล้วของคนนี้ในกรุ๊ปนี้จริงๆ ป้องกันค่าต่ำสุดผิดพลาด
     const tsWithoutMs = editingQueue.queue_timestamp ? editingQueue.queue_timestamp.replace(/\.\d{3}/, '') : 'no-ts';
     const currentGroupKey = `${editingQueue.display_name}|${editingQueue.item_type}|${tsWithoutMs}`;
@@ -179,7 +188,7 @@ export default function AuctionWindow({
     const localReceived = confirmed?.awardedQty !== undefined
       ? Math.max(confirmed.awardedQty, slot.receivedQty ?? 0)
       : (slot.receivedQty ?? 0);
-    
+
     const hasReserve = !slot.isEmpty && typeof slot.requestedQty === "number";
     const localRemaining = hasReserve
       ? Math.max((slot.requestedQty ?? 1) - localReceived, 0)
@@ -286,7 +295,7 @@ export default function AuctionWindow({
                         ...prev,
                         [slot.queueId!]: true,
                       }));
-                      
+
                       const targetQty = (slot.receivedQty ?? 0) + 1;
                       setConfirmedSlots((prev) => ({
                         ...prev,
@@ -295,9 +304,9 @@ export default function AuctionWindow({
                           status: "confirmed",
                         },
                       }));
-                      
+
                       const result = await awardAuctionQueue(slot.queueId, 1);
-                      
+
                       setActionLoading((prev) => ({
                         ...prev,
                         [slot.queueId!]: false,
@@ -311,19 +320,18 @@ export default function AuctionWindow({
                           return next;
                         });
                       } else {
-                         setConfirmedSlots((prev) => {
+                        setConfirmedSlots((prev) => {
                           const next = { ...prev };
                           delete next[slot.queueId!];
                           return next;
                         });
-                         alert(result?.error || 'เกิดข้อผิดพลาดในการประมูล');
+                        alert(result?.error || 'เกิดข้อผิดพลาดในการประมูล');
                       }
                     }}
-                    className={`w-full sm:w-auto rounded-xl text-sm font-bold px-6 py-3 disabled:opacity-50 transition-all shadow-md whitespace-nowrap flex items-center justify-center gap-2 ${
-                      computedCompleted 
-                        ? 'bg-slate-200 dark:bg-slate-700 text-slate-500 cursor-not-allowed shadow-none' 
+                    className={`w-full sm:w-auto rounded-xl text-sm font-bold px-6 py-3 disabled:opacity-50 transition-all shadow-md whitespace-nowrap flex items-center justify-center gap-2 ${computedCompleted
+                        ? 'bg-slate-200 dark:bg-slate-700 text-slate-500 cursor-not-allowed shadow-none'
                         : 'cursor-pointer bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-emerald-500/20'
-                    }`}
+                      }`}
                   >
                     {actionLoading[slot.queueId] ? (
                       <>
@@ -446,6 +454,14 @@ export default function AuctionWindow({
           >
             คิวประมูล
           </button>
+          {isAdmin && (
+            <button
+              onClick={() => setViewMode("proxy")}
+              className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all ${viewMode === "proxy" ? "bg-white text-blue-600 shadow-md font-black" : "bg-white/20 hover:bg-white/30"}`}
+            >
+              จองแทนสมาชิก
+            </button>
+          )}
           {isAdmin && (
             <button
               onClick={() => setViewMode("summary")}
@@ -663,8 +679,8 @@ export default function AuctionWindow({
                       ).length;
                       const formattedTime = firstQueue.queue_timestamp
                         ? new Date(firstQueue.queue_timestamp).toLocaleString(
-                            "th-TH",
-                          )
+                          "th-TH",
+                        )
                         : "-";
 
                       return (
@@ -745,7 +761,7 @@ export default function AuctionWindow({
                                 >
                                   แก้ไข
                                 </button>
-                                
+
                                 <button
                                   type="button"
                                   disabled={groupQueues.some(
@@ -813,7 +829,7 @@ export default function AuctionWindow({
                 <div className="space-y-3">
                   {history.map((entry) => (
                     <div key={entry.id} className="flex flex-wrap xl:flex-nowrap justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl items-center">
-                      
+
                       <div className="flex items-center gap-3">
                         <div
                           className={`relative w-14 h-14 bg-linear-to-b ${ITEM_CONFIG[entry.item_name as AuctionItemType]?.color || "from-slate-200/40 to-slate-400/10"} rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center`}
@@ -829,7 +845,7 @@ export default function AuctionWindow({
                             sizes="56px"
                           />
                         </div>
-                        
+
                         <div>
                           <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
                             {entry.display_name}
@@ -839,7 +855,7 @@ export default function AuctionWindow({
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="flex flex-wrap items-center gap-2 mt-2 xl:mt-0">
                         <div className="flex items-center justify-center w-24 sm:w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
                           <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
@@ -873,13 +889,13 @@ export default function AuctionWindow({
                             disabled={actionLoading[entry.id]}
                             onClick={async () => {
                               if (!confirm("ยืนยันการลบประวัติ? (คิวจะถูกดึงกลับไปรอแจกใหม่ที่หน้ากระดานหลัก)")) return;
-                              
+
                               setActionLoading((prev) => ({ ...prev, [entry.id]: true }));
-                              
+
                               const result = await revertAuctionQueue(entry.id)
-                              
+
                               setActionLoading((prev) => ({ ...prev, [entry.id]: false }));
-                              
+
                               if (!result.success) {
                                 alert("ไม่สามารถลบได้: " + result.error);
                               } else {
@@ -902,7 +918,7 @@ export default function AuctionWindow({
                           </button>
                         )}
                       </div>
-                      
+
                     </div>
                   ))}
                 </div>
@@ -910,9 +926,9 @@ export default function AuctionWindow({
                 <div className="text-center text-slate-500 dark:text-slate-400 py-8 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
                   ยังไม่มีประวัติการประมูล
                 </div>
-               )}
-             </div>
-          ) : (
+              )}
+            </div>
+          ) : viewMode === 'summary' ? (
             <div className="flex-1 flex flex-col justify-start space-y-6 max-h-[calc(100vh-270px)] overflow-y-auto pr-1">
               <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
                 สรุปจัดสรรคิว (Queue Summary)
@@ -921,15 +937,15 @@ export default function AuctionWindow({
                 const priorityOrder = ['Album', 'Puppet', 'White', 'RedBlack'] as const;
                 const activeTypes = activeSubTab === 'all'
                   ? priorityOrder.filter(type => {
-                      const session = todayItems?.find((s: any) => s.item_name === type);
-                      return session && session.status === 'active' && (session.total_quantity ?? 0) > 0;
-                    })
+                    const session = todayItems?.find((s: any) => s.item_name === type);
+                    return session && session.status === 'active' && (session.total_quantity ?? 0) > 0;
+                  })
                   : activeSubTab === 'Feathers'
-                  ? (['White', 'RedBlack'] as const).filter(type => {
+                    ? (['White', 'RedBlack'] as const).filter(type => {
                       const session = todayItems?.find((s: any) => s.item_name === type);
                       return session && session.status === 'active' && (session.total_quantity ?? 0) > 0;
                     })
-                  : [activeSubTab];
+                    : [activeSubTab];
 
                 if (activeTypes.length === 0) {
                   return (
@@ -959,7 +975,7 @@ export default function AuctionWindow({
                                   // Hide the export button itself during screenshot capture
                                   const btn = el.querySelector(`.export-btn-${type}`) as HTMLElement;
                                   if (btn) btn.style.setProperty('display', 'none', 'important');
-                                  
+
                                   try {
                                     // small timeout to let the state change render/flush
                                     await new Promise(resolve => setTimeout(resolve, 80));
@@ -1004,7 +1020,16 @@ export default function AuctionWindow({
                 );
               })()}
             </div>
-          )}
+          ) : viewMode === "proxy" ? (
+            <div className="flex-1 flex flex-col justify-start">
+              <AdminProxyBooking
+                guildMembers={guildMembers}
+                memberQueues={memberQueues}
+                todayItems={todayItems}
+                onSuccess={onRefresh}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
       {renderEditModal()}

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 type AnnouncementProp = {
   id: string
@@ -129,10 +128,17 @@ function YouTubeCard({ url }: { url: string }) {
 export default function AnnouncementModal({ announcement }: Props) {
   const [isOpen, setIsOpen] = useState(false)
   const [suppressToday, setSuppressToday] = useState(false)
-  const pathname = usePathname()
 
   useEffect(() => {
-    // ถ้าเคยเห็นและบันทึกว่าไม่ต้องแสดงวันนี้แล้ว ให้ข้าม
+    // 🌟 เฉพาะตอนล็อกอินครั้งแรกเท่านั้น: ตรวจสอบ flag จาก sessionStorage
+    if (typeof window === 'undefined') return
+    const justLoggedIn = sessionStorage.getItem('just-logged-in')
+    if (!justLoggedIn) return
+
+    // เคลียร์ flag ออกทันที เพื่อไม่ให้การสลับหน้าเว็บ (Navigation) เด้งซ้ำอีก
+    sessionStorage.removeItem('just-logged-in')
+
+    // ถ้าผู้ใช้เคยเห็นและบันทึกว่าไม่ต้องแสดงประกาศนี้ในวันนี้แล้ว ให้ข้าม
     if (hasSeenToday(announcement.id)) return
 
     const timer = setTimeout(() => {
@@ -140,10 +146,10 @@ export default function AnnouncementModal({ announcement }: Props) {
     }, 600)
 
     return () => clearTimeout(timer)
-  }, [pathname, announcement.id])
+  }, [announcement.id])
 
   const handleClose = () => {
-    // บันทึก "เห็นแล้ว" เฉพาะเมื่อผู้ใช้ติ๊ก checkbox
+    // บันทึก "เห็นแล้วในวันนี้" เฉพาะเมื่อผู้ใช้ติ๊ก checkbox
     if (suppressToday) {
       markSeenToday(announcement.id)
     }

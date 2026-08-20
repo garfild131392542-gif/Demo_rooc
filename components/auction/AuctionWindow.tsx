@@ -49,6 +49,7 @@ import {
 import QueueSummaryTable from "./QueueSummaryTable";
 import AdminProxyBooking from "./AdminProxyBooking";
 import { captureAndDownload } from "@/lib/export-image";
+import { Pencil, Trash2, Clock, CheckCircle2, ShieldAlert, Sparkles, AlertCircle } from "lucide-react";
 
 type AuctionWindowProps = {
   isAdmin: boolean;
@@ -441,38 +442,38 @@ export default function AuctionWindow({
             Today&apos;s Queue & Slot Mapping{" "}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             onClick={() => setViewMode("slots")}
-            className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-colors ${viewMode === "slots" ? "bg-white text-blue-600 shadow-sm" : "bg-white/20 hover:bg-white/30"}`}
+            className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${viewMode === "slots" ? "bg-white text-blue-600 shadow-md font-extrabold" : "bg-white/15 hover:bg-white/25 text-white"}`}
           >
             Guild Auction
           </button>
           <button
             onClick={() => setViewMode("queue")}
-            className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-colors ${viewMode === "queue" ? "bg-white text-blue-600 shadow-sm" : "bg-white/20 hover:bg-white/30"}`}
+            className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${viewMode === "queue" ? "bg-white text-blue-600 shadow-md font-extrabold" : "bg-white/15 hover:bg-white/25 text-white"}`}
           >
             คิวประมูล
           </button>
           {isAdmin && (
             <button
               onClick={() => setViewMode("proxy")}
-              className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all ${viewMode === "proxy" ? "bg-white text-blue-600 shadow-md font-black" : "bg-white/20 hover:bg-white/30"}`}
+              className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${viewMode === "proxy" ? "bg-white text-blue-600 shadow-md font-extrabold" : "bg-white/15 hover:bg-white/25 text-white"}`}
             >
-              จองแทนสมาชิก
+              🎯 จองแทนสมาชิก
             </button>
           )}
           {isAdmin && (
             <button
               onClick={() => setViewMode("summary")}
-              className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-colors ${viewMode === "summary" ? "bg-white text-blue-600 shadow-sm" : "bg-white/20 hover:bg-white/30"}`}
+              className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${viewMode === "summary" ? "bg-white text-blue-600 shadow-md font-extrabold" : "bg-white/15 hover:bg-white/25 text-white"}`}
             >
               สรุปจัดสรรคิว
             </button>
           )}
           <button
             onClick={() => setViewMode("history")}
-            className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-colors ${viewMode === "history" ? "bg-white text-blue-600 shadow-sm" : "bg-white/20 hover:bg-white/30"}`}
+            className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${viewMode === "history" ? "bg-white text-blue-600 shadow-md font-extrabold" : "bg-white/15 hover:bg-white/25 text-white"}`}
           >
             ประวัติการประมูล
           </button>
@@ -586,51 +587,57 @@ export default function AuctionWindow({
           ) : viewMode === "queue" ? (
             <div className="flex-1 flex flex-col justify-start space-y-4">
               {isAdmin && (
-                <div className="flex flex-wrap items-center gap-2 mb-4 bg-slate-100 dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-inner">
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                    เครื่องมือแอดมิน:
-                  </span>
-                  {(['Album', 'Puppet', 'White', 'RedBlack'] as const).filter(type => {
-                    const session = todayItems?.find((s: any) => s.item_name === type);
-                    return session && session.status === 'active' && (session.total_quantity ?? 0) > 0;
-                  }).map(type => (
-                    <button
-                      key={`clear-${type}`}
-                      type="button"
-                      disabled={actionLoading[`clear-${type}`]}
-                      onClick={async () => {
-                        if (!confirm(`ยืนยันการล้างคิว (ลบคิวรอรอบถัดไปและคิวประมูลเสร็จแล้วออกจากฐานข้อมูลจริง ๆ) ของไอเทม ${type}?`)) {
-                          return;
-                        }
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-rose-500" />
+                    <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300">
+                      เครื่องมือล้างคิวแอดมิน:
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(['Album', 'Puppet', 'White', 'RedBlack'] as const).filter(type => {
+                      const session = todayItems?.find((s: any) => s.item_name === type);
+                      return session && session.status === 'active' && (session.total_quantity ?? 0) > 0;
+                    }).map(type => (
+                      <button
+                        key={`clear-${type}`}
+                        type="button"
+                        disabled={actionLoading[`clear-${type}`]}
+                        onClick={async () => {
+                          if (!confirm(`ยืนยันการล้างคิว (ลบคิวรอรอบถัดไปและคิวประมูลเสร็จแล้วออกจากฐานข้อมูลจริง ๆ) ของไอเทม ${ITEM_CONFIG[type]?.label || type}?`)) {
+                            return;
+                          }
 
-                        setActionLoading((prev) => ({
-                          ...prev,
-                          [`clear-${type}`]: true,
-                        }));
+                          setActionLoading((prev) => ({
+                            ...prev,
+                            [`clear-${type}`]: true,
+                          }));
 
-                        const result = await clearQueueByItemType(type);
+                          const result = await clearQueueByItemType(type);
 
-                        setActionLoading((prev) => ({
-                          ...prev,
-                          [`clear-${type}`]: false,
-                        }));
+                          setActionLoading((prev) => ({
+                            ...prev,
+                            [`clear-${type}`]: false,
+                          }));
 
-                        if (result.success) {
-                          alert(`ล้างคิว ${type} สำเร็จ! ลบออกจากฐานข้อมูลไปทั้งหมด ${result.count} คิว`);
-                          if (onRefresh) await onRefresh();
-                        } else {
-                          alert(`ไม่สามารถล้างคิวได้: ${result.error}`);
-                        }
-                      }}
-                      className="cursor-pointer text-xs bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-xl font-bold transition-all shadow-sm flex items-center gap-1 shrink-0"
-                    >
-                      {actionLoading[`clear-${type}`] ? "กำลัง..." : `ล้างคิว ${type}`}
-                    </button>
-                  ))}
+                          if (result.success) {
+                            alert(`ล้างคิว ${ITEM_CONFIG[type]?.label || type} สำเร็จ! ลบออกจากฐานข้อมูลไปทั้งหมด ${result.count} คิว`);
+                            if (onRefresh) await onRefresh();
+                          } else {
+                            alert(`ไม่สามารถล้างคิวได้: ${result.error}`);
+                          }
+                        }}
+                        className="cursor-pointer text-xs bg-rose-500/10 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white border border-rose-200 dark:border-rose-500/30 px-3 py-1.5 rounded-xl font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs flex items-center gap-1.5 shrink-0"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>{actionLoading[`clear-${type}`] ? "กำลัง..." : `ล้างคิว ${ITEM_CONFIG[type]?.label || type}`}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
               {memberQueues.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-3 max-h-[calc(100vh-270px)] overflow-y-auto pr-2">
                   {(() => {
                     const groupMap = new Map<string, typeof memberQueues>();
                     const groupOrder: string[] = [];
@@ -686,80 +693,92 @@ export default function AuctionWindow({
                       return (
                         <div
                           key={groupKey}
-                          className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(280px,260px)] gap-3 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl"
+                          className="group flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/80 hover:border-blue-400/50 dark:hover:border-blue-500/40 rounded-2xl shadow-xs hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
                         >
-                          <div>
-                            <div className="flex items-center gap-0 flex-1">
-                              <div className="grid grid-cols-5 gap-4 w-full items-center">
-                                <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                          {/* Left: User Info + Timestamp + Item Icon */}
+                          <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                            {/* User Info */}
+                            <div className="min-w-0 flex-1 pl-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-slate-100 truncate">
                                   {firstQueue.display_name}
-                                </div>
-                                <div>
-                                  <div className="inline-flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 p-3 w-16 h-16 overflow-hidden border-2 border-blue-200 dark:border-blue-800 flex-shrink-0 shadow-md">
-                                    <Image
-                                      src={
-                                        ITEM_CONFIG[
-                                          firstQueue
-                                            .item_type as keyof typeof ITEM_CONFIG
-                                        ]?.icon || "/auction/Puppet.png"
-                                      }
-                                      alt={firstQueue.item_type}
-                                      width={48}
-                                      height={48}
-                                      className="object-contain"
-                                    />
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="flex items-center justify-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                                    <div className="text-slate-900 dark:text-slate-100">
-                                      จอง {totalRequested}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="gap-3 flex items-center justify-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                                    <div className="text-slate-900 dark:text-slate-100">
-                                      ได้รับ {totalReceived}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex justify-center text-xs font-semibold">
-                                  {activeWaitingCount > 0 && (
-                                    <span className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg border border-blue-200 dark:border-blue-800">
-                                      รอจัดสรร {activeWaitingCount} อัน
-                                    </span>
-                                  )}
-                                  {waitlistedCount > 0 && (
-                                    <span className="text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-lg border border-amber-200 dark:border-amber-800 animate-pulse">
-                                      รอรอบถัดไป {waitlistedCount} อัน
-                                    </span>
-                                  )}
-                                  {totalRequested - totalReceived === 0 && (
-                                    <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                                      สำเร็จ
-                                    </span>
-                                  )}
-                                </div>
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                                <Clock className="w-3 h-3 shrink-0" />
+                                <span>{formattedTime}</span>
                               </div>
                             </div>
-                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                              {formattedTime}
+
+                            {/* Item Icon Box */}
+                            <div className="flex items-center gap-2 shrink-0 pr-2">
+                              <div className={`relative w-12 h-12 bg-linear-to-b ${ITEM_CONFIG[firstQueue.item_type as keyof typeof ITEM_CONFIG]?.color || "from-slate-200/40 to-slate-400/10"} rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform duration-200`}>
+                                <Image
+                                  src={
+                                    ITEM_CONFIG[
+                                      firstQueue
+                                        .item_type as keyof typeof ITEM_CONFIG
+                                    ]?.icon || "/auction/Puppet.png"
+                                  }
+                                  alt={firstQueue.item_type}
+                                  fill
+                                  className="object-contain p-1.5"
+                                  sizes="48px"
+                                />
+                              </div>
                             </div>
                           </div>
-                          <div className="space-y-2 flex justify-end items-center gap-2">
+
+                          {/* Center & Right: Stats Pills + Action Buttons */}
+                          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between md:justify-end gap-3 pt-3 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800/80">
+                            {/* Stats Pills */}
+                            <div className="flex items-center gap-2">
+                              <div className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/80 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shadow-xs">
+                                <span className="text-[10px] text-slate-400">จอง</span>
+                                <span className="font-mono font-extrabold text-blue-600 dark:text-blue-400">{totalRequested}</span>
+                              </div>
+
+                              <div className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/80 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shadow-xs">
+                                <span className="text-[10px] text-slate-400">ได้รับ</span>
+                                <span className="font-mono font-extrabold text-emerald-600 dark:text-emerald-400">{totalReceived}</span>
+                              </div>
+
+                              {/* Status Badge */}
+                              <div>
+                                {activeWaitingCount > 0 && (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10 px-2.5 py-1.5 rounded-xl border border-blue-200 dark:border-blue-500/20 shadow-xs">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                                    รอจัดสรร {activeWaitingCount} ชิ้น
+                                  </span>
+                                )}
+                                {waitlistedCount > 0 && (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 px-2.5 py-1.5 rounded-xl border border-amber-200 dark:border-amber-500/20 shadow-xs">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                                    รอรอบถัดไป {waitlistedCount} ชิ้น
+                                  </span>
+                                )}
+                                {totalRequested - totalReceived === 0 && (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-500/20 shadow-xs">
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    สำเร็จ
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Admin Action Buttons */}
                             {isAdmin ? (
-                              <>
-                                {/* 💡 เพิ่มปุ่มแก้ไขตรงนี้ให้กับ Admin */}
+                              <div className="flex items-center gap-2 shrink-0">
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setEditQueueId(firstQueue.id);
                                     setEditQty(totalRequested.toString());
                                   }}
-                                  className="cursor-pointer inline-flex items-center justify-center rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 px-4 h-13 border-2 border-blue-100 dark:border-blue-800/50 flex-shrink-0 shadow-md text-blue-600 dark:text-blue-400 text-sm font-semibold transition-colors"
+                                  className="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-600 text-blue-600 dark:text-blue-400 hover:text-white border border-blue-200 dark:border-blue-500/30 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs hover:shadow-md hover:shadow-blue-500/20"
                                 >
-                                  แก้ไข
+                                  <Pencil className="w-3.5 h-3.5" />
+                                  <span>แก้ไข</span>
                                 </button>
 
                                 <button
@@ -796,15 +815,18 @@ export default function AuctionWindow({
                                     }
                                     await onRefresh();
                                   }}
-                                  className="cursor-pointer inline-flex items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-900/20 px-4 h-13 border-2 border-rose-100 dark:border-rose-800/50 flex-shrink-0 shadow-md text-rose-600 dark:text-rose-400 text-sm font-semibold hover:bg-rose-100"
+                                  className="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white border border-rose-200 dark:border-rose-500/30 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs hover:shadow-md hover:shadow-rose-500/20 disabled:opacity-50"
                                 >
-                                  {groupQueues.some((q) => actionLoading[q.id])
-                                    ? "กำลัง..."
-                                    : "ลบ"}
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>
+                                    {groupQueues.some((q) => actionLoading[q.id])
+                                      ? "กำลัง..."
+                                      : "ลบ"}
+                                  </span>
                                 </button>
-                              </>
+                              </div>
                             ) : (
-                              <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-3 text-sm font-semibold text-slate-600 dark:text-slate-300 h-full flex items-center justify-center text-center">
+                              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
                                 ผู้ดูแลจัดคิวและแจกของ
                               </div>
                             )}

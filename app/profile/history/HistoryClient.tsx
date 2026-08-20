@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { ArrowLeftIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
 const getItemDisplayName = (name: string): string => {
   const lower = name.toLowerCase();
@@ -175,28 +174,12 @@ export default function HistoryClient({ initialQueues, rawQueues }: HistoryClien
   return (
     <div className="max-w-6xl w-full mx-auto space-y-4 flex flex-col flex-1 min-h-0">
 
-      {/* ส่วนหัว และปุ่มย้อนกลับ */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center space-x-3">
-          <Link
-            href="/profile"
-            className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition shadow-sm"
-          >
-            <ArrowLeftIcon className="h-5 w-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">ประวัติการจองคิวของคุณ</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              ตรวจสอบคิวปัจจุบันและประวัติการได้รับจัดสรรไอเทมทั้งหมด
-            </p>
-          </div>
-        </div>
-        <Link
-          href="/"
-          className="inline-flex items-center justify-center rounded-2xl bg-guild-primary px-4 py-2.5 text-sm font-bold text-white shadow-md hover:opacity-90 transition border border-white/10"
-        >
-          กลับหน้าหลัก
-        </Link>
+      {/* ส่วนหัว */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">ประวัติการจองคิวของคุณ</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          ตรวจสอบคิวปัจจุบันและประวัติการได้รับจัดสรรไอเทมทั้งหมด
+        </p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -45,6 +45,14 @@ export async function saveAuctionSession(items: { item_type: ItemType; total_qua
     const { error } = await supabase.from('auction_sessions').insert(insertData as any)
     if (error) throw error
 
+    // 🌟 Auto-Allocation: จัดสรรคิวสล็อตตามรอบอัตโนมัติสำหรับไอเทมที่มียอด
+    const { autoPopulateSlotsFromRound } = await import('./auction-rounds')
+    for (const item of items) {
+      if (item.total_quantity > 0) {
+        await autoPopulateSlotsFromRound(item.item_type, item.total_quantity, item.personal_limit || 2)
+      }
+    }
+
     revalidatePath('/')
     revalidatePath('/auction')
     return { success: true }
@@ -405,6 +413,20 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
         }
     }
 
+    // 🌟 Auto-Link: อัปเดตสะสมยอดในรอบการประมูล (Round Quota)
+    try {
+      const { awardRoundProgress } = await import('./auction-rounds')
+      await awardRoundProgress(
+        session.profile.guild_id,
+        queue.user_id,
+        queue.item_name as ItemType,
+        1,
+        session.profile.id,
+        note
+      )
+    } catch (roundErr) {
+      console.error('awardRoundProgress error (non-fatal):', roundErr)
+    }
 
     revalidatePath('/')
     revalidatePath('/auction')

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Dispatch, SetStateAction, useState } from "react";
+import { Dispatch, SetStateAction, useState, useEffect } from "react";
 import { ITEM_CONFIG } from "./constants";
 
 type AuctionItemType = "Album" | "Puppet" | "White" | "RedBlack";
@@ -48,6 +48,12 @@ import {
 } from "@/app/actions/auction";
 import QueueSummaryTable from "./QueueSummaryTable";
 import AdminProxyBooking from "./AdminProxyBooking";
+import RoundStatusHeader from "./rounds/RoundStatusHeader";
+import RoundMemberTabs from "./rounds/RoundMemberTabs";
+import AdminTransferModal from "./rounds/AdminTransferModal";
+import AdminRoundSettingsModal from "./rounds/AdminRoundSettingsModal";
+import AdminSwapModal from "./rounds/AdminSwapModal";
+import { getRoundMembersList, getRoundAuditLogs, autoPopulateSlotsFromRound } from "@/app/actions/auction-rounds";
 import { captureAndDownload } from "@/lib/export-image";
 import { Pencil, Trash2, Clock, CheckCircle2, ShieldAlert, Sparkles, AlertCircle } from "lucide-react";
 
@@ -72,6 +78,7 @@ type AuctionWindowProps = {
     role: string;
     avatar_url?: string;
   }[];
+  roundsOverview?: any;
   mappedSlots: AuctionSlot[];
   waitlistSlots?: AuctionSlot[];
   rawSlots?: AuctionSlot[];
@@ -102,6 +109,7 @@ export default function AuctionWindow({
   history = [],
   memberQueues = [],
   guildMembers = [],
+  roundsOverview,
   mappedSlots,
   waitlistSlots = [],
   rawSlots = [],
@@ -115,7 +123,7 @@ export default function AuctionWindow({
   onRefresh,
   isSaving,
 }: AuctionWindowProps) {
-  const [viewMode, setViewMode] = useState<"slots" | "history" | "queue" | "summary" | "proxy">(
+  const [viewMode, setViewMode] = useState<"slots" | "history" | "queue" | "summary" | "proxy" | "rounds">(
     "slots",
   );
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
@@ -130,6 +138,46 @@ export default function AuctionWindow({
   const [editQty, setEditQty] = useState<string>("");
   const [editLoading, setEditLoading] = useState(false);
   const [exportingType, setExportingType] = useState<AuctionItemType | null>(null);
+
+  // 🏆 Round Management States
+  const [activeRoundItem, setActiveRoundItem] = useState<AuctionItemType>("Album");
+  const [roundMembers, setRoundMembers] = useState<any[]>([]);
+  const [roundLogs, setRoundLogs] = useState<any[]>([]);
+  const [isLoadingRoundData, setIsLoadingRoundData] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [settingsMode, setSettingsMode] = useState<'settings' | 'advance'>('settings');
+  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+  const [selectedMemberForAction, setSelectedMemberForAction] = useState<any>(null);
+
+  // ดึงข้อมูลสมาชิกและ Logs ของรอบเมื่อเปลี่ยนไอเทมหรือเปิดแท็บรอบ
+  const fetchRoundDetails = async (itemName: AuctionItemType) => {
+    const activeRound = roundsOverview?.activeRounds?.find((r: any) => r.item_name === itemName);
+    if (!activeRound) {
+      setRoundMembers([]);
+      setRoundLogs([]);
+      return;
+    }
+    setIsLoadingRoundData(true);
+    try {
+      const [membersRes, logsRes] = await Promise.all([
+        getRoundMembersList(activeRound.id),
+        getRoundAuditLogs(itemName, activeRound.round_number),
+      ]);
+      if (membersRes.success) setRoundMembers(membersRes.members || []);
+      if (logsRes.success) setRoundLogs(logsRes.logs || []);
+    } catch (e) {
+      console.error('fetchRoundDetails error:', e);
+    } finally {
+      setIsLoadingRoundData(false);
+    }
+  };
+
+  useEffect(() => {
+    if (viewMode === "rounds") {
+      fetchRoundDetails(activeRoundItem);
+    }
+  }, [viewMode, activeRoundItem, roundsOverview]);
 
   const editingQueue = editQueueId
     ? memberQueues.find((q) => q.id === editQueueId)
@@ -450,6 +498,12 @@ export default function AuctionWindow({
             className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${viewMode === "slots" ? "bg-white text-blue-600 shadow-md font-extrabold" : "bg-white/15 hover:bg-white/25 text-white"}`}
           >
             Guild Auction
+          </button>
+          <button
+            onClick={() => setViewMode("rounds")}
+            className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${viewMode === "rounds" ? "bg-white text-blue-600 shadow-md font-extrabold" : "bg-white/15 hover:bg-white/25 text-white"}`}
+          >
+            🏆 รอบการประมูล
           </button>
           <button
             onClick={() => setViewMode("queue")}
@@ -1080,11 +1134,161 @@ export default function AuctionWindow({
                 onSuccess={onRefresh}
               />
             </div>
+          ) : viewMode === "rounds" ? (
+            <div className="flex-1 flex flex-col justify-start">
+              {/* Item Selector Sub-Tabs */}
+              <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1 scrollbar-none">
+                {(['Album', 'Puppet', 'White', 'RedBlack'] as const).map(type => {
+                  const cfg = ITEM_CONFIG[type];
+                  const isSelected = activeRoundItem === type;
+                  const roundObj = roundsOverview?.activeRounds?.find((r: any) => r.item_name === type);
+                  const roundNum = roundObj?.round_number || 1;
+                  const completedCount = roundObj?.completed_members_count || 0;
+                  const totalEligible = roundObj?.total_eligible_members || 0;
+
+                  return (
+                    <button
+                      key={`round-tab-${type}`}
+                      onClick={() => setActiveRoundItem(type)}
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl border text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                        isSelected
+                          ? 'bg-white dark:bg-slate-800 border-blue-500 shadow-md ring-2 ring-blue-500/20 text-slate-900 dark:text-slate-100'
+                          : 'bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      <div className={`w-6 h-6 rounded-lg bg-linear-to-b ${cfg.color} flex items-center justify-center relative`}>
+                        <Image src={cfg.icon} alt={cfg.label} fill className="object-contain p-0.5" sizes="24px" />
+                      </div>
+                      <span>{cfg.label}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 font-mono">
+                        รอบ {roundNum} ({completedCount}/{totalEligible})
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Round Status Header & Member Tabs */}
+              {(() => {
+                const currentActiveRound = roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem);
+                const currentMyQuota = roundsOverview?.myQuotas?.find((q: any) => q.item_name === activeRoundItem);
+
+                return (
+                  <>
+                    <RoundStatusHeader
+                      activeItem={activeRoundItem}
+                      activeRound={currentActiveRound}
+                      myQuota={currentMyQuota}
+                      isAdmin={isAdmin}
+                      onOpenSettings={() => {
+                        setSettingsMode('settings');
+                        setIsSettingsModalOpen(true);
+                      }}
+                      onOpenTransfer={() => {
+                        setSelectedMemberForAction(null);
+                        setIsTransferModalOpen(true);
+                      }}
+                      onOpenAdvance={() => {
+                        setSettingsMode('advance');
+                        setIsSettingsModalOpen(true);
+                      }}
+                      onAutoPopulate={async () => {
+                        const sessionItem = todayItems?.find((s: any) => s.item_name === activeRoundItem);
+                        const availableQty = sessionItem?.total_quantity || 10;
+                        const personalLimit = sessionItem?.personal_limit || currentActiveRound?.base_quota_per_member || 2;
+                        
+                        if (!confirm(`จัดสรรสล็อตตามคิวรอบอัตโนมัติสำหรับ ${ITEM_CONFIG[activeRoundItem].label} (จำนวน ${availableQty} ชิ้น, ลิมิต ${personalLimit} ชิ้น/คน)?`)) return;
+
+                        const res = await autoPopulateSlotsFromRound(activeRoundItem, availableQty, personalLimit);
+                        if (res.success) {
+                          alert(`จัดสรรคิวอัตโนมัติสำเร็จ! สร้างสล็อตไปทั้งหมด ${res.allocatedSlotsCount} สล็อต`);
+                          onRefresh();
+                          fetchRoundDetails(activeRoundItem);
+                        } else {
+                          alert(`ไม่สามารถจัดคิวอัตโนมัติได้: ${res.error}`);
+                        }
+                      }}
+                      onRefresh={() => {
+                        onRefresh();
+                        fetchRoundDetails(activeRoundItem);
+                      }}
+                      isLoading={isLoadingRoundData}
+                    />
+
+                    <RoundMemberTabs
+                      members={roundMembers}
+                      logs={roundLogs}
+                      isAdmin={isAdmin}
+                      activeItem={activeRoundItem}
+                      roundNumber={currentActiveRound?.round_number || 1}
+                      onSwapOrder={(member) => {
+                        setSelectedMemberForAction(member);
+                        setIsSwapModalOpen(true);
+                      }}
+                      onSkipMember={async (member) => {
+                        const reason = prompt(`ระบุเหตุผลในการข้ามคิวของ "${member.profiles?.display_name || 'สมาชิก'}":`, 'สละสิทธิ์รอบนี้');
+                        if (reason !== null) {
+                          const { skipOrDeferRoundMember } = await import('@/app/actions/auction-rounds');
+                          const res = await skipOrDeferRoundMember(member.id, reason);
+                          if (res.success) {
+                            onRefresh();
+                            fetchRoundDetails(activeRoundItem);
+                          } else {
+                            alert('เกิดข้อผิดพลาด: ' + res.error);
+                          }
+                        }
+                      }}
+                      onTransferForMember={(member) => {
+                        setSelectedMemberForAction(member);
+                        setIsTransferModalOpen(true);
+                      }}
+                      isLoading={isLoadingRoundData}
+                    />
+                  </>
+                );
+              })()}
+            </div>
           ) : null}
         </div>
       </div>
       {renderEditModal()}
-      {/* Processing Loader Removed */}
+
+      {/* 🏆 Round Modals */}
+      <AdminTransferModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        onSuccess={() => {
+          onRefresh();
+          fetchRoundDetails(activeRoundItem);
+        }}
+        activeItem={activeRoundItem}
+        guildMembers={guildMembers}
+        preselectedFromMember={selectedMemberForAction}
+        currentRoundNumber={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)?.round_number || 1}
+      />
+
+      <AdminRoundSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        onSuccess={() => {
+          onRefresh();
+          fetchRoundDetails(activeRoundItem);
+        }}
+        activeItem={activeRoundItem}
+        activeRound={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)}
+        mode={settingsMode}
+      />
+
+      <AdminSwapModal
+        isOpen={isSwapModalOpen}
+        onClose={() => setIsSwapModalOpen(false)}
+        onSuccess={() => {
+          onRefresh();
+          fetchRoundDetails(activeRoundItem);
+        }}
+        targetMember={selectedMemberForAction}
+        pendingMembers={roundMembers.filter(m => m.status !== 'completed')}
+      />
     </div>
   );
 }

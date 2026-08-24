@@ -3,6 +3,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveAuctionSession, getTodayAuctionDashboard, getAuctionHistory } from '@/app/actions/auction'
+import { getGuildRoundsOverview } from '@/app/actions/auction-rounds'
+import { createClient } from '@/lib/supabase/client'
 import { ITEM_CONFIG } from './constants'
 import AuctionWindow from './AuctionWindow'
 import AdminForm from './AdminForm'
@@ -16,19 +18,21 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
     queryFn: async () => {
       const dashboardResult = await getTodayAuctionDashboard()
       const historyResult = await getAuctionHistory()
+      const roundsResult = await getGuildRoundsOverview()
       if (!dashboardResult.success) {
         throw new Error(dashboardResult.error || 'Failed to fetch dashboard data')
       }
       return {
         ...dashboardResult,
-        history: historyResult.success ? historyResult.history : []
+        history: historyResult.success ? historyResult.history : [],
+        roundsData: roundsResult.success ? roundsResult : null,
       }
     },
     initialData,
     refetchInterval: 15000, // Auto-poll every 15s to sync real-time changes
   })
   
-  const { isAdmin, todayItems, memberQueues, myProfile, history = [], guildMembers = [] } = data
+  const { isAdmin, todayItems, memberQueues, myProfile, history = [], guildMembers = [], roundsData = null } = data
   
   const [currentPage, setCurrentPage] = useState(1)
   const [activeSubTab, setActiveSubTab] = useState<'all' | 'Album' | 'Puppet' | 'Feathers'>('all')
@@ -84,6 +88,34 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
       })
     }
   }, [todayItems])
+
+  // ⚡ Supabase Realtime Channel: ซิงค์ข้อมูลข้ามเครื่องอัตโนมัติแบบ Live WebSocket
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel('auction_realtime_board')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_rounds' }, () => {
+        refetch()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_round_members' }, () => {
+        refetch()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_round_transfers' }, () => {
+        refetch()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_round_logs' }, () => {
+        refetch()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_queues' }, () => {
+        refetch()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [refetch])
+
 
 
   // ✨ ใหม่: Direct mapping จาก memberQueues - แต่ละ row = 1 slot (no allocation logic)
@@ -324,6 +356,7 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
           totalPages={totalPages}
           currentSlots={currentSlots} 
           guildMembers={guildMembers}
+          roundsOverview={roundsData}
           onRefresh={handleRefresh}
           isSaving={isSaving} 
         />

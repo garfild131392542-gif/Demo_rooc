@@ -204,6 +204,247 @@ export type Database = {
           },
         ]
       }
+      auction_rounds: {
+        Row: {
+          base_quota_per_member: number
+          completed_at: string | null
+          completed_members_count: number
+          created_at: string
+          created_by: string | null
+          guild_id: string
+          id: string
+          item_name: string
+          round_number: number
+          started_at: string
+          status: string
+          total_eligible_members: number
+          updated_at: string
+        }
+        Insert: {
+          base_quota_per_member?: number
+          completed_at?: string | null
+          completed_members_count?: number
+          created_at?: string
+          created_by?: string | null
+          guild_id: string
+          id?: string
+          item_name: string
+          round_number?: number
+          started_at?: string
+          status?: string
+          total_eligible_members?: number
+          updated_at?: string
+        }
+        Update: {
+          base_quota_per_member?: number
+          completed_at?: string | null
+          completed_members_count?: number
+          created_at?: string
+          created_by?: string | null
+          guild_id?: string
+          id?: string
+          item_name?: string
+          round_number?: number
+          started_at?: string
+          status?: string
+          total_eligible_members?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auction_rounds_guild_id_fkey"
+            columns: ["guild_id"]
+            isOneToOne: false
+            referencedRelation: "guilds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auction_round_members: {
+        Row: {
+          base_quota: number
+          guild_id: string
+          id: string
+          item_name: string
+          note: string | null
+          queue_order: number
+          received_qty: number
+          round_id: string
+          round_number: number
+          status: string
+          target_quota: number
+          transferred_in_quota: number
+          transferred_out_quota: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          base_quota?: number
+          guild_id: string
+          id?: string
+          item_name: string
+          note?: string | null
+          queue_order?: number
+          received_qty?: number
+          round_id: string
+          round_number: number
+          status?: string
+          target_quota?: number
+          transferred_in_quota?: number
+          transferred_out_quota?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          base_quota?: number
+          guild_id?: string
+          id?: string
+          item_name?: string
+          note?: string | null
+          queue_order?: number
+          received_qty?: number
+          round_id?: string
+          round_number?: number
+          status?: string
+          target_quota?: number
+          transferred_in_quota?: number
+          transferred_out_quota?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auction_round_members_guild_id_fkey"
+            columns: ["guild_id"]
+            isOneToOne: false
+            referencedRelation: "guilds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auction_round_members_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "auction_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auction_round_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auction_round_transfers: {
+        Row: {
+          created_at: string
+          from_user_id: string
+          guild_id: string
+          id: string
+          item_name: string
+          note: string | null
+          performed_by: string
+          round_id: string
+          round_number: number
+          to_user_id: string
+          transfer_qty: number
+          transfer_type: string
+        }
+        Insert: {
+          created_at?: string
+          from_user_id: string
+          guild_id: string
+          id?: string
+          item_name: string
+          note?: string | null
+          performed_by: string
+          round_id: string
+          round_number: number
+          to_user_id: string
+          transfer_qty: number
+          transfer_type?: string
+        }
+        Update: {
+          created_at?: string
+          from_user_id?: string
+          guild_id?: string
+          id?: string
+          item_name?: string
+          note?: string | null
+          performed_by?: string
+          round_id?: string
+          round_number?: number
+          to_user_id?: string
+          transfer_qty?: number
+          transfer_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auction_round_transfers_guild_id_fkey"
+            columns: ["guild_id"]
+            isOneToOne: false
+            referencedRelation: "guilds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auction_round_logs: {
+        Row: {
+          action_type: string
+          created_at: string
+          details: Json | null
+          guild_id: string
+          id: string
+          item_name: string
+          note: string | null
+          performed_by: string
+          qty: number | null
+          related_user_id: string | null
+          round_id: string | null
+          round_number: number
+          target_user_id: string | null
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          details?: Json | null
+          guild_id: string
+          id?: string
+          item_name: string
+          note?: string | null
+          performed_by: string
+          qty?: number | null
+          related_user_id?: string | null
+          round_id?: string | null
+          round_number: number
+          target_user_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          details?: Json | null
+          guild_id?: string
+          id?: string
+          item_name?: string
+          note?: string | null
+          performed_by?: string
+          qty?: number | null
+          related_user_id?: string | null
+          round_id?: string | null
+          round_number?: number
+          target_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auction_round_logs_guild_id_fkey"
+            columns: ["guild_id"]
+            isOneToOne: false
+            referencedRelation: "guilds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guild_owners: {
         Row: {
           created_at: string

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { saveAuctionSession } from '@/app/actions/auction'
+import { saveAuctionSession, getTodayAuctionDashboard, getAuctionHistory } from '@/app/actions/auction'
 import { ITEM_CONFIG } from './constants'
 import AuctionWindow from './AuctionWindow'
 import AdminForm from './AdminForm'
@@ -14,9 +14,15 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
   const { data, refetch } = useQuery({
     queryKey: ['auctionDashboard'],
     queryFn: async () => {
-      const response = await fetch('/api/auction/dashboard')
-      if (!response.ok) throw new Error('Failed to fetch dashboard data')
-      return response.json()
+      const dashboardResult = await getTodayAuctionDashboard()
+      const historyResult = await getAuctionHistory()
+      if (!dashboardResult.success) {
+        throw new Error(dashboardResult.error || 'Failed to fetch dashboard data')
+      }
+      return {
+        ...dashboardResult,
+        history: historyResult.success ? historyResult.history : []
+      }
     },
     initialData,
     refetchInterval: 15000, // Auto-poll every 15s to sync real-time changes
@@ -50,6 +56,35 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
     })
     return init
   })
+
+  // Sync state when todayItems changes (e.g. on mount, refetch, or save)
+  useEffect(() => {
+    if (todayItems && Array.isArray(todayItems)) {
+      setLimits(prev => {
+        const next = { ...prev }
+        todayItems.forEach((item: any) => {
+          if (item.item_name in next && (next as any)[item.item_name] === '') {
+            (next as any)[item.item_name] = item.personal_limit
+          }
+        })
+        return next
+      })
+
+      setPositions(prev => {
+        const next = { ...prev }
+        todayItems.forEach((item: any) => {
+          if (item.item_name in next) {
+            next[item.item_name as 'Album' | 'Puppet' | 'White' | 'RedBlack'] = {
+              ...next[item.item_name as 'Album' | 'Puppet' | 'White' | 'RedBlack'],
+              total: item.total_quantity
+            }
+          }
+        })
+        return next
+      })
+    }
+  }, [todayItems])
+
 
   // ✨ ใหม่: Direct mapping จาก memberQueues - แต่ละ row = 1 slot (no allocation logic)
   const { boardSlots, waitlistSlots, rawSlots } = useMemo(() => {
@@ -230,7 +265,7 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
     await onRefresh?.()
   }
 
-  const handleAdminSave = async (draftTotals?: Record<'Album' | 'Puppet' | 'White' | 'RedBlack', number | ''>) => {
+  const handleAdminSave = async () => {
     const missingLimits = (['Album', 'Puppet', 'White', 'RedBlack'] as const).filter(
       type => limits[type] === '' || limits[type] === null || limits[type] === undefined
     )
@@ -242,37 +277,31 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
     if (!confirm('ยืนยันการบันทึกข้อมูล? ระบบจะเรียงคิวและแจกจ่ายสล็อตจริงให้ลูกกิลด์ตามยอดนี้')) return
     setIsSaving(true)
 
-    const totals = {
-      Album: draftTotals?.Album ?? positions.Album.total,
-      Puppet: draftTotals?.Puppet ?? positions.Puppet.total,
-      White: draftTotals?.White ?? positions.White.total,
-      RedBlack: draftTotals?.RedBlack ?? positions.RedBlack.total,
+    try {
+      const payload = [
+        { item_type: 'Album' as const, total_quantity: Number(positions.Album.total) || 0, personal_limit: Number(limits.Album) },
+        { item_type: 'Puppet' as const, total_quantity: Number(positions.Puppet.total) || 0, personal_limit: Number(limits.Puppet) },
+        { item_type: 'White' as const, total_quantity: Number(positions.White.total) || 0, personal_limit: Number(limits.White) },
+        { item_type: 'RedBlack' as const, total_quantity: Number(positions.RedBlack.total) || 0, personal_limit: Number(limits.RedBlack) },
+      ]
+      const res = await saveAuctionSession(payload)
+      if (res.success) {
+        alert('บันทึกและจัดคิวสำเร็จ!')
+        await refetch()
+        await onRefresh?.()
+        router.refresh()
+      } else {
+        alert('เกิดข้อผิดพลาด: ' + res.error)
+      }
+    } catch (err: any) {
+      alert('เกิดข้อผิดพลาด: ' + err.message)
+    } finally {
+      setIsSaving(false)
     }
-
-    const payload = [
-      { item_type: 'Album' as const, total_quantity: Number(totals.Album) || 0, personal_limit: Number(limits.Album) },
-      { item_type: 'Puppet' as const, total_quantity: Number(totals.Puppet) || 0, personal_limit: Number(limits.Puppet) },
-      { item_type: 'White' as const, total_quantity: Number(totals.White) || 0, personal_limit: Number(limits.White) },
-      { item_type: 'RedBlack' as const, total_quantity: Number(totals.RedBlack) || 0, personal_limit: Number(limits.RedBlack) },
-    ]
-    const res = await saveAuctionSession(payload)
-    if (res.success) {
-      setPositions(prev => ({
-        Album: { ...prev.Album, total: Number(totals.Album) || 0 },
-        Puppet: { ...prev.Puppet, total: Number(totals.Puppet) || 0 },
-        White: { ...prev.White, total: Number(totals.White) || 0 },
-        RedBlack: { ...prev.RedBlack, total: Number(totals.RedBlack) || 0 },
-      }))
-      alert('บันทึกและจัดคิวสำเร็จ!')
-      await onRefresh?.()
-    } else {
-      alert('เกิดข้อผิดพลาด: ' + res.error)
-    }
-    setIsSaving(false)
   }
 
   return (
-    <div className="w-full max-w-475 mx-auto grid grid-cols-1 xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)_minmax(320px,360px)] gap-6 items-start">
+    <div className="w-full max-w-475 mx-auto grid grid-cols-1 xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)_minmax(320px,360px)] gap-6 items-start pb-16">
       <div className="w-full flex flex-col gap-3 sticky top-15">
         {isAdmin && <AdminLimits limits={limits} setLimits={setLimits} />}
       </div>

@@ -121,6 +121,8 @@ export default function AuctionWindow({
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
     {},
   );
+  const [deletedHistoryIds, setDeletedHistoryIds] = useState<Set<string | number>>(new Set());
+  const [deletedQueueIds, setDeletedQueueIds] = useState<Set<string | number>>(new Set());
   const [confirmedSlots, setConfirmedSlots] = useState<
     Record<string, { awardedQty?: number; status?: string }>
   >({});
@@ -489,7 +491,22 @@ export default function AuctionWindow({
         </div>
       </div>
 
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 relative">
+        {/* Loading Overlay: แสดงเฉพาะตอนกดปุ่มคำนวณและบันทึก */}
+        {isSaving && (
+          <div className="absolute inset-0 z-30 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xs flex flex-col items-center justify-center rounded-b-2xl transition-all">
+            <div className="flex flex-col items-center gap-3 p-5 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-200">
+              <div className="w-9 h-9 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                กำลังบันทึกและจัดคิวข้อมูล...
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 text-center max-w-xs">
+                ระบบกำลังคำนวณและแจกจ่ายสล็อตประมูลใหม่ กรุณารอสักครู่
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 flex flex-col bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 border-t-0 rounded-b-2xl p-4 md:p-6 shadow-inner transition-colors mt-2.5 mx-2.5 mb-2.5">
           {viewMode === "slots" ? (
             <>
@@ -645,6 +662,7 @@ export default function AuctionWindow({
                     const waitlistQueueIds = new Set(waitlistSlots?.map(s => s.queueId).filter(Boolean) || []);
 
                     const filteredMemberQueues = (memberQueues || []).filter((queue) => {
+                      if (deletedQueueIds.has(queue.id)) return false;
                       if (queue.status === 'waiting') {
                         const session = todayItems?.find((s: any) => s.item_name === queue.item_type);
                         const hasActiveSession = session && session.status === 'active' && (session.total_quantity ?? 0) > 0;
@@ -793,27 +811,41 @@ export default function AuctionWindow({
                                       )
                                     )
                                       return;
+
+                                    const ids = groupQueues.map((q) => q.id);
+
+                                    // Optimistic Update: ซ่อนรายการออกจากหน้าจอทันที
+                                    setDeletedQueueIds((prev) => {
+                                      const next = new Set(prev);
+                                      ids.forEach(id => next.add(id));
+                                      return next;
+                                    });
+
+                                    let hasError = false;
                                     for (const queue of groupQueues) {
-                                      setActionLoading((prev) => ({
-                                        ...prev,
-                                        [queue.id]: true,
-                                      }));
                                       const result =
                                         await deleteAuctionQueueReservation(
                                           queue.id,
                                         );
-                                      setActionLoading((prev) => ({
-                                        ...prev,
-                                        [queue.id]: false,
-                                      }));
                                       if (!result.success) {
                                         alert(
                                           "ไม่สามารถลบได้: " + result.error,
                                         );
+                                        hasError = true;
                                         break;
                                       }
                                     }
-                                    await onRefresh();
+
+                                    if (hasError) {
+                                      // Rollback if error
+                                      setDeletedQueueIds((prev) => {
+                                        const next = new Set(prev);
+                                        ids.forEach(id => next.delete(id));
+                                        return next;
+                                      });
+                                    } else {
+                                      if (onRefresh) await onRefresh();
+                                    }
                                   }}
                                   className="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white border border-rose-200 dark:border-rose-500/30 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs hover:shadow-md hover:shadow-rose-500/20 disabled:opacity-50"
                                 >
@@ -847,108 +879,105 @@ export default function AuctionWindow({
               <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
                 Auction History
               </div>
-              {history.length > 0 ? (
-                <div className="space-y-3">
-                  {history.map((entry) => (
-                    <div key={entry.id} className="flex flex-wrap xl:flex-nowrap justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl items-center">
+              {(() => {
+                const displayedHistory = (history || []).filter((entry) => !deletedHistoryIds.has(entry.id));
+                return displayedHistory.length > 0 ? (
+                  <div className="space-y-3">
+                    {displayedHistory.map((entry) => (
+                      <div key={entry.id} className="flex flex-wrap xl:flex-nowrap justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl items-center">
 
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`relative w-14 h-14 bg-linear-to-b ${ITEM_CONFIG[entry.item_name as AuctionItemType]?.color || "from-slate-200/40 to-slate-400/10"} rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center`}
-                        >
-                          <Image
-                            src={
-                              ITEM_CONFIG[entry.item_name as AuctionItemType]
-                                ?.icon || "/auction/Puppet.png"
-                            }
-                            alt={entry.item_name}
-                            fill
-                            className="object-contain p-2"
-                            sizes="56px"
-                          />
-                        </div>
-
-                        <div>
-                          <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                            {entry.display_name}
-                          </div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                            {entry.uid_game}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 mt-2 xl:mt-0">
-                        <div className="flex items-center justify-center w-24 sm:w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-                          <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
-                            จอง {entry.requested_qty}
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-center w-24 sm:w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-                          <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
-                            ได้รับ {entry.awarded_qty}
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-center w-24 sm:w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-                          <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
-                            {entry.status}
-                          </div>
-                        </div>
-                        <div className="gap-2 flex flex-col sm:flex-row items-center justify-center w-full sm:w-auto bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-                          <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
-                            วันที่ประมูล
-                          </div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 text-center sm:text-left">
-                            {entry.awarded_at
-                              ? new Date(entry.awarded_at).toLocaleString("th-TH")
-                              : "ไม่ระบุ"}
-                          </div>
-                        </div>
-
-                        {isAdmin && (
-                          <button
-                            type="button"
-                            disabled={actionLoading[entry.id]}
-                            onClick={async () => {
-                              if (!confirm("ยืนยันการลบประวัติ? (คิวจะถูกดึงกลับไปรอแจกใหม่ที่หน้ากระดานหลัก)")) return;
-
-                              setActionLoading((prev) => ({ ...prev, [entry.id]: true }));
-
-                              const result = await revertAuctionQueue(entry.id)
-
-                              setActionLoading((prev) => ({ ...prev, [entry.id]: false }));
-
-                              if (!result.success) {
-                                alert("ไม่สามารถลบได้: " + result.error);
-                              } else {
-                                await onRefresh();
-                              }
-                            }}
-                            className="w-full sm:w-auto cursor-pointer flex items-center justify-center bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400 dark:hover:bg-rose-900/40 px-6 py-2 h-[42px] rounded-xl border border-rose-200 dark:border-rose-800/50 text-sm font-bold transition-all disabled:opacity-50 shadow-sm"
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`relative w-14 h-14 bg-linear-to-b ${ITEM_CONFIG[entry.item_name as AuctionItemType]?.color || "from-slate-200/40 to-slate-400/10"} rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center`}
                           >
-                            {actionLoading[entry.id] ? (
-                              <>
-                                <svg className="animate-spin h-4 w-4 mr-2 text-rose-500" viewBox="0 0 24 24" fill="none">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                                </svg>
-                                กำลังลบ...
-                              </>
-                            ) : (
-                              "ลบ"
-                            )}
-                          </button>
-                        )}
-                      </div>
+                            <Image
+                              src={
+                                ITEM_CONFIG[entry.item_name as AuctionItemType]
+                                  ?.icon || "/auction/Puppet.png"
+                              }
+                              alt={entry.item_name}
+                              fill
+                              className="object-contain p-2"
+                              sizes="56px"
+                            />
+                          </div>
 
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center text-slate-500 dark:text-slate-400 py-8 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                  ยังไม่มีประวัติการประมูล
-                </div>
-              )}
+                          <div>
+                            <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                              {entry.display_name}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              {entry.uid_game}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 mt-2 xl:mt-0">
+                          <div className="flex items-center justify-center w-24 sm:w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
+                              จอง {entry.requested_qty}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-center w-24 sm:w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
+                              ได้รับ {entry.awarded_qty}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-center w-24 sm:w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
+                              {entry.status}
+                            </div>
+                          </div>
+                          <div className="gap-2 flex flex-col sm:flex-row items-center justify-center w-full sm:w-auto bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
+                              วันที่ประมูล
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 text-center sm:text-left">
+                              {entry.awarded_at
+                                ? new Date(entry.awarded_at).toLocaleString("th-TH")
+                                : "ไม่ระบุ"}
+                            </div>
+                          </div>
+
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!confirm("ยืนยันการลบประวัติ? (คิวจะถูกดึงกลับไปรอแจกใหม่ที่หน้ากระดานหลัก)")) return;
+
+                                // Optimistic Update: ซ่อนรายการออกจากหน้าจอทันที ไม่ต้องรอเซิร์ฟเวอร์
+                                setDeletedHistoryIds((prev) => new Set(prev).add(entry.id));
+
+                                const result = await revertAuctionQueue(entry.id);
+
+                                if (!result.success) {
+                                  // Rollback หากลบไม่สำเร็จ
+                                  setDeletedHistoryIds((prev) => {
+                                    const next = new Set(prev);
+                                    next.delete(entry.id);
+                                    return next;
+                                  });
+                                  alert("ไม่สามารถลบได้: " + result.error);
+                                } else {
+                                  if (onRefresh) await onRefresh();
+                                }
+                              }}
+                              className="w-full sm:w-auto cursor-pointer flex items-center justify-center bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400 dark:hover:bg-rose-900/40 px-6 py-2 h-[42px] rounded-xl border border-rose-200 dark:border-rose-800/50 text-sm font-bold transition-all disabled:opacity-50 shadow-sm"
+                            >
+                              ลบ
+                            </button>
+                          )}
+                        </div>
+
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-slate-500 dark:text-slate-400 py-8 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                    ยังไม่มีประวัติการประมูล
+                  </div>
+                );
+              })()}
             </div>
           ) : viewMode === 'summary' ? (
             <div className="flex-1 flex flex-col justify-start space-y-6 max-h-[calc(100vh-270px)] overflow-y-auto pr-1">

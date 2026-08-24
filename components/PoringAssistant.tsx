@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { Send, X } from 'lucide-react';
 
 export default function PoringAssistant() {
@@ -13,6 +13,9 @@ export default function PoringAssistant() {
   const [isLoading, setIsLoading] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const constraintsRef = useRef<HTMLDivElement>(null);
+  const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const controls = useAnimation();
 
   useEffect(() => {
     if (isOpen) {
@@ -21,6 +24,35 @@ export default function PoringAssistant() {
       });
     }
   }, [messages, isLoading, isOpen]);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current) {
+        clearTimeout(resetTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleDragStart = () => {
+    if (resetTimerRef.current) {
+      clearTimeout(resetTimerRef.current);
+    }
+  };
+
+  const handleDragEnd = () => {
+    if (resetTimerRef.current) {
+      clearTimeout(resetTimerRef.current);
+    }
+    // 🌟 ดึงน้อง Poring กลับตำแหน่งเดิมอัตโนมัติเมื่อปล่อยมือครบ 5 วินาที
+    resetTimerRef.current = setTimeout(() => {
+      controls.start({
+        x: 0,
+        y: 0,
+        transition: { type: "spring", stiffness: 260, damping: 20 }
+      });
+    }, 5000);
+  };
 
   const toggleChat = () => {
     setIsOpen(!isOpen);
@@ -61,10 +93,9 @@ export default function PoringAssistant() {
             ...prev,
             {
               role: 'assistant',
-              content: data.answer
+              content: data.reply || 'ขออภัยครับ Poring ไม่สามารถตอบได้ในขณะนี้'
             }
           ]);
-
           success = true;
         } else if (response.status === 503) {
           attempt++;
@@ -91,13 +122,16 @@ export default function PoringAssistant() {
   };
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-50">
+    <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
       <motion.div
-        // 🌟 ปรับระยะห่างจากขอบจอ: มือถือให้ชิดขอบ (4) จอใหญ่ให้ห่างออก (10)
-        className="absolute bottom-4 right-4 sm:bottom-10 sm:right-10 pointer-events-auto flex flex-col items-end"
-        initial={{ y: 0 }}
-        animate={{ y: [0, -10, 0] }} 
-        transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+        drag
+        dragConstraints={constraintsRef}
+        dragMomentum={false}
+        dragElastic={0.1}
+        animate={controls}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        className="absolute bottom-4 right-4 sm:bottom-10 sm:right-10 pointer-events-auto flex flex-col items-end cursor-grab active:cursor-grabbing select-none"
       >
         <AnimatePresence>
           {isOpen && (

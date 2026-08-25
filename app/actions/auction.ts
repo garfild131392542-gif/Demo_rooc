@@ -350,6 +350,10 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
     if (fetchError) throw fetchError
     if (!queue) return { success: false, error: 'ไม่พบรายการคิว' }
 
+    // 🛑 Idempotency Protection: ถ้าสล็อตนี้ completed ไปแล้ว ห้ามกดแจกซ้ำเด็ดขาด!
+    if (queue.status === 'completed') {
+      return { success: false, error: 'สล็อตนี้ได้รับการประมูลและมอบรางวัลไปเรียบร้อยแล้ว' }
+    }
 
     // ดึงค่าลิมิตส่วนบุคคลของไอเทมชิ้นนี้ในเซสชันวันนี้
     const personalLimit = await getAuctionSessionPersonalLimit(supabase, session.profile.guild_id, queue.item_name as ItemType)
@@ -659,7 +663,33 @@ export async function revertAuctionQueue(id: string | number) {
 
     const supabase = await createClient();
    
-    // 🔄 อันนี้ใช้อัปเดตสถานะกลับเป็นรอรับของ
+    // 1. ดึงข้อมูลคิวก่อน revert
+    const { data: queue } = await supabase
+      .from('auction_queues')
+      .select('*')
+      .eq('id', String(id))
+      .maybeSingle()
+
+    if (!queue) return { success: false, error: 'ไม่พบรายการคิว' }
+
+    // 2. ⚡ Auto-Link: ถ้ารายการนี้เคย completed ให้ย้อนคืนสิทธิ์ในรอบการประมูลทันที!
+    if (queue.status === 'completed' && queue.user_id) {
+      try {
+        const { revertRoundProgress } = await import('./auction-rounds')
+        await revertRoundProgress(
+          session.profile.guild_id,
+          queue.user_id,
+          queue.item_name as ItemType,
+          1,
+          session.profile.id,
+          'ลบประวัติการประมูลและย้อนคืนสิทธิ์'
+        )
+      } catch (revertErr) {
+        console.error('revertRoundProgress error (non-fatal):', revertErr)
+      }
+    }
+
+    // 3. 🔄 อัปเดตสถานะกลับเป็นรอรับของ
     const { error } = await supabase
       .from('auction_queues')
       .update({

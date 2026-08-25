@@ -641,9 +641,17 @@ export async function awardRoundProgress(guildId: string, userId: string, itemNa
 
     if (!member) return { success: false, error: 'ไม่พบสมาชิกในรอบ' }
 
-    const newReceived = member.received_qty + qty
     const targetQuota = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
-    const isComplete = newReceived >= targetQuota
+    const remaining = Math.max(0, targetQuota - member.received_qty)
+
+    // 🛑 ป้องกันการแจกเกินโควตารอบ (Capped to Target Quota)
+    if (remaining <= 0 && targetQuota > 0) {
+      return { success: true, isComplete: true, newReceived: member.received_qty, targetQuota }
+    }
+
+    const actualQty = Math.min(qty, remaining > 0 ? remaining : qty)
+    const newReceived = Math.min(targetQuota, member.received_qty + actualQty)
+    const isComplete = newReceived >= targetQuota && targetQuota > 0
 
     const newStatus: RoundMemberStatus = isComplete ? 'completed' : 'in_progress'
 
@@ -664,7 +672,7 @@ export async function awardRoundProgress(guildId: string, userId: string, itemNa
       item_name: itemName,
       action_type: 'AWARD',
       target_user_id: userId,
-      qty: qty,
+      qty: actualQty,
       performed_by: adminId,
       note: note || `ได้รับ ${itemName} สะสมเป็น ${newReceived}/${targetQuota} ชิ้น`,
     })
@@ -687,6 +695,147 @@ export async function awardRoundProgress(guildId: string, userId: string, itemNa
     return { success: true, isComplete, newReceived, targetQuota }
   } catch (err: any) {
     console.error('awardRoundProgress error:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+// 8.1 Auto-Link: ย้อนคืนสิทธิ์ในรอบเมื่อมีการกดยกเลิกประมูลหรือลบประวัติ
+export async function revertRoundProgress(guildId: string, userId: string, itemName: ItemType, qty: number = 1, adminId: string, note?: string) {
+  try {
+    const supabase = await createClient()
+
+    const { data: activeRound } = await supabase
+      .from('auction_rounds')
+      .select('*')
+      .eq('guild_id', guildId)
+      .eq('item_name', itemName)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (!activeRound) return { success: false, error: 'ไม่มีรอบ active' }
+
+    const { data: member } = await supabase
+      .from('auction_round_members')
+      .select('*')
+      .eq('round_id', activeRound.id)
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (!member) return { success: false, error: 'ไม่พบสมาชิกในรอบ' }
+
+    const newReceived = Math.max(0, member.received_qty - qty)
+    const targetQuota = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
+    const isComplete = newReceived >= targetQuota && targetQuota > 0
+
+    const newStatus: RoundMemberStatus = isComplete ? 'completed' : (newReceived > 0 ? 'in_progress' : 'pending')
+
+    await supabase
+      .from('auction_round_members')
+      .update({
+        received_qty: newReceived,
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', member.id)
+
+    // บันทึก Log การย้อนคืนสิทธิ์
+    await supabase.from('auction_round_logs').insert({
+      guild_id: guildId,
+      round_id: activeRound.id,
+      round_number: activeRound.round_number,
+      item_name: itemName,
+      action_type: 'MANUAL_OVERRIDE',
+      target_user_id: userId,
+      qty: -qty,
+      performed_by: adminId,
+      note: note || `ย้อนคืนสิทธิ์ ${itemName} (สะสมเหลือ ${newReceived}/${targetQuota} ชิ้น)`,
+    })
+
+    // อัปเดตยอด completed count ใหม่
+    const { count: completedCount } = await supabase
+      .from('auction_round_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('round_id', activeRound.id)
+      .eq('status', 'completed')
+
+    await supabase
+      .from('auction_rounds')
+      .update({
+        completed_members_count: completedCount || 0,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', activeRound.id)
+
+    return { success: true, newReceived }
+  } catch (err: any) {
+    console.error('revertRoundProgress error:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+// 8.2 ซิงค์และจัดระเบียบโควตารอบ (Sanitize / Recalculate Quotas for anomalies)
+export async function syncAndFixRoundQuota(itemName: ItemType) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin') {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const supabase = await createClient()
+    const guildId = session.profile.guild_id
+
+    const { data: activeRound } = await supabase
+      .from('auction_rounds')
+      .select('*')
+      .eq('guild_id', guildId)
+      .eq('item_name', itemName)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (!activeRound) return { success: false, error: 'ไม่พบรอบ active' }
+
+    const { data: members } = await supabase
+      .from('auction_round_members')
+      .select('*')
+      .eq('round_id', activeRound.id)
+
+    if (members && members.length > 0) {
+      for (const m of members) {
+        const target = m.base_quota + (m.transferred_in_quota || 0) - (m.transferred_out_quota || 0)
+        const cappedReceived = Math.min(target, Math.max(0, m.received_qty))
+        const isComplete = cappedReceived >= target && target > 0
+        let newStatus = m.status
+        if (m.status !== 'skipped' && m.status !== 'transferred') {
+          newStatus = isComplete ? 'completed' : (cappedReceived > 0 ? 'in_progress' : 'pending')
+        }
+
+        await supabase
+          .from('auction_round_members')
+          .update({
+            received_qty: cappedReceived,
+            status: newStatus,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', m.id)
+      }
+
+      const { count: completedCount } = await supabase
+        .from('auction_round_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('round_id', activeRound.id)
+        .eq('status', 'completed')
+
+      await supabase
+        .from('auction_rounds')
+        .update({
+          completed_members_count: completedCount || 0,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', activeRound.id)
+    }
+
+    return { success: true }
+  } catch (err: any) {
     return { success: false, error: err.message }
   }
 }

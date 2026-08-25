@@ -398,12 +398,8 @@ export default function AuctionWindow({
                       }));
 
                       if (result?.success) {
+                        // 🌟 Keep confirmedSlots active so the slot stays permanently completed and never flashes green!
                         if (onRefresh) await onRefresh();
-                        setConfirmedSlots((prev) => {
-                          const next = { ...prev };
-                          delete next[slot.queueId!];
-                          return next;
-                        });
                       } else {
                         setConfirmedSlots((prev) => {
                           const next = { ...prev };
@@ -1242,8 +1238,14 @@ export default function AuctionWindow({
                           alert(`ไม่สามารถจัดคิวอัตโนมัติได้: ${res.error}`);
                         }
                       }}
-                      onRefresh={() => {
+                      onRefresh={async () => {
                         roundCacheRef.current = {};
+                        try {
+                          const { syncAndFixRoundQuota } = await import('@/app/actions/auction-rounds');
+                          await syncAndFixRoundQuota(activeRoundItem);
+                        } catch (e) {
+                          console.error(e);
+                        }
                         onRefresh();
                         fetchRoundDetails(activeRoundItem, true);
                       }}

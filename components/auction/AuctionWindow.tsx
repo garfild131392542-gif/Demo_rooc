@@ -174,6 +174,8 @@ export default function AuctionWindow({
       setRoundMembers(cached.members);
       setRoundLogs(cached.logs);
     } else {
+      setRoundMembers([]);
+      setRoundLogs([]);
       setIsLoadingRoundData(true);
     }
 

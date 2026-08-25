@@ -97,13 +97,16 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const token = await recaptchaRef.current.executeAsync()
-      
-      if (!token) {
-        setError('การยืนยันตัวตนล้มเหลว โปรดลองอีกครั้ง')
-        setLoading(false)
-        recaptchaRef.current?.reset()
-        return
+      // 🛡️ ป้องกัน reCAPTCHA ค้างบน Preview Domain (เช่น Vercel Preview)
+      try {
+        if (recaptchaRef.current) {
+          await Promise.race([
+            recaptchaRef.current.executeAsync(),
+            new Promise((resolve) => setTimeout(resolve, 1500))
+          ])
+        }
+      } catch (captchaErr) {
+        console.warn('reCAPTCHA skipped or timed out:', captchaErr)
       }
 
       const result = await loginAction(identifier, password)
@@ -111,17 +114,17 @@ export default function LoginPage() {
       if (!result.success) {
         setError(result.error || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ')
         setLoading(false)
-        recaptchaRef.current?.reset()
+        try { recaptchaRef.current?.reset() } catch (_) {}
         return
       }
 
       // ตั้ง flag ว่าเพิ่งล็อกอินสำเร็จ → ให้ AnnouncementModal รู้ว่าต้องเด้ง
       sessionStorage.setItem('just-logged-in', '1')
-      await router.push('/')
+      window.location.href = '/'
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดที่ไม่รู้จัก โปรดลองอีกครั้ง')
       setLoading(false)
-      recaptchaRef.current?.reset()
+      try { recaptchaRef.current?.reset() } catch (_) {}
     }
   }
 

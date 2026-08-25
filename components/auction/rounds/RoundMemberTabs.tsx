@@ -233,8 +233,18 @@ export default function RoundMemberTabs({
             {activeTab === 'pending' && (
               <div className="space-y-2">
                 {filteredPending.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm">
-                    🎉 สมาชิกทุกคนในรอบนี้ได้รับไอเทมครบตามโควตาแล้ว!
+                  <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm space-y-2">
+                    {members.length === 0 ? (
+                      <>
+                        <div className="text-2xl">📋</div>
+                        <div className="font-bold text-slate-700 dark:text-slate-300">ยังไม่ได้เริ่มรอบการประมูล ({itemInfo.label})</div>
+                        <div className="text-xs text-slate-400">
+                          หัวกิลด์สามารถกดปุ่ม <span className="font-bold text-blue-500">"ตั้งค่ารอบ"</span> ด้านบน เพื่อกำหนดโควตาที่ต้องการและเริ่มรอบการประมูลได้ทันทีครับ
+                        </div>
+                      </>
+                    ) : (
+                      <>🎉 สมาชิกทุกคนในรอบนี้ได้รับไอเทมครบตามโควตาแล้ว!</>
+                    )}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">

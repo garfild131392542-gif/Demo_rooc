@@ -58,16 +58,16 @@ export default function RoundStatusHeader({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                รอบที่ {roundNum} (Round {roundNum})
+                {activeRound ? `รอบที่ ${roundNum} (Round ${roundNum})` : 'ยังไม่ได้เริ่มรอบ'}
               </span>
               <span className="text-xs text-slate-400 font-medium">
-                โควตาเป้าหมายคนละ {baseQuota} ชิ้น
+                {activeRound ? `โควตาเป้าหมายคนละ ${baseQuota} ชิ้น` : 'กดตั้งค่ารอบเพื่อเริ่มต้น'}
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-2 mt-0.5">
               {itemInfo.label}
               <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 font-mono">
-                ({completedCount}/{totalEligible} คน)
+                {activeRound ? `(${completedCount}/${totalEligible} คน)` : '(0 คน)'}
               </span>
             </h2>
           </div>
@@ -76,29 +76,31 @@ export default function RoundStatusHeader({
         {/* Right: Personal Status & Actions */}
         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-start lg:justify-end">
           {/* Personal Badge */}
-          <div className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-xs">
-            <span className="text-slate-500 dark:text-slate-400 font-medium">โควตาของคุณ:</span>
-            <div className="flex items-center gap-1.5 font-bold font-mono">
-              <span className={isMyCompleted ? 'text-green-600 dark:text-green-400' : 'text-amber-500'}>
-                {myReceived}/{myTarget} ชิ้น
-              </span>
-              {myIn > 0 && <span className="text-[10px] text-blue-500 font-sans">(+โอน {myIn})</span>}
-              {myOut > 0 && <span className="text-[10px] text-red-500 font-sans">(-โอน {myOut})</span>}
+          {activeRound ? (
+            <div className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-xs">
+              <span className="text-slate-500 dark:text-slate-400 font-medium">โควตาของคุณ:</span>
+              <div className="flex items-center gap-1.5 font-bold font-mono">
+                <span className={isMyCompleted ? 'text-green-600 dark:text-green-400' : 'text-amber-500'}>
+                  {myReceived}/{myTarget} ชิ้น
+                </span>
+                {myIn > 0 && <span className="text-[10px] text-blue-500 font-sans">(+โอน {myIn})</span>}
+                {myOut > 0 && <span className="text-[10px] text-red-500 font-sans">(-โอน {myOut})</span>}
+              </div>
+              {isMyCompleted ? (
+                <span className="flex items-center gap-1 text-[10px] bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-2 py-0.5 rounded-full font-bold">
+                  <CheckCircle2 size={12} /> ครบแล้ว
+                </span>
+              ) : myStatus === 'transferred' ? (
+                <span className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded-full font-bold">
+                  โอนสิทธิ์หมดแล้ว
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold">
+                  <Clock size={12} /> กำลังรอ
+                </span>
+              )}
             </div>
-            {isMyCompleted ? (
-              <span className="flex items-center gap-1 text-[10px] bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-2 py-0.5 rounded-full font-bold">
-                <CheckCircle2 size={12} /> ครบแล้ว
-              </span>
-            ) : myStatus === 'transferred' ? (
-              <span className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded-full font-bold">
-                โอนสิทธิ์หมดแล้ว
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold">
-                <Clock size={12} /> กำลังรอ
-              </span>
-            )}
-          </div>
+          ) : null}
 
           {/* Action Buttons */}
           <button

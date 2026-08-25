@@ -52,63 +52,10 @@ export async function getGuildRoundsOverview(selectedItem?: ItemType) {
       .eq('guild_id', guildId)
       .order('display_name', { ascending: true })
 
-    const finalActiveRounds: any[] = [...(activeRounds || [])]
-
-    // 🌟 Auto-Initialize: สร้างรอบที่ 1 ให้ครบทั้ง 4 ไอเทมมาตรฐาน (สมุดการ์ด, เศษการ์ด, ขนนกขาว, ขนนกดำแดง) ทันที!
-    const standardItems: ItemType[] = ['Album', 'Puppet', 'White', 'RedBlack']
-    const existingItemNames = new Set(finalActiveRounds.map(r => r.item_name))
-    const missingItems = standardItems.filter(item => !existingItemNames.has(item))
-
-    if (missingItems.length > 0 && guildProfiles && guildProfiles.length > 0) {
-      const defaultQuotas: Record<string, number> = {
-        Album: 2,
-        Puppet: 2,
-        White: 3,
-        RedBlack: 5,
-      }
-
-      for (const item of missingItems) {
-        const quota = defaultQuotas[item] || 2
-        const { data: newRound } = await supabase
-          .from('auction_rounds')
-          .insert({
-            guild_id: guildId,
-            item_name: item,
-            round_number: 1,
-            base_quota_per_member: quota,
-            status: 'active',
-            total_eligible_members: guildProfiles.length,
-            completed_members_count: 0,
-          })
-          .select()
-          .single()
-
-        if (newRound) {
-          finalActiveRounds.push(newRound)
-
-          const memberInserts = guildProfiles.map((p, idx) => ({
-            round_id: newRound.id,
-            guild_id: guildId,
-            user_id: p.id,
-            item_name: item,
-            round_number: 1,
-            base_quota: quota,
-            transferred_in_quota: 0,
-            transferred_out_quota: 0,
-            received_qty: 0,
-            status: 'pending',
-            queue_order: idx + 1,
-          }))
-
-          await supabase.from('auction_round_members').insert(memberInserts)
-        }
-      }
-    }
-
     return {
       success: true,
       isAdmin,
-      activeRounds: finalActiveRounds,
+      activeRounds: activeRounds || [],
       myQuotas: myQuotas || [],
       guildMembers: guildProfiles || [],
     }

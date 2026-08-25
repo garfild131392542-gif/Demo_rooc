@@ -32,32 +32,30 @@ export async function getGuildRoundsOverview(selectedItem?: ItemType) {
       query = query.eq('item_name', selectedItem)
     }
 
-    const { data: activeRounds, error: roundsError } = await query
-    if (roundsError) throw roundsError
+    const [roundsRes, myQuotaRes, profilesRes] = await Promise.all([
+      query,
+      supabase
+        .from('auction_round_members')
+        .select('*, auction_rounds!inner(*)')
+        .eq('guild_id', guildId)
+        .eq('user_id', currentUserId)
+        .eq('auction_rounds.status', 'active'),
+      supabase
+        .from('profiles')
+        .select('id, display_name, uid_game, role, avatar_url')
+        .eq('guild_id', guildId)
+        .order('display_name', { ascending: true }),
+    ])
 
-    // ดึงข้อมูลสมาชิกและโควตาของตนเองในรอบปัจจุบัน
-    const { data: myQuotas, error: myQuotaError } = await supabase
-      .from('auction_round_members')
-      .select('*, auction_rounds!inner(*)')
-      .eq('guild_id', guildId)
-      .eq('user_id', currentUserId)
-      .eq('auction_rounds.status', 'active')
-
-    if (myQuotaError) console.error('Error fetching myQuotas:', myQuotaError)
-
-    // ดึงสมาชิกทั้งหมดในกิลด์เพื่อใช้คำนวณ total หรือ dropdown
-    const { data: guildProfiles } = await supabase
-      .from('profiles')
-      .select('id, display_name, uid_game, role, avatar_url')
-      .eq('guild_id', guildId)
-      .order('display_name', { ascending: true })
+    if (roundsRes.error) throw roundsRes.error
+    if (myQuotaRes.error) console.error('Error fetching myQuotas:', myQuotaRes.error)
 
     return {
       success: true,
       isAdmin,
-      activeRounds: activeRounds || [],
-      myQuotas: myQuotas || [],
-      guildMembers: guildProfiles || [],
+      activeRounds: roundsRes.data || [],
+      myQuotas: myQuotaRes.data || [],
+      guildMembers: profilesRes.data || [],
     }
   } catch (err: any) {
     console.error('getGuildRoundsOverview error:', err)

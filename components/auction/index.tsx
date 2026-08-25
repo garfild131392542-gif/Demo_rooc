@@ -16,9 +16,12 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
   const { data, refetch } = useQuery({
     queryKey: ['auctionDashboard'],
     queryFn: async () => {
-      const dashboardResult = await getTodayAuctionDashboard()
-      const historyResult = await getAuctionHistory()
-      const roundsResult = await getGuildRoundsOverview()
+      const [dashboardResult, historyResult, roundsResult] = await Promise.all([
+        getTodayAuctionDashboard(),
+        getAuctionHistory(),
+        getGuildRoundsOverview(),
+      ])
+
       if (!dashboardResult.success) {
         throw new Error(dashboardResult.error || 'Failed to fetch dashboard data')
       }

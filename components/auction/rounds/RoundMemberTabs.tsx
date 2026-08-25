@@ -197,229 +197,263 @@ export default function RoundMemberTabs({
 
       {/* Tab Contents */}
       <div className="p-3 sm:p-4 min-h-[350px]">
-        {/* 1. Pending Members Tab */}
-        {activeTab === 'pending' && (
-          <div className="space-y-2">
-            {filteredPending.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm">
-                🎉 สมาชิกทุกคนในรอบนี้ได้รับไอเทมครบตามโควตาแล้ว!
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {filteredPending.map((member, index) => {
-                  const profile = member.profiles || {}
-                  const target = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
-                  const isSkipped = member.status === 'skipped'
-                  const isTransferred = member.status === 'transferred' || target <= 0
-                  const remaining = Math.max(0, target - member.received_qty)
-
-                  return (
-                    <div
-                      key={member.id}
-                      className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700 transition flex items-center justify-between gap-3 shadow-2xs"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-mono text-xs font-bold flex items-center justify-center shrink-0">
-                          {member.queue_order || index + 1}
-                        </span>
-                        <div className="w-9 h-9 rounded-full bg-linear-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white font-black text-xs shrink-0 overflow-hidden relative">
-                          {profile.avatar_url ? (
-                            <Image src={profile.avatar_url} alt={profile.display_name} fill className="object-cover" />
-                          ) : (
-                            profile.display_name?.[0] || 'U'
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
-                            {profile.display_name || 'ไม่ระบุชื่อ'}
-                            {profile.role === 'admin' && (
-                              <ShieldCheck size={12} className="text-blue-500 shrink-0" />
-                            )}
-                          </div>
-                          <div className="text-[10px] text-slate-400 font-mono truncate">
-                            UID: {profile.uid_game || '-'}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Quota & Action */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="text-right">
-                          <div className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400">
-                            {member.received_qty}/{target} ชิ้น
-                          </div>
-                          <div className="text-[9px] text-slate-400">
-                            {isSkipped ? (
-                              <span className="text-red-500 font-bold">สละสิทธิ์รอบนี้</span>
-                            ) : isTransferred ? (
-                              <span className="text-blue-500 font-bold">โอนสิทธิ์หมด</span>
-                            ) : (
-                              <span>รอรับอีก {remaining} ชิ้น</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {isAdmin && (
-                          <div className="flex items-center gap-1 border-l border-slate-100 dark:border-slate-800 pl-2">
-                            {remaining > 0 && !isSkipped && !isTransferred && (
-                              <button
-                                onClick={() => handleOpenAwardModal(member)}
-                                className="p-1.5 bg-green-50 hover:bg-green-100 dark:bg-green-950/40 text-green-600 rounded-lg transition cursor-pointer"
-                                title="มอบรางวัลให้คนนี้โดยตรง"
-                              >
-                                <Award size={13} />
-                              </button>
-                            )}
-                            <button
-                              onClick={() => onSwapOrder(member)}
-                              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 rounded-lg transition cursor-pointer"
-                              title="สลับลำดับคิว"
-                            >
-                              <ArrowUpDown size={13} />
-                            </button>
-                            <button
-                              onClick={() => onTransferForMember(member)}
-                              className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-500 rounded-lg transition cursor-pointer"
-                              title="โอนสิทธิ์ให้ผู้อื่น"
-                            >
-                              <ArrowRightLeft size={13} />
-                            </button>
-                            <button
-                              onClick={() => onSkipMember(member)}
-                              className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 rounded-lg transition cursor-pointer"
-                              title="ข้ามสิทธิ์รอบนี้"
-                            >
-                              <UserX size={13} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
+        {isLoading && members.length === 0 ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-400 dark:text-slate-500 animate-pulse px-1">
+              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
+              <span>กำลังดึงข้อมูลสมาชิกและสถานะโควตาของรอบ...</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                <div
+                  key={`skeleton-card-${i}`}
+                  className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 flex items-center justify-between gap-3 animate-pulse shadow-2xs"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0" />
+                    <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0" />
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="w-24 h-3.5 bg-slate-200 dark:bg-slate-800 rounded-md" />
+                      <div className="w-16 h-2.5 bg-slate-100 dark:bg-slate-800/60 rounded-md" />
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 2. Completed Members Tab */}
-        {activeTab === 'completed' && (
-          <div className="space-y-2">
-            {filteredCompleted.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm">
-                ยังไม่มีสมาชิกที่ได้รับครบตามโควตาในรอบนี้
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {filteredCompleted.map(member => {
-                  const profile = member.profiles || {}
-                  const target = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
-
-                  return (
-                    <div
-                      key={member.id}
-                      className="p-3 rounded-xl border border-green-200/60 dark:border-green-900/40 bg-green-50/30 dark:bg-green-950/10 flex items-center justify-between gap-3"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 font-mono text-xs font-bold flex items-center justify-center shrink-0">
-                          ✓
-                        </span>
-                        <div className="w-9 h-9 rounded-full bg-linear-to-tr from-green-500 to-emerald-500 flex items-center justify-center text-white font-black text-xs shrink-0 overflow-hidden relative">
-                          {profile.avatar_url ? (
-                            <Image src={profile.avatar_url} alt={profile.display_name} fill className="object-cover" />
-                          ) : (
-                            profile.display_name?.[0] || 'U'
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
-                            {profile.display_name || 'ไม่ระบุชื่อ'}
-                          </div>
-                          <div className="text-[10px] text-slate-400 font-mono truncate">
-                            UID: {profile.uid_game || '-'}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <div className="text-xs font-bold font-mono text-green-600 dark:text-green-400 flex items-center gap-1 justify-end">
-                          <CheckCircle2 size={13} /> {member.received_qty}/{target} ชิ้น
-                        </div>
-                        <div className="text-[9px] text-green-600/80 font-medium">
-                          ครบโควตารอบ {roundNumber}
-                        </div>
-                      </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="space-y-1 text-right">
+                      <div className="w-12 h-3.5 bg-slate-200 dark:bg-slate-800 rounded-md ml-auto" />
+                      <div className="w-16 h-2.5 bg-slate-100 dark:bg-slate-800/60 rounded-md ml-auto" />
                     </div>
-                  )
-                })}
-              </div>
-            )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        )}
-
-        {/* 3. Audit Logs Tab */}
-        {activeTab === 'logs' && (
-          <div className="space-y-2">
-            {logs.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm">
-                ยังไม่มีบันทึกประวัติในรอบนี้
-              </div>
-            ) : (
+        ) : (
+          <>
+            {/* 1. Pending Members Tab */}
+            {activeTab === 'pending' && (
               <div className="space-y-2">
-                {logs.map(log => {
-                  const dateStr = log.created_at ? new Date(log.created_at).toLocaleString('th-TH') : '-'
-                  const actionType = log.action_type
-                  const isAward = actionType === 'AWARD' || actionType === 'MANUAL_OVERRIDE'
-                  const isTransfer = actionType === 'TRANSFER'
-                  const isSwap = actionType === 'SWAP'
-                  const isSkip = actionType === 'SKIP'
+                {filteredPending.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm">
+                    🎉 สมาชิกทุกคนในรอบนี้ได้รับไอเทมครบตามโควตาแล้ว!
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                    {filteredPending.map((member, index) => {
+                      const profile = member.profiles || {}
+                      const target = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
+                      const isSkipped = member.status === 'skipped'
+                      const isTransferred = member.status === 'transferred' || target <= 0
+                      const remaining = Math.max(0, target - member.received_qty)
 
-                  return (
-                    <div
-                      key={log.id}
-                      className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-                    >
-                      <div className="flex items-start sm:items-center gap-2.5">
-                        <span
-                          className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md shrink-0 ${
-                            isAward
-                              ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                              : isTransfer
-                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                              : isSwap
-                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
-                              : isSkip
-                              ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                              : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
-                          }`}
+                      return (
+                        <div
+                          key={member.id}
+                          className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700 transition flex items-center justify-between gap-3 shadow-2xs"
                         >
-                          {actionType}
-                        </span>
-                        <div>
-                          <div className="text-slate-800 dark:text-slate-200 font-medium">
-                            {log.note || `ดำเนินการ ${actionType}`}
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-mono text-xs font-bold flex items-center justify-center shrink-0">
+                              {member.queue_order || index + 1}
+                            </span>
+                            <div className="w-9 h-9 rounded-full bg-linear-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white font-black text-xs shrink-0 overflow-hidden relative">
+                              {profile.avatar_url ? (
+                                <Image src={profile.avatar_url} alt={profile.display_name} fill className="object-cover" />
+                              ) : (
+                                profile.display_name?.[0] || 'U'
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
+                                {profile.display_name || 'ไม่ระบุชื่อ'}
+                                {profile.role === 'admin' && (
+                                  <ShieldCheck size={12} className="text-blue-500 shrink-0" />
+                                )}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono truncate">
+                                UID: {profile.uid_game || '-'}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-[10px] text-slate-400">
-                            เป้าหมาย: <span className="font-semibold text-slate-600 dark:text-slate-300">{log.target?.display_name || '-'}</span>
-                            {log.related && (
-                              <span> | เกี่ยวข้อง: <span className="font-semibold text-slate-600 dark:text-slate-300">{log.related?.display_name}</span></span>
-                            )}
-                            {log.admin && (
-                              <span> | โดย: <span className="text-blue-500 font-semibold">{log.admin?.display_name}</span></span>
+
+                          {/* Quota & Action */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="text-right">
+                              <div className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400">
+                                {member.received_qty}/{target} ชิ้น
+                              </div>
+                              <div className="text-[9px] text-slate-400">
+                                {isSkipped ? (
+                                  <span className="text-red-500 font-bold">สละสิทธิ์รอบนี้</span>
+                                ) : isTransferred ? (
+                                  <span className="text-blue-500 font-bold">โอนสิทธิ์หมด</span>
+                                ) : (
+                                  <span>รอรับอีก {remaining} ชิ้น</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {isAdmin && (
+                              <div className="flex items-center gap-1 border-l border-slate-100 dark:border-slate-800 pl-2">
+                                {remaining > 0 && !isSkipped && !isTransferred && (
+                                  <button
+                                    onClick={() => handleOpenAwardModal(member)}
+                                    className="p-1.5 bg-green-50 hover:bg-green-100 dark:bg-green-950/40 text-green-600 rounded-lg transition cursor-pointer"
+                                    title="มอบรางวัลให้คนนี้โดยตรง"
+                                  >
+                                    <Award size={13} />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => onSwapOrder(member)}
+                                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 rounded-lg transition cursor-pointer"
+                                  title="สลับลำดับคิว"
+                                >
+                                  <ArrowUpDown size={13} />
+                                </button>
+                                <button
+                                  onClick={() => onTransferForMember(member)}
+                                  className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-500 rounded-lg transition cursor-pointer"
+                                  title="โอนสิทธิ์ให้ผู้อื่น"
+                                >
+                                  <ArrowRightLeft size={13} />
+                                </button>
+                                <button
+                                  onClick={() => onSkipMember(member)}
+                                  className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 rounded-lg transition cursor-pointer"
+                                  title="ข้ามสิทธิ์รอบนี้"
+                                >
+                                  <UserX size={13} />
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>
-                      </div>
-
-                      <div className="text-[10px] text-slate-400 font-mono sm:text-right shrink-0">
-                        {dateStr}
-                      </div>
-                    </div>
-                  )
-                })}
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )}
-          </div>
+
+            {/* 2. Completed Members Tab */}
+            {activeTab === 'completed' && (
+              <div className="space-y-2">
+                {filteredCompleted.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm">
+                    ยังไม่มีสมาชิกที่ได้รับครบตามโควตาในรอบนี้
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                    {filteredCompleted.map(member => {
+                      const profile = member.profiles || {}
+                      const target = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
+
+                      return (
+                        <div
+                          key={member.id}
+                          className="p-3 rounded-xl border border-green-200/60 dark:border-green-900/40 bg-green-50/30 dark:bg-green-950/10 flex items-center justify-between gap-3"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 font-mono text-xs font-bold flex items-center justify-center shrink-0">
+                              ✓
+                            </span>
+                            <div className="w-9 h-9 rounded-full bg-linear-to-tr from-green-500 to-emerald-500 flex items-center justify-center text-white font-black text-xs shrink-0 overflow-hidden relative">
+                              {profile.avatar_url ? (
+                                <Image src={profile.avatar_url} alt={profile.display_name} fill className="object-cover" />
+                              ) : (
+                                profile.display_name?.[0] || 'U'
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
+                                {profile.display_name || 'ไม่ระบุชื่อ'}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono truncate">
+                                UID: {profile.uid_game || '-'}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <div className="text-xs font-bold font-mono text-green-600 dark:text-green-400 flex items-center gap-1 justify-end">
+                              <CheckCircle2 size={13} /> {member.received_qty}/{target} ชิ้น
+                            </div>
+                            <div className="text-[9px] text-green-600/80 font-medium">
+                              ครบโควตารอบ {roundNumber}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 3. Audit Logs Tab */}
+            {activeTab === 'logs' && (
+              <div className="space-y-2">
+                {logs.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm">
+                    ยังไม่มีบันทึกประวัติในรอบนี้
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {logs.map(log => {
+                      const dateStr = log.created_at ? new Date(log.created_at).toLocaleString('th-TH') : '-'
+                      const actionType = log.action_type
+                      const isAward = actionType === 'AWARD' || actionType === 'MANUAL_OVERRIDE'
+                      const isTransfer = actionType === 'TRANSFER'
+                      const isSwap = actionType === 'SWAP'
+                      const isSkip = actionType === 'SKIP'
+
+                      return (
+                        <div
+                          key={log.id}
+                          className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                        >
+                          <div className="flex items-start sm:items-center gap-2.5">
+                            <span
+                              className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md shrink-0 ${
+                                isAward
+                                  ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                                  : isTransfer
+                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                  : isSwap
+                                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                                  : isSkip
+                                  ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                  : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                              }`}
+                            >
+                              {actionType}
+                            </span>
+                            <div>
+                              <div className="text-slate-800 dark:text-slate-200 font-medium">
+                                {log.note || `ดำเนินการ ${actionType}`}
+                              </div>
+                              <div className="text-[10px] text-slate-400">
+                                เป้าหมาย: <span className="font-semibold text-slate-600 dark:text-slate-300">{log.target?.display_name || '-'}</span>
+                                {log.related && (
+                                  <span> | เกี่ยวข้อง: <span className="font-semibold text-slate-600 dark:text-slate-300">{log.related?.display_name}</span></span>
+                                )}
+                                {log.admin && (
+                                  <span> | โดย: <span className="text-blue-500 font-semibold">{log.admin?.display_name}</span></span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="text-[10px] text-slate-400 font-mono sm:text-right shrink-0">
+                            {dateStr}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 

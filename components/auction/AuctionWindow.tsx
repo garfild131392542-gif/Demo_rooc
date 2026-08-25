@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Dispatch, SetStateAction, useState, useEffect } from "react";
+import { Dispatch, SetStateAction, useState, useEffect, useRef } from "react";
 import { ITEM_CONFIG } from "./constants";
 
 type AuctionItemType = "Album" | "Puppet" | "White" | "RedBlack";
@@ -149,37 +149,67 @@ export default function AuctionWindow({
   const [settingsMode, setSettingsMode] = useState<'settings' | 'advance'>('settings');
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
   const [selectedMemberForAction, setSelectedMemberForAction] = useState<any>(null);
+  // ⚡ In-Memory Cache for Instant 0ms Tab Switching between items
+  const roundCacheRef = useRef<Record<string, { members: any[]; logs: any[]; fetchedAt: number }>>({});
+
   // Stable identifier for active round to prevent infinite re-render loops
   const currentActiveRoundObj = roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem);
   const activeRoundId = currentActiveRoundObj?.id;
   const activeRoundUpdated = currentActiveRoundObj?.updated_at;
 
-  // ดึงข้อมูลสมาชิกและ Logs ของรอบเมื่อเปลี่ยนไอเทมหรือเปิดแท็บรอบ (Optimized without re-render loop)
-  const fetchRoundDetails = async (itemName: AuctionItemType, showLoading: boolean = false) => {
+  // ดึงข้อมูลสมาชิกและ Logs ของรอบเมื่อเปลี่ยนไอเทมหรือเปิดแท็บรอบ (Ultra-Fast SWR Pattern)
+  const fetchRoundDetails = async (itemName: AuctionItemType, forceShowLoading: boolean = false) => {
     const activeRound = roundsOverview?.activeRounds?.find((r: any) => r.item_name === itemName);
     if (!activeRound) {
       setRoundMembers([]);
       setRoundLogs([]);
       return;
     }
-    if (showLoading) setIsLoadingRoundData(true);
+
+    const cached = roundCacheRef.current[itemName];
+    const hasCache = cached && Array.isArray(cached.members) && cached.members.length > 0;
+
+    // 🚀 ถ้ามีแคชในความจำ ให้แสดงผลทันทีแบบ 0ms ไม่ต้องรอโหลด!
+    if (hasCache) {
+      setRoundMembers(cached.members);
+      setRoundLogs(cached.logs);
+    } else {
+      setIsLoadingRoundData(true);
+    }
+
+    if (forceShowLoading && !hasCache) {
+      setIsLoadingRoundData(true);
+    }
+
     try {
       const [membersRes, logsRes] = await Promise.all([
         getRoundMembersList(activeRound.id),
         getRoundAuditLogs(itemName, activeRound.round_number),
       ]);
-      if (membersRes.success) setRoundMembers(membersRes.members || []);
-      if (logsRes.success) setRoundLogs(logsRes.logs || []);
+
+      const newMembers = membersRes.success ? (membersRes.members || []) : [];
+      const newLogs = logsRes.success ? (logsRes.logs || []) : [];
+
+      // บันทึกลงแคชในหน่วยความจำ
+      roundCacheRef.current[itemName] = {
+        members: newMembers,
+        logs: newLogs,
+        fetchedAt: Date.now(),
+      };
+
+      setRoundMembers(newMembers);
+      setRoundLogs(newLogs);
     } catch (e) {
       console.error('fetchRoundDetails error:', e);
     } finally {
-      if (showLoading) setIsLoadingRoundData(false);
+      setIsLoadingRoundData(false);
     }
   };
 
   useEffect(() => {
     if (viewMode === "rounds" && activeRoundId) {
-      fetchRoundDetails(activeRoundItem, roundMembers.length === 0);
+      const cached = roundCacheRef.current[activeRoundItem];
+      fetchRoundDetails(activeRoundItem, !cached || cached.members.length === 0);
     }
   }, [viewMode, activeRoundItem, activeRoundId, activeRoundUpdated]);
 

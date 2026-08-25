@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { ItemType } from '@/app/actions/auction'
-import { CheckCircle2, Clock, ArrowRightLeft, UserX, ArrowUpDown, History, ShieldCheck, Search, Filter } from 'lucide-react'
+import { ITEM_CONFIG } from '../constants'
+import { manualAwardRoundMember } from '@/app/actions/auction-rounds'
+import { CheckCircle2, Clock, ArrowRightLeft, UserX, ArrowUpDown, History, ShieldCheck, Search, Award, Plus, X, AlertCircle } from 'lucide-react'
 
 type RoundMemberTabsProps = {
   members: any[]
@@ -14,6 +16,7 @@ type RoundMemberTabsProps = {
   onSwapOrder: (member: any) => void
   onSkipMember: (member: any) => void
   onTransferForMember: (member: any) => void
+  onRefreshData?: () => void
   isLoading?: boolean
 }
 
@@ -26,10 +29,19 @@ export default function RoundMemberTabs({
   onSwapOrder,
   onSkipMember,
   onTransferForMember,
+  onRefreshData,
   isLoading,
 }: RoundMemberTabsProps) {
   const [activeTab, setActiveTab] = useState<'pending' | 'completed' | 'logs'>('pending')
   const [searchQuery, setSearchQuery] = useState('')
+  const [isAwardModalOpen, setIsAwardModalOpen] = useState(false)
+  const [selectedMemberId, setSelectedMemberId] = useState('')
+  const [awardQty, setAwardQty] = useState(1)
+  const [awardNote, setAwardNote] = useState('')
+  const [isAwarding, setIsAwarding] = useState(false)
+  const [awardError, setAwardError] = useState<string | null>(null)
+
+  const itemInfo = ITEM_CONFIG[activeItem]
 
   // Filter members
   const completedMembers = members.filter(m => {
@@ -40,6 +52,12 @@ export default function RoundMemberTabs({
   const pendingMembers = members.filter(m => {
     const target = m.base_quota + m.transferred_in_quota - m.transferred_out_quota
     return m.status !== 'completed' && !(m.received_qty >= target && target > 0)
+  })
+
+  // 🌟 Selectable members for Direct Award (Excludes anyone who is completed!)
+  const selectablePendingMembers = pendingMembers.filter(m => {
+    const target = m.base_quota + m.transferred_in_quota - m.transferred_out_quota
+    return target > m.received_qty && m.status !== 'completed' && m.status !== 'transferred'
   })
 
   const filterBySearch = (list: any[]) => {
@@ -55,10 +73,52 @@ export default function RoundMemberTabs({
   const filteredPending = filterBySearch(pendingMembers)
   const filteredCompleted = filterBySearch(completedMembers)
 
+  const handleOpenAwardModal = (member?: any) => {
+    if (member) {
+      setSelectedMemberId(member.id)
+      const target = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
+      const remaining = Math.max(1, target - member.received_qty)
+      setAwardQty(Math.min(1, remaining))
+    } else {
+      setSelectedMemberId(selectablePendingMembers[0]?.id || '')
+      setAwardQty(1)
+    }
+    setAwardNote('')
+    setAwardError(null)
+    setIsAwardModalOpen(true)
+  }
+
+  const handleConfirmAward = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedMemberId) {
+      setAwardError('กรุณาเลือกสมาชิกที่จะมอบรางวัล')
+      return
+    }
+
+    setIsAwarding(true)
+    setAwardError(null)
+
+    const res = await manualAwardRoundMember(selectedMemberId, Number(awardQty) || 1, awardNote)
+    setIsAwarding(false)
+
+    if (res.success) {
+      setIsAwardModalOpen(false)
+      if (onRefreshData) onRefreshData()
+    } else {
+      setAwardError(res.error || 'เกิดข้อผิดพลาดในการมอบรางวัล')
+    }
+  }
+
+  const currentSelectedMember = selectablePendingMembers.find(m => m.id === selectedMemberId)
+  const selectedTarget = currentSelectedMember
+    ? currentSelectedMember.base_quota + currentSelectedMember.transferred_in_quota - currentSelectedMember.transferred_out_quota
+    : 0
+  const selectedRemaining = currentSelectedMember ? Math.max(0, selectedTarget - currentSelectedMember.received_qty) : 0
+
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden transition-all flex flex-col">
       {/* Tab Navigation Header */}
-      <div className="border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 bg-slate-50/70 dark:bg-slate-800/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div className="border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 bg-slate-50/70 dark:bg-slate-800/40 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 p-1 bg-slate-200/70 dark:bg-slate-800 rounded-xl w-full sm:w-auto">
           <button
             onClick={() => setActiveTab('pending')}
@@ -106,19 +166,33 @@ export default function RoundMemberTabs({
           </button>
         </div>
 
-        {/* Search Bar */}
-        {activeTab !== 'logs' && (
-          <div className="relative w-full sm:w-64">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="ค้นหาชื่อหรือ UID..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 transition"
-            />
-          </div>
-        )}
+        {/* Right Tools: Admin Direct Award Button + Search */}
+        <div className="flex items-center gap-2 w-full lg:w-auto">
+          {isAdmin && (
+            <button
+              onClick={() => handleOpenAwardModal()}
+              disabled={selectablePendingMembers.length === 0}
+              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+              title="เลือกสมาชิกที่พร้อมและมอบรางวัลโดยตรง"
+            >
+              <Award size={14} />
+              <span>เลือกคนรับสิทธิ์ประมูล</span>
+            </button>
+          )}
+
+          {activeTab !== 'logs' && (
+            <div className="relative flex-1 lg:w-56">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="ค้นหาชื่อหรือ UID..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 transition"
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tab Contents */}
@@ -137,6 +211,7 @@ export default function RoundMemberTabs({
                   const target = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
                   const isSkipped = member.status === 'skipped'
                   const isTransferred = member.status === 'transferred' || target <= 0
+                  const remaining = Math.max(0, target - member.received_qty)
 
                   return (
                     <div
@@ -179,13 +254,22 @@ export default function RoundMemberTabs({
                             ) : isTransferred ? (
                               <span className="text-blue-500 font-bold">โอนสิทธิ์หมด</span>
                             ) : (
-                              <span>รอรับอีก {Math.max(0, target - member.received_qty)} ชิ้น</span>
+                              <span>รอรับอีก {remaining} ชิ้น</span>
                             )}
                           </div>
                         </div>
 
                         {isAdmin && (
                           <div className="flex items-center gap-1 border-l border-slate-100 dark:border-slate-800 pl-2">
+                            {remaining > 0 && !isSkipped && !isTransferred && (
+                              <button
+                                onClick={() => handleOpenAwardModal(member)}
+                                className="p-1.5 bg-green-50 hover:bg-green-100 dark:bg-green-950/40 text-green-600 rounded-lg transition cursor-pointer"
+                                title="มอบรางวัลให้คนนี้โดยตรง"
+                              >
+                                <Award size={13} />
+                              </button>
+                            )}
                             <button
                               onClick={() => onSwapOrder(member)}
                               className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 rounded-lg transition cursor-pointer"
@@ -227,7 +311,7 @@ export default function RoundMemberTabs({
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {filteredCompleted.map((member, index) => {
+                {filteredCompleted.map(member => {
                   const profile = member.profiles || {}
                   const target = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
 
@@ -285,7 +369,7 @@ export default function RoundMemberTabs({
                 {logs.map(log => {
                   const dateStr = log.created_at ? new Date(log.created_at).toLocaleString('th-TH') : '-'
                   const actionType = log.action_type
-                  const isAward = actionType === 'AWARD'
+                  const isAward = actionType === 'AWARD' || actionType === 'MANUAL_OVERRIDE'
                   const isTransfer = actionType === 'TRANSFER'
                   const isSwap = actionType === 'SWAP'
                   const isSkip = actionType === 'SKIP'
@@ -338,6 +422,150 @@ export default function RoundMemberTabs({
           </div>
         )}
       </div>
+
+      {/* 🎯 Modal: เลือกคนที่จะประมูล / มอบสิทธิ์โดยตรง (เฉพาะคนที่ยังไม่ complete) */}
+      {isAwardModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 rounded-xl">
+                  <Award size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">
+                    เลือกสมาชิกเพื่อมอบรางวัล ({itemInfo.label})
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    แสดงเฉพาะสมาชิกที่ยังได้ของไม่ครบในรอบที่ {roundNumber}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAwardModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmAward} className="p-4 sm:p-5 space-y-4">
+              {awardError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
+                  <AlertCircle size={16} className="shrink-0" />
+                  <span>{awardError}</span>
+                </div>
+              )}
+
+              {/* Member Selection (Filter out completed members) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  เลือกสมาชิกที่พร้อมรับไอเทม:
+                </label>
+                <select
+                  value={selectedMemberId}
+                  onChange={e => {
+                    setSelectedMemberId(e.target.value)
+                    const m = selectablePendingMembers.find(item => item.id === e.target.value)
+                    if (m) {
+                      const t = m.base_quota + m.transferred_in_quota - m.transferred_out_quota
+                      const rem = Math.max(1, t - m.received_qty)
+                      setAwardQty(Math.min(1, rem))
+                    }
+                  }}
+                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-green-500 font-medium"
+                  required
+                >
+                  <option value="">-- เลือกสมาชิก (เฉพาะคนที่ยังไม่ครบโควตา) --</option>
+                  {selectablePendingMembers.map(m => {
+                    const t = m.base_quota + m.transferred_in_quota - m.transferred_out_quota
+                    const rem = Math.max(0, t - m.received_qty)
+                    return (
+                      <option key={`select-mem-${m.id}`} value={m.id}>
+                        คิวที่ #{m.queue_order} - {m.profiles?.display_name || 'ไม่ระบุชื่อ'} (ได้แล้ว {m.received_qty}/{t} ชิ้น - ขาดอีก {rem})
+                      </option>
+                    )
+                  })}
+                </select>
+              </div>
+
+              {/* Member Status Summary */}
+              {currentSelectedMember && (
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">สถานะปัจจุบัน:</span>
+                    <span className="font-bold text-amber-600 dark:text-amber-400 font-mono">
+                      {currentSelectedMember.received_qty}/{selectedTarget} ชิ้น
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">โควตาสูงสุดที่มอบได้ตอนนี้:</span>
+                    <span className="font-bold text-green-600 dark:text-green-400 font-mono">
+                      {selectedRemaining} ชิ้น
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Award Quantity */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  จำนวนชิ้นที่มอบให้ในครั้งนี้:
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={selectedRemaining || 10}
+                    value={awardQty}
+                    onChange={e => setAwardQty(Math.max(1, Math.min(selectedRemaining || 10, parseInt(e.target.value) || 1)))}
+                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base font-black font-mono outline-none focus:border-green-500 text-center"
+                    required
+                  />
+                  <span className="text-xs text-slate-500 font-bold shrink-0">ชิ้น</span>
+                </div>
+              </div>
+
+              {/* Note */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  หมายเหตุ (ไม่บังคับ):
+                </label>
+                <input
+                  type="text"
+                  placeholder="เช่น มอบในกิลด์วอร์, ชนะประมูล"
+                  value={awardNote}
+                  onChange={e => setAwardNote(e.target.value)}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-green-500"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAwardModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAwarding || !selectedMemberId}
+                  className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl transition disabled:opacity-50 cursor-pointer shadow-md flex items-center gap-2"
+                >
+                  {isAwarding ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <CheckCircle2 size={15} />
+                  )}
+                  {isAwarding ? 'กำลังบันทึก...' : 'ยืนยันการมอบรางวัล'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

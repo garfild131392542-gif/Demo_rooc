@@ -780,3 +780,80 @@ export async function getRoundAuditLogs(itemName?: ItemType, roundNumber?: numbe
     return { success: false, error: err.message }
   }
 }
+
+// 11. หัวกิลด์เลือกคนและกดแจก/บันทึกผลโดยตรงจากตารางรอบ (Manual Direct Award)
+export async function manualAwardRoundMember(roundMemberId: string, awardQty: number = 1, note?: string) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin') {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const supabase = await createClient()
+
+    const { data: member, error: memErr } = await supabase
+      .from('auction_round_members')
+      .select('*')
+      .eq('id', roundMemberId)
+      .single()
+
+    if (memErr || !member) return { success: false, error: 'ไม่พบข้อมูลสมาชิกในรอบ' }
+
+    const targetQuota = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
+    const remaining = Math.max(0, targetQuota - member.received_qty)
+
+    if (remaining <= 0) {
+      return { success: false, error: 'สมาชิกคนนี้ได้รับครบตามโควตาในรอบนี้แล้ว' }
+    }
+
+    const actualQty = Math.min(awardQty, remaining)
+    const newReceived = member.received_qty + actualQty
+    const isComplete = newReceived >= targetQuota
+
+    const newStatus: RoundMemberStatus = isComplete ? 'completed' : 'in_progress'
+
+    await supabase
+      .from('auction_round_members')
+      .update({
+        received_qty: newReceived,
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', member.id)
+
+    // บันทึก Log การแจก
+    await supabase.from('auction_round_logs').insert({
+      guild_id: member.guild_id,
+      round_id: member.round_id,
+      round_number: member.round_number,
+      item_name: member.item_name,
+      action_type: 'MANUAL_OVERRIDE',
+      target_user_id: member.user_id,
+      qty: actualQty,
+      performed_by: session.profile.id,
+      note: note || `หัวกิลด์มอบรางวัลโดยตรง จำนวน ${actualQty} ชิ้น (สะสม ${newReceived}/${targetQuota})`,
+    })
+
+    // อัปเดตยอด completed count
+    const { count: completedCount } = await supabase
+      .from('auction_round_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('round_id', member.round_id)
+      .eq('status', 'completed')
+
+    await supabase
+      .from('auction_rounds')
+      .update({
+        completed_members_count: completedCount || 0,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', member.round_id)
+
+    revalidatePath('/auction')
+    return { success: true, isComplete, newReceived, targetQuota }
+  } catch (err: any) {
+    console.error('manualAwardRoundMember error:', err)
+    return { success: false, error: err.message }
+  }
+}
+

@@ -1242,6 +1242,10 @@ export default function AuctionWindow({
                         setSelectedMemberForAction(member);
                         setIsTransferModalOpen(true);
                       }}
+                      onRefreshData={() => {
+                        onRefresh();
+                        fetchRoundDetails(activeRoundItem);
+                      }}
                       isLoading={isLoadingRoundData}
                     />
                   </>

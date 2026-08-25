@@ -174,36 +174,38 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
         return shouldShow
       })
       
-      // ✨ Sort by stable identifiers to maintain consistent order
-      // Sort by: queue_timestamp → slot_number → id
-      qualifiedQueues.sort((a: any, b: any) => {
-        const timeA = a.queue_timestamp || ''
-        const timeB = b.queue_timestamp || ''
-        if (timeA !== timeB) return timeA.localeCompare(timeB)
-        
-        const slotA = a.slot_number ?? 0
-        const slotB = b.slot_number ?? 0
-        if (slotA !== slotB) return slotA - slotB
-        
-        return (a.id || '').localeCompare(b.id || '')
-      })
-      
-      // ✨ Group by booking session
-      const sessionMap = new Map<string, any[]>()
+      // ✨ 1. Group queues by (user_id/uid_game + queue_timestamp) to keep each member's slots contiguous!
+      const userBookingGroups = new Map<string, any[]>()
       qualifiedQueues.forEach((q: any) => {
-        const sessionKey = `${q.queue_timestamp || 'no-timestamp'}`
-        if (!sessionMap.has(sessionKey)) {
-          sessionMap.set(sessionKey, [])
+        const groupKey = `${q.user_id || q.uid_game || q.display_name}_${q.queue_timestamp || 'no-ts'}`
+        if (!userBookingGroups.has(groupKey)) {
+          userBookingGroups.set(groupKey, [])
         }
-        sessionMap.get(sessionKey)!.push(q)
+        userBookingGroups.get(groupKey)!.push(q)
       })
-      
+
+      // ✨ 2. Sort internal slots within each user group by slot_number (1, 2, 3...)
+      userBookingGroups.forEach((group) => {
+        group.sort((a, b) => (a.slot_number ?? 0) - (b.slot_number ?? 0))
+      })
+
+      // ✨ 3. Sort user groups by the group's earliest queue_timestamp / id
+      const sortedUserGroups = Array.from(userBookingGroups.values()).sort((groupA, groupB) => {
+        const firstA = groupA[0]
+        const firstB = groupB[0]
+        const timeA = firstA.queue_timestamp || ''
+        const timeB = firstB.queue_timestamp || ''
+        if (timeA !== timeB) return timeA.localeCompare(timeB)
+        return (firstA.id || '').localeCompare(firstB.id || '')
+      })
+
       const totalQuantity = Math.max(0, Number(session.total_quantity ?? 0))
       let allocatedSlotCount = 0
 
-      // Add booked slots (all individual, but grouped by session)
-      sessionMap.forEach((sessionQueues, sessionKey) => {
+      // Add booked slots (grouped contiguously by user)
+      sortedUserGroups.forEach((sessionQueues) => {
         const totalInSession = sessionQueues.length
+        const sessionKey = sessionQueues[0]?.queue_timestamp || 'no-timestamp'
         
         // Add ALL slots in the session with session metadata
         sessionQueues.forEach((q, slotIndexInSession) => {

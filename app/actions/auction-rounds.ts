@@ -509,17 +509,18 @@ export async function autoPopulateSlotsFromRound(itemName: ItemType, availableQt
 
     let remainingSlots = availableQty
     const insertQueues: any[] = []
-    const nowIso = new Date().toISOString()
+    const baseTime = Date.now()
 
-    for (const member of members) {
-      if (remainingSlots <= 0) break
+    members.forEach((member, memberIndex) => {
+      if (remainingSlots <= 0) return
 
       const targetQuota = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
       const remainingQuota = Math.max(0, targetQuota - member.received_qty)
-      if (remainingQuota <= 0) continue
+      if (remainingQuota <= 0) return
 
       // กฎสูตร: min(โควตาคงเหลือ, ลิมิตวันนี้, สล็อตที่เหลืออยู่)
       const slotsForUser = Math.min(remainingQuota, personalLimit, remainingSlots)
+      const userTimestamp = new Date(baseTime + memberIndex * 1000).toISOString()
 
       for (let s = 1; s <= slotsForUser; s++) {
         insertQueues.push({
@@ -530,12 +531,12 @@ export async function autoPopulateSlotsFromRound(itemName: ItemType, availableQt
           received_qty: 0,
           status: 'waiting',
           slot_number: s,
-          queue_timestamp: nowIso,
+          queue_timestamp: userTimestamp,
         })
       }
 
       remainingSlots -= slotsForUser
-    }
+    })
 
     if (insertQueues.length > 0) {
       const { error: insertErr } = await supabase.from('auction_queues').insert(insertQueues)

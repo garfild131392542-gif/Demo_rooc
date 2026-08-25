@@ -1,16 +1,33 @@
 'use server'
 
-import { createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getSession } from './auth'
-import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
 
 /**
- * Renews the subscription by extending trial_ends_at by 30 days (Simulated / Mock)
+ * [SUPER ADMIN ONLY] ต่ออายุการใช้งานสำหรับผู้ดูแลระบบส่วนกลางเท่านั้น
+ * ป้องกันไม่ให้สมาชิกหรือผู้ใช้ทั่วไปเรียกใช้งานเพื่อรับวันใช้งานฟรี
  */
 export async function renewSubscriptionAction() {
   const current = await getSession()
   if (!current?.user?.id) {
     return { success: false, error: 'กรุณาเข้าสู่ระบบก่อน' }
+  }
+
+  // 🔒 ตรวจสอบสิทธิ์ Super Admin ในตาราง admins
+  const supabaseAuth = await createClient()
+  const { data: adminCheck } = await supabaseAuth
+    .from('admins')
+    .select('id')
+    .eq('id', current.user.id)
+    .maybeSingle()
+
+  if (!adminCheck) {
+    return { 
+      success: false, 
+      error: '💥 ปฏิเสธการเข้าถึง: ฟังก์ชันนี้สงวนไว้สำหรับผู้ดูแลระบบส่วนกลาง (Super Admin) เท่านั้น' 
+    }
   }
 
   const supabase = await createAdminClient()
@@ -40,14 +57,33 @@ export async function renewSubscriptionAction() {
     return { success: false, error: updateError.message }
   }
 
-  // Redirect back to dashboard after successful renewal
-  redirect('/')
+  return { success: true, message: 'ต่ออายุการใช้งาน 30 วันโดยผู้ดูแลระบบสำเร็จ' }
 }
 
 /**
  * Verifies the PromptPay slip using SlipOK API and extends the subscription by 30 days
  */
 export async function verifyAndRenewSubscriptionAction(slipUrl: string, expectedAmount: number = 259) {
+  // 🛡️ ป้องกัน Brute-force & Denial-of-Service (จำกัด 5 ครั้งต่อ 10 นาทีต่อ IP)
+  try {
+    const headersList = await headers()
+    const clientIp = getClientIp(headersList)
+    const rateLimit = checkRateLimit(`billing-verify:${clientIp}`, {
+      limit: 5,
+      windowMs: 10 * 60 * 1000,
+    })
+
+    if (!rateLimit.allowed) {
+      const waitMinutes = Math.ceil(rateLimit.retryAfterSeconds / 60)
+      return {
+        success: false,
+        error: `คุณส่งคำขอยืนยันสลิปถี่เกินไป กรุณารอ ${waitMinutes} นาทีแล้วลองใหม่อีกครั้ง`,
+      }
+    }
+  } catch (ipErr) {
+    // Ignored if headers() is unavailable
+  }
+
   const current = await getSession()
   if (!current?.user?.id) {
     return { success: false, error: 'กรุณาเข้าสู่ระบบก่อน' }
@@ -56,15 +92,20 @@ export async function verifyAndRenewSubscriptionAction(slipUrl: string, expected
   const supabase = await createAdminClient()
   const supabaseAny = supabase as any
 
-  // Get user's profile to get their guild_id
+  // Get user's profile to get their guild_id and verify admin role
   const { data: profile } = await supabaseAny
     .from('profiles')
-    .select('guild_id')
+    .select('guild_id, role')
     .eq('id', current.user.id)
     .maybeSingle()
 
   if (!profile?.guild_id) {
     return { success: false, error: 'ไม่พบสังกัดกิลด์ของคุณ' }
+  }
+
+  // 🔒 ตรวจสอบสิทธิ์เฉพาะหัวหน้ากิลด์ (Admin) เท่านั้นที่สามารถกดยืนยันชำระเงินของกิลด์ได้
+  if (profile.role !== 'admin') {
+    return { success: false, error: 'เฉพาะหัวหน้ากิลด์ (Admin) เท่านั้นที่สามารถต่ออายุการใช้งานกิลด์ได้' }
   }
 
   const apiKey = process.env.SLIPOK_API_KEY
@@ -74,7 +115,15 @@ export async function verifyAndRenewSubscriptionAction(slipUrl: string, expected
   let isMock = false
 
   if (!apiKey || !branchId) {
-    console.warn('[Billing] SlipOK API keys not configured. Running in Mock Mode.')
+    // 🛡️ ในโหมด Production: ไม่อนุญาตให้ Mock ผ่านฟรีเด็ดขาด
+    if (process.env.NODE_ENV === 'production') {
+      return {
+        success: false,
+        error: 'ระบบตรวจสอบสลิปอัตโนมัติยังไม่เปิดให้บริการในขณะนี้ กรุณาติดต่อผู้ดูแลระบบ',
+      }
+    }
+
+    console.warn('[Billing] SlipOK API keys not configured. Running in Development Mock Mode.')
     isMock = true
     verificationResult = {
       success: true,
@@ -108,6 +157,15 @@ export async function verifyAndRenewSubscriptionAction(slipUrl: string, expected
       }
 
       const data = result.data
+
+      // 🛡️ ตรวจสอบยอดเงินว่าต้องไม่น้อยกว่ายอดที่กำหนด
+      if ((data.amount || 0) < expectedAmount) {
+        return {
+          success: false,
+          error: `ยอดเงินในสลิป (${data.amount} บาท) ไม่ครบตามจำนวนแพ็กเกจ (${expectedAmount} บาท)`
+        }
+      }
+
       verificationResult = {
         success: true,
         amount: data.amount,

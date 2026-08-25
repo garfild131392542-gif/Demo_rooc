@@ -1323,6 +1323,7 @@ export default function AuctionWindow({
         }}
         activeItem={activeRoundItem}
         activeRound={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)}
+        activeRounds={roundsOverview?.activeRounds || []}
         mode={settingsMode}
       />
 

@@ -322,6 +322,28 @@ export async function startOrConfigureRound(itemName: ItemType, baseQuota: numbe
   }
 }
 
+// 3.1 ตั้งค่าโควตารอบรวมของทั้ง 4 ไอเทมพร้อมกันในครั้งเดียว (Unified 4-Item Quotas Setup)
+export async function batchConfigureAllRoundQuotas(quotas: Partial<Record<ItemType, number>>) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin') {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const items: ItemType[] = ['Album', 'Puppet', 'White', 'RedBlack']
+    for (const item of items) {
+      const q = Math.max(1, Number(quotas[item]) || 1)
+      await startOrConfigureRound(item, q)
+    }
+
+    revalidatePath('/auction')
+    return { success: true }
+  } catch (err: any) {
+    console.error('batchConfigureAllRoundQuotas error:', err)
+    return { success: false, error: err.message }
+  }
+}
+
 // 4. โอนสิทธิ์ / ยกสิทธิ์ให้เพื่อน (Rights & Quota Transfer)
 export async function transferRoundQuota(
   fromUserId: string,

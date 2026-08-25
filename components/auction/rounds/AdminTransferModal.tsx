@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { ItemType } from '@/app/actions/auction'
 import { ITEM_CONFIG } from '../constants'
 import { transferRoundQuota } from '@/app/actions/auction-rounds'
-import { X, ArrowRightLeft, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { X, ArrowRightLeft, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 
 type AdminTransferModalProps = {
   isOpen: boolean
@@ -51,29 +51,43 @@ export default function AdminTransferModal({
     setIsSubmitting(true)
     setError(null)
 
-    const res = await transferRoundQuota(
-      fromUserId,
-      toUserId,
-      activeItem,
-      Number(transferQty) || 1,
-      transferType,
-      note
-    )
+    try {
+      const res = await transferRoundQuota(
+        fromUserId,
+        toUserId,
+        activeItem,
+        Number(transferQty) || 1,
+        transferType,
+        note
+      )
 
-    setIsSubmitting(false)
-
-    if (res.success) {
-      onSuccess()
-      onClose()
-    } else {
-      setError(res.error || 'เกิดข้อผิดพลาดในการโอนสิทธิ์')
+      if (res.success) {
+        onSuccess()
+        onClose()
+      } else {
+        setError(res.error || 'เกิดข้อผิดพลาดในการโอนสิทธิ์')
+      }
+    } catch (err: any) {
+      setError(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 relative">
         
+        {/* Full-panel Loading Overlay */}
+        {isSubmitting && (
+          <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs z-20 flex flex-col items-center justify-center gap-3 animate-in fade-in duration-150">
+            <div className="w-10 h-10 border-3 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full animate-spin" />
+            <div className="text-xs font-bold text-slate-700 dark:text-slate-200 animate-pulse">
+              กำลังบันทึกการโอนสิทธิ์และคำนวณโควตาสุทธิใหม่...
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
           <div className="flex items-center gap-2">
@@ -91,7 +105,8 @@ export default function AdminTransferModal({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg transition"
+            disabled={isSubmitting}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg transition disabled:opacity-50"
           >
             <X size={18} />
           </button>
@@ -106,106 +121,114 @@ export default function AdminTransferModal({
             </div>
           )}
 
-          {/* From Member */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              1. ผู้โอนสิทธิ์ (สมาชิกที่ต้องการยกสิทธิ์ให้เพื่อน)
-            </label>
-            <select
-              value={fromUserId}
-              onChange={e => setFromUserId(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 font-medium"
-              required
+          {/* Transfer Type Selection */}
+          <div className="flex items-center gap-3 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl">
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => setTransferType('partial')}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                transferType === 'partial'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
             >
-              <option value="">-- เลือกสมาชิกผู้โอนสิทธิ์ --</option>
-              {guildMembers.map(m => (
-                <option key={`from-${m.id}`} value={m.id}>
-                  {m.display_name} (UID: {m.uid_game || '-'})
-                </option>
-              ))}
-            </select>
+              โอนบางส่วน (ระบุจำนวน)
+            </button>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => setTransferType('full')}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                transferType === 'full'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              ยกให้ทั้งหมด (Full Transfer)
+            </button>
           </div>
 
-          {/* To Member */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              2. ผู้รับโอนสิทธิ์ (สมาชิกที่จะได้รับโควตาเพิ่ม)
-            </label>
-            <select
-              value={toUserId}
-              onChange={e => setToUserId(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 font-medium"
-              required
-            >
-              <option value="">-- เลือกสมาชิกผู้รับโอน --</option>
-              {guildMembers
-                .filter(m => m.id !== fromUserId)
-                .map(m => (
-                  <option key={`to-${m.id}`} value={m.id}>
-                    {m.display_name} (UID: {m.uid_game || '-'})
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* From User */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                ผู้ยกสิทธิ์ (โอนออก):
+              </label>
+              <select
+                value={fromUserId}
+                disabled={isSubmitting}
+                onChange={e => setFromUserId(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 font-medium disabled:opacity-50"
+                required
+              >
+                <option value="">-- เลือกผู้โอน --</option>
+                {guildMembers.map(m => (
+                  <option key={`from-${m.id}`} value={m.id}>
+                    {m.display_name} ({m.uid_game || '-'})
                   </option>
                 ))}
-            </select>
+              </select>
+            </div>
+
+            {/* To User */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                ผู้รับสิทธิ์ (โอนเข้า):
+              </label>
+              <select
+                value={toUserId}
+                disabled={isSubmitting}
+                onChange={e => setToUserId(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 font-medium disabled:opacity-50"
+                required
+              >
+                <option value="">-- เลือกผู้รับ --</option>
+                {guildMembers
+                  .filter(m => m.id !== fromUserId)
+                  .map(m => (
+                    <option key={`to-${m.id}`} value={m.id}>
+                      {m.display_name} ({m.uid_game || '-'})
+                    </option>
+                  ))}
+              </select>
+            </div>
           </div>
 
-          {/* Transfer Type (Full vs Partial) */}
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            <button
-              type="button"
-              onClick={() => setTransferType('partial')}
-              className={`p-3 rounded-xl border text-xs font-bold transition text-left cursor-pointer ${
-                transferType === 'partial'
-                  ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 ring-2 ring-blue-500/20'
-                  : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              <div className="font-black mb-0.5">🔹 โอนบางส่วน (Partial)</div>
-              <div className="text-[10px] opacity-80">ระบุจำนวนชิ้นที่ต้องการโอน</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setTransferType('full')}
-              className={`p-3 rounded-xl border text-xs font-bold transition text-left cursor-pointer ${
-                transferType === 'full'
-                  ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 ring-2 ring-blue-500/20'
-                  : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              <div className="font-black mb-0.5">🌟 โอนสิทธิ์ทั้งหมด (Full)</div>
-              <div className="text-[10px] opacity-80">ยกโควตาคงเหลือทั้งหมดให้</div>
-            </button>
-          </div>
-
-          {/* Quantity Input (Only for Partial) */}
+          {/* Transfer Quantity (Only for Partial) */}
           {transferType === 'partial' && (
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                จำนวนที่ต้องการโอน ({itemInfo.label})
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                จำนวนสิทธิ์ที่ต้องการโอน ({itemInfo.label}):
               </label>
-              <input
-                type="number"
-                min={1}
-                max={20}
-                value={transferQty}
-                onChange={e => setTransferQty(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold font-mono outline-none focus:border-blue-500"
-                required
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={transferQty}
+                  disabled={isSubmitting}
+                  onChange={e => setTransferQty(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base font-black font-mono outline-none focus:border-blue-500 text-center disabled:opacity-50"
+                  required
+                />
+                <span className="text-xs text-slate-500 font-bold shrink-0">ชิ้น</span>
+              </div>
             </div>
           )}
 
           {/* Note */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              หมายเหตุ / เหตุผล (ไม่บังคับ)
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              เหตุผลหรือหมายเหตุ (ไม่บังคับ):
             </label>
             <input
               type="text"
-              placeholder="เช่น ยกสิทธิ์ให้เพื่อน, สมาชิกไม่อยู่"
+              placeholder="เช่น ยกสิทธิ์ให้เพื่อน, แลกไอเทมอื่น"
               value={note}
+              disabled={isSubmitting}
               onChange={e => setNote(e.target.value)}
-              className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500"
+              className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 disabled:opacity-50"
             />
           </div>
 
@@ -214,21 +237,22 @@ export default function AdminTransferModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
+              disabled={isSubmitting}
+              className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer disabled:opacity-50"
             >
               ยกเลิก
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !fromUserId || !toUserId}
               className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition disabled:opacity-50 cursor-pointer shadow-md flex items-center gap-2"
             >
               {isSubmitting ? (
-                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <Loader2 size={15} className="animate-spin" />
               ) : (
                 <CheckCircle2 size={15} />
               )}
-              {isSubmitting ? 'กำลังบันทึก...' : 'ยืนยันการโอนสิทธิ์'}
+              {isSubmitting ? 'กำลังโอนสิทธิ์...' : 'ยืนยันการโอนสิทธิ์'}
             </button>
           </div>
         </form>

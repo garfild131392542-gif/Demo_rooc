@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ItemType } from '@/app/actions/auction'
 import { ITEM_CONFIG } from '../constants'
 import { startOrConfigureRound, advanceToNextRound } from '@/app/actions/auction-rounds'
-import { X, Settings, FastForward, CheckCircle2, AlertCircle } from 'lucide-react'
+import { X, Settings, FastForward, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 
 type AdminRoundSettingsModalProps = {
   isOpen: boolean
@@ -29,6 +29,15 @@ export default function AdminRoundSettingsModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Sync baseQuota when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setBaseQuota(activeRound?.base_quota_per_member || 2)
+      setError(null)
+      setIsSubmitting(false)
+    }
+  }, [isOpen, activeRound])
+
   if (!isOpen) return null
 
   const itemInfo = ITEM_CONFIG[activeItem]
@@ -39,31 +48,45 @@ export default function AdminRoundSettingsModal({
     setIsSubmitting(true)
     setError(null)
 
-    if (isAdvance) {
-      const res = await advanceToNextRound(activeItem, Number(baseQuota) || 2, rolloverIncomplete)
-      setIsSubmitting(false)
-      if (res.success) {
-        onSuccess()
-        onClose()
+    try {
+      if (isAdvance) {
+        const res = await advanceToNextRound(activeItem, Number(baseQuota) || 2, rolloverIncomplete)
+        if (res.success) {
+          onSuccess()
+          onClose()
+        } else {
+          setError(res.error || 'เกิดข้อผิดพลาดในการขึ้นรอบใหม่')
+        }
       } else {
-        setError(res.error || 'เกิดข้อผิดพลาดในการขึ้นรอบใหม่')
+        const res = await startOrConfigureRound(activeItem, Number(baseQuota) || 2, currentRoundNum)
+        if (res.success) {
+          onSuccess()
+          onClose()
+        } else {
+          setError(res.error || 'เกิดข้อผิดพลาดในการตั้งค่ารอบ')
+        }
       }
-    } else {
-      const res = await startOrConfigureRound(activeItem, Number(baseQuota) || 2, currentRoundNum)
+    } catch (err: any) {
+      setError(err.message || 'เกิดข้อผิดพลาดที่ไม่คาดคิด')
+    } finally {
       setIsSubmitting(false)
-      if (res.success) {
-        onSuccess()
-        onClose()
-      } else {
-        setError(res.error || 'เกิดข้อผิดพลาดในการตั้งค่ารอบ')
-      }
     }
   }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 relative">
         
+        {/* Full-panel Loading Overlay */}
+        {isSubmitting && (
+          <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs z-20 flex flex-col items-center justify-center gap-3 animate-in fade-in duration-150">
+            <div className="w-10 h-10 border-3 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full animate-spin" />
+            <div className="text-xs font-bold text-slate-700 dark:text-slate-200 animate-pulse">
+              {isAdvance ? 'กำลังประมวลผลขึ้นรอบใหม่...' : 'กำลังบันทึกและอัปเดตโควตาสมาชิกทุกคน...'}
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
           <div className="flex items-center gap-2">
@@ -81,7 +104,8 @@ export default function AdminRoundSettingsModal({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg transition"
+            disabled={isSubmitting}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg transition disabled:opacity-50"
           >
             <X size={18} />
           </button>
@@ -107,14 +131,15 @@ export default function AdminRoundSettingsModal({
                 min={1}
                 max={50}
                 value={baseQuota}
+                disabled={isSubmitting}
                 onChange={e => setBaseQuota(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base font-black font-mono outline-none focus:border-blue-500 text-center"
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base font-black font-mono outline-none focus:border-blue-500 text-center disabled:opacity-50"
                 required
               />
               <span className="text-xs text-slate-500 font-bold shrink-0">ชิ้น / คน</span>
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              สมาชิกทุกคนในกิลด์จะได้รับโควตาเริ่มต้นคนละ {baseQuota} ชิ้นในรอบนี้
+              สมาชิกทุกคนในกิลด์จะได้รับโควตาสุทธิคนละ {baseQuota} ชิ้นในรอบนี้ (ระบบจะอัปเดตสมาชิกทุกคนทันที)
             </p>
           </div>
 
@@ -125,8 +150,9 @@ export default function AdminRoundSettingsModal({
                 <input
                   type="checkbox"
                   checked={rolloverIncomplete}
+                  disabled={isSubmitting}
                   onChange={e => setRolloverIncomplete(e.target.checked)}
-                  className="mt-0.5 rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  className="mt-0.5 rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer disabled:opacity-50"
                 />
                 <div>
                   <div className="text-xs font-bold text-blue-900 dark:text-blue-200">
@@ -145,7 +171,8 @@ export default function AdminRoundSettingsModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
+              disabled={isSubmitting}
+              className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer disabled:opacity-50"
             >
               ยกเลิก
             </button>
@@ -157,7 +184,7 @@ export default function AdminRoundSettingsModal({
               }`}
             >
               {isSubmitting ? (
-                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <Loader2 size={15} className="animate-spin" />
               ) : (
                 <CheckCircle2 size={15} />
               )}

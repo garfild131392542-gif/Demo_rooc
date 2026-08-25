@@ -166,33 +166,19 @@ export default function RoundMemberTabs({
           </button>
         </div>
 
-        {/* Right Tools: Admin Direct Award Button + Search */}
-        <div className="flex items-center gap-2 w-full lg:w-auto">
-          {isAdmin && (
-            <button
-              onClick={() => handleOpenAwardModal()}
-              disabled={selectablePendingMembers.length === 0}
-              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
-              title="เลือกสมาชิกที่พร้อมและมอบรางวัลโดยตรง"
-            >
-              <Award size={14} />
-              <span>เลือกคนรับสิทธิ์ประมูล</span>
-            </button>
-          )}
-
-          {activeTab !== 'logs' && (
-            <div className="relative flex-1 lg:w-56">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="ค้นหาชื่อหรือ UID..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 transition"
-              />
-            </div>
-          )}
-        </div>
+        {/* Right Tools: Search */}
+        {activeTab !== 'logs' && (
+          <div className="relative w-full lg:w-64">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="ค้นหาชื่อหรือ UID..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 transition"
+            />
+          </div>
+        )}
       </div>
 
       {/* Tab Contents */}

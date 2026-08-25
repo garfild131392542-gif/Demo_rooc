@@ -171,17 +171,44 @@ export async function startOrConfigureRound(itemName: ItemType, baseQuota: numbe
       })
     }
 
-    // ซิงค์สมาชิกทุกคนเข้าตาราง auction_round_members
+    // ซิงค์สมาชิกทุกคนเข้าตาราง auction_round_members และอัปเดต base_quota ให้ทุกคนในรอบ
     if (profiles && profiles.length > 0) {
       const { data: existingMembers } = await supabase
         .from('auction_round_members')
-        .select('user_id')
+        .select('*')
         .eq('round_id', roundId)
 
-      const existingUserIds = new Set((existingMembers || []).map(m => m.user_id))
+      const existingMap = new Map((existingMembers || []).map(m => [m.user_id, m]))
 
+      // 1. อัปเดต base_quota และ status ของสมาชิกเดิมทุกคนในรอบ
+      if (existingMembers && existingMembers.length > 0) {
+        for (const m of existingMembers) {
+          const target = baseQuota + (m.transferred_in_quota || 0) - (m.transferred_out_quota || 0)
+          let newStatus = m.status
+          if (m.status !== 'skipped' && m.status !== 'transferred') {
+            if (m.received_qty >= target && target > 0) {
+              newStatus = 'completed'
+            } else if (m.received_qty > 0) {
+              newStatus = 'in_progress'
+            } else {
+              newStatus = 'pending'
+            }
+          }
+
+          await supabase
+            .from('auction_round_members')
+            .update({
+              base_quota: baseQuota,
+              status: newStatus,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', m.id)
+        }
+      }
+
+      // 2. ถ้ามีสมาชิกใหม่ที่ยังไม่มีในรอบนี้ ให้เพิ่มเข้าไป
       const newMembers = profiles
-        .filter(p => !existingUserIds.has(p.id))
+        .filter(p => !existingMap.has(p.id))
         .map((p, idx) => ({
           round_id: roundId,
           guild_id: guildId,
@@ -199,6 +226,21 @@ export async function startOrConfigureRound(itemName: ItemType, baseQuota: numbe
       if (newMembers.length > 0) {
         await supabase.from('auction_round_members').insert(newMembers)
       }
+
+      // 3. คำนวณยอด completed members count ให้ถูกต้อง
+      const { count: completedCount } = await supabase
+        .from('auction_round_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('round_id', roundId)
+        .eq('status', 'completed')
+
+      await supabase
+        .from('auction_rounds')
+        .update({
+          completed_members_count: completedCount || 0,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', roundId)
     }
 
     revalidatePath('/auction')

@@ -149,16 +149,20 @@ export default function AuctionWindow({
   const [settingsMode, setSettingsMode] = useState<'settings' | 'advance'>('settings');
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
   const [selectedMemberForAction, setSelectedMemberForAction] = useState<any>(null);
+  // Stable identifier for active round to prevent infinite re-render loops
+  const currentActiveRoundObj = roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem);
+  const activeRoundId = currentActiveRoundObj?.id;
+  const activeRoundUpdated = currentActiveRoundObj?.updated_at;
 
-  // ดึงข้อมูลสมาชิกและ Logs ของรอบเมื่อเปลี่ยนไอเทมหรือเปิดแท็บรอบ
-  const fetchRoundDetails = async (itemName: AuctionItemType) => {
+  // ดึงข้อมูลสมาชิกและ Logs ของรอบเมื่อเปลี่ยนไอเทมหรือเปิดแท็บรอบ (Optimized without re-render loop)
+  const fetchRoundDetails = async (itemName: AuctionItemType, showLoading: boolean = false) => {
     const activeRound = roundsOverview?.activeRounds?.find((r: any) => r.item_name === itemName);
     if (!activeRound) {
       setRoundMembers([]);
       setRoundLogs([]);
       return;
     }
-    setIsLoadingRoundData(true);
+    if (showLoading) setIsLoadingRoundData(true);
     try {
       const [membersRes, logsRes] = await Promise.all([
         getRoundMembersList(activeRound.id),
@@ -169,15 +173,15 @@ export default function AuctionWindow({
     } catch (e) {
       console.error('fetchRoundDetails error:', e);
     } finally {
-      setIsLoadingRoundData(false);
+      if (showLoading) setIsLoadingRoundData(false);
     }
   };
 
   useEffect(() => {
-    if (viewMode === "rounds") {
-      fetchRoundDetails(activeRoundItem);
+    if (viewMode === "rounds" && activeRoundId) {
+      fetchRoundDetails(activeRoundItem, roundMembers.length === 0);
     }
-  }, [viewMode, activeRoundItem, roundsOverview]);
+  }, [viewMode, activeRoundItem, activeRoundId, activeRoundUpdated]);
 
   const editingQueue = editQueueId
     ? memberQueues.find((q) => q.id === editQueueId)

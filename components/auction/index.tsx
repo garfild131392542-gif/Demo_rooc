@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveAuctionSession, getTodayAuctionDashboard, getAuctionHistory } from '@/app/actions/auction'
 import { getGuildRoundsOverview } from '@/app/actions/auction-rounds'
@@ -29,7 +29,8 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
       }
     },
     initialData,
-    refetchInterval: 15000, // Auto-poll every 15s to sync real-time changes
+    refetchInterval: false, // ⚡ Disable polling loop since Supabase Realtime WebSocket handles updates instantly!
+    staleTime: 5000,
   })
   
   const { isAdmin, todayItems, memberQueues, myProfile, history = [], guildMembers = [], roundsData = null } = data
@@ -89,29 +90,28 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
     }
   }, [todayItems])
 
-  // ⚡ Supabase Realtime Channel: ซิงค์ข้อมูลข้ามเครื่องอัตโนมัติแบบ Live WebSocket
+  // ⚡ Supabase Realtime Channel: ซิงค์ข้อมูลข้ามเครื่องอัตโนมัติแบบ Live WebSocket (Debounced 200ms)
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
   useEffect(() => {
     const supabase = createClient()
+    const debouncedRefetch = () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => {
+        refetch()
+      }, 200)
+    }
+
     const channel = supabase
       .channel('auction_realtime_board')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_rounds' }, () => {
-        refetch()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_round_members' }, () => {
-        refetch()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_round_transfers' }, () => {
-        refetch()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_round_logs' }, () => {
-        refetch()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_queues' }, () => {
-        refetch()
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_rounds' }, debouncedRefetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_round_members' }, debouncedRefetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_round_transfers' }, debouncedRefetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_round_logs' }, debouncedRefetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auction_queues' }, debouncedRefetch)
       .subscribe()
 
     return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
       supabase.removeChannel(channel)
     }
   }, [refetch])

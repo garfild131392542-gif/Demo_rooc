@@ -562,7 +562,16 @@ export default function RoundMemberTabs({
                     min={1}
                     max={selectedRemaining || 10}
                     value={awardQty}
-                    onChange={e => setAwardQty(Math.max(1, Math.min(selectedRemaining || 10, parseInt(e.target.value) || 1)))}
+                    onFocus={e => e.target.select()}
+                    onChange={e => setAwardQty(e.target.value as any)}
+                    onBlur={e => {
+                      const val = parseInt(e.target.value)
+                      if (isNaN(val) || val < 1) {
+                        setAwardQty(1)
+                      } else {
+                        setAwardQty(Math.min(selectedRemaining || 10, val))
+                      }
+                    }}
                     className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base font-black font-mono outline-none focus:border-green-500 text-center"
                     required
                   />

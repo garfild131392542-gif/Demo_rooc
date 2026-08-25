@@ -32,11 +32,11 @@ export default function AdminRoundSettingsModal({
   const currentRoundNum = activeRound?.round_number || 1
 
   // Single item state (for advance mode)
-  const [singleQuota, setSingleQuota] = useState(activeRound?.base_quota_per_member || 2)
+  const [singleQuota, setSingleQuota] = useState<string | number>(activeRound?.base_quota_per_member || 2)
   const [rolloverIncomplete, setRolloverIncomplete] = useState(true)
 
-  // 🌟 Unified 4-Item Batch Quotas State
-  const [batchQuotas, setBatchQuotas] = useState<Record<ItemType, number>>({
+  // 🌟 Unified 4-Item Batch Quotas State (allow empty string for smooth typing)
+  const [batchQuotas, setBatchQuotas] = useState<Record<ItemType, string | number>>({
     Album: 2,
     Puppet: 2,
     White: 3,
@@ -51,8 +51,7 @@ export default function AdminRoundSettingsModal({
     if (isOpen) {
       setSingleQuota(activeRound?.base_quota_per_member || 2)
       
-      // Load current quotas for all 4 items from activeRounds
-      const initialQuotas: Record<ItemType, number> = {
+      const initialQuotas: Record<ItemType, string | number> = {
         Album: 2,
         Puppet: 2,
         White: 3,
@@ -84,7 +83,8 @@ export default function AdminRoundSettingsModal({
 
     try {
       if (isAdvance) {
-        const res = await advanceToNextRound(activeItem, Number(singleQuota) || 2, rolloverIncomplete)
+        const sanitizedSingle = Math.max(1, parseInt(String(singleQuota)) || 1)
+        const res = await advanceToNextRound(activeItem, sanitizedSingle, rolloverIncomplete)
         if (res.success) {
           onSuccess()
           onClose()
@@ -92,8 +92,14 @@ export default function AdminRoundSettingsModal({
           setError(res.error || 'เกิดข้อผิดพลาดในการขึ้นรอบใหม่')
         }
       } else {
-        // 🌟 Unified Save for all 4 items in 1 single click!
-        const res = await batchConfigureAllRoundQuotas(batchQuotas)
+        const sanitizedBatch: Record<ItemType, number> = {
+          Album: Math.max(1, parseInt(String(batchQuotas.Album)) || 1),
+          Puppet: Math.max(1, parseInt(String(batchQuotas.Puppet)) || 1),
+          White: Math.max(1, parseInt(String(batchQuotas.White)) || 1),
+          RedBlack: Math.max(1, parseInt(String(batchQuotas.RedBlack)) || 1),
+        }
+
+        const res = await batchConfigureAllRoundQuotas(sanitizedBatch)
         if (res.success) {
           onSuccess()
           onClose()
@@ -198,11 +204,18 @@ export default function AdminRoundSettingsModal({
                           type="number"
                           min={1}
                           max={50}
-                          value={batchQuotas[itemKey] || 1}
+                          value={batchQuotas[itemKey] ?? ''}
                           disabled={isSubmitting}
+                          onFocus={e => e.target.select()}
                           onChange={e => {
-                            const val = Math.max(1, parseInt(e.target.value) || 1)
+                            const val = e.target.value
                             setBatchQuotas(prev => ({ ...prev, [itemKey]: val }))
+                          }}
+                          onBlur={e => {
+                            const val = parseInt(e.target.value)
+                            if (isNaN(val) || val < 1) {
+                              setBatchQuotas(prev => ({ ...prev, [itemKey]: 1 }))
+                            }
                           }}
                           className="w-16 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-black font-mono text-center outline-none focus:border-blue-500 disabled:opacity-50"
                           required
@@ -233,9 +246,16 @@ export default function AdminRoundSettingsModal({
                     type="number"
                     min={1}
                     max={50}
-                    value={singleQuota}
+                    value={singleQuota ?? ''}
                     disabled={isSubmitting}
-                    onChange={e => setSingleQuota(Math.max(1, parseInt(e.target.value) || 1))}
+                    onFocus={e => e.target.select()}
+                    onChange={e => setSingleQuota(e.target.value)}
+                    onBlur={e => {
+                      const val = parseInt(e.target.value)
+                      if (isNaN(val) || val < 1) {
+                        setSingleQuota(1)
+                      }
+                    }}
                     className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base font-black font-mono outline-none focus:border-emerald-500 text-center disabled:opacity-50"
                     required
                   />

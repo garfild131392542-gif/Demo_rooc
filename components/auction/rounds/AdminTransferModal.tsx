@@ -208,7 +208,12 @@ export default function AdminTransferModal({
                   max={20}
                   value={transferQty}
                   disabled={isSubmitting}
-                  onChange={e => setTransferQty(Math.max(1, parseInt(e.target.value) || 1))}
+                  onFocus={e => e.target.select()}
+                  onChange={e => setTransferQty(e.target.value as any)}
+                  onBlur={e => {
+                    const val = parseInt(e.target.value)
+                    if (isNaN(val) || val < 1) setTransferQty(1)
+                  }}
                   className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base font-black font-mono outline-none focus:border-blue-500 text-center disabled:opacity-50"
                   required
                 />

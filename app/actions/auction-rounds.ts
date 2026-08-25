@@ -241,6 +241,24 @@ export async function startOrConfigureRound(itemName: ItemType, baseQuota: numbe
           updated_at: new Date().toISOString(),
         })
         .eq('id', roundId)
+
+      // 4. ⚡ Auto Re-allocate สล็อตของวันนี้ทันที (ถ้ามี session เปิดใช้งานอยู่)
+      const today = new Date().toISOString().split('T')[0]
+      const { data: todaySession } = await supabase
+        .from('auction_sessions')
+        .select('*')
+        .eq('guild_id', guildId)
+        .eq('item_name', itemName)
+        .eq('session_date', today)
+        .maybeSingle()
+
+      if (todaySession && Number(todaySession.total_quantity) > 0) {
+        await autoPopulateSlotsFromRound(
+          itemName,
+          Number(todaySession.total_quantity),
+          Number(todaySession.personal_limit) || baseQuota
+        )
+      }
     }
 
     revalidatePath('/auction')

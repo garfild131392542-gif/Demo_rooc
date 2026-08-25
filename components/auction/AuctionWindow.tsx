@@ -1243,8 +1243,9 @@ export default function AuctionWindow({
                         }
                       }}
                       onRefresh={() => {
+                        roundCacheRef.current = {};
                         onRefresh();
-                        fetchRoundDetails(activeRoundItem);
+                        fetchRoundDetails(activeRoundItem, true);
                       }}
                       isLoading={isLoadingRoundData}
                     />
@@ -1265,8 +1266,9 @@ export default function AuctionWindow({
                           const { skipOrDeferRoundMember } = await import('@/app/actions/auction-rounds');
                           const res = await skipOrDeferRoundMember(member.id, reason);
                           if (res.success) {
+                            roundCacheRef.current = {};
                             onRefresh();
-                            fetchRoundDetails(activeRoundItem);
+                            fetchRoundDetails(activeRoundItem, true);
                           } else {
                             alert('เกิดข้อผิดพลาด: ' + res.error);
                           }
@@ -1277,8 +1279,9 @@ export default function AuctionWindow({
                         setIsTransferModalOpen(true);
                       }}
                       onRefreshData={() => {
+                        roundCacheRef.current = {};
                         onRefresh();
-                        fetchRoundDetails(activeRoundItem);
+                        fetchRoundDetails(activeRoundItem, true);
                       }}
                       isLoading={isLoadingRoundData}
                     />
@@ -1296,8 +1299,9 @@ export default function AuctionWindow({
         isOpen={isTransferModalOpen}
         onClose={() => setIsTransferModalOpen(false)}
         onSuccess={() => {
+          roundCacheRef.current = {};
           onRefresh();
-          fetchRoundDetails(activeRoundItem);
+          fetchRoundDetails(activeRoundItem, true);
         }}
         activeItem={activeRoundItem}
         guildMembers={guildMembers}
@@ -1309,8 +1313,9 @@ export default function AuctionWindow({
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         onSuccess={() => {
+          roundCacheRef.current = {};
           onRefresh();
-          fetchRoundDetails(activeRoundItem);
+          fetchRoundDetails(activeRoundItem, true);
         }}
         activeItem={activeRoundItem}
         activeRound={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)}
@@ -1321,8 +1326,9 @@ export default function AuctionWindow({
         isOpen={isSwapModalOpen}
         onClose={() => setIsSwapModalOpen(false)}
         onSuccess={() => {
+          roundCacheRef.current = {};
           onRefresh();
-          fetchRoundDetails(activeRoundItem);
+          fetchRoundDetails(activeRoundItem, true);
         }}
         targetMember={selectedMemberForAction}
         pendingMembers={roundMembers.filter(m => m.status !== 'completed')}

@@ -41,8 +41,10 @@ type AuctionHistoryEntry = {
 // 💡 เรียกใช้ actions ต่างๆ ของระบบประมูลคิว
 import {
   awardAuctionQueue,
+  batchAwardAuctionQueues,
   deleteAuctionQueueReservation,
   revertAuctionQueue,
+  batchRevertAuctionQueues,
   syncMemberAuctionQueue,
   clearQueueByItemType,
 } from "@/app/actions/auction";
@@ -55,7 +57,7 @@ import AdminRoundSettingsModal from "./rounds/AdminRoundSettingsModal";
 import AdminSwapModal from "./rounds/AdminSwapModal";
 import { getRoundMembersList, getRoundAuditLogs, autoPopulateSlotsFromRound } from "@/app/actions/auction-rounds";
 import { captureAndDownload } from "@/lib/export-image";
-import { Pencil, Trash2, Clock, CheckCircle2, ShieldAlert, Sparkles, AlertCircle } from "lucide-react";
+import { Pencil, Trash2, Clock, CheckCircle2, ShieldAlert, Sparkles, AlertCircle, Search } from "lucide-react";
 
 type AuctionWindowProps = {
   isAdmin: boolean;
@@ -139,6 +141,41 @@ export default function AuctionWindow({
   const [editLoading, setEditLoading] = useState(false);
   const [exportingType, setExportingType] = useState<AuctionItemType | null>(null);
 
+  // 🌟 Batch Selection / Staging State (ติ๊กเลือกก่อน แล้วกดยืนยันบันทึกทีเดียว)
+  const [stagedQueueIds, setStagedQueueIds] = useState<Set<string>>(new Set());
+  const [isBatchSubmitting, setIsBatchSubmitting] = useState(false);
+
+  // 📜 History Tab Pagination, Filter & Local Optimistic States
+  const [localHistory, setLocalHistory] = useState<AuctionHistoryEntry[]>(history || []);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const [historyItemFilter, setHistoryItemFilter] = useState<"all" | AuctionItemType>("all");
+  const [stagedHistoryIds, setStagedHistoryIds] = useState<Set<string | number>>(new Set());
+  const [isBatchHistoryDeleting, setIsBatchHistoryDeleting] = useState(false);
+
+  useEffect(() => {
+    if (history) {
+      setLocalHistory(history);
+    }
+  }, [history]);
+
+  // 🌟 Sync confirmedSlots with memberQueues: If server says status is waiting or received_qty is 0, purge confirmedSlots
+  useEffect(() => {
+    if (memberQueues && Array.isArray(memberQueues)) {
+      setConfirmedSlots((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        memberQueues.forEach((q: any) => {
+          if (q.status === 'waiting' && next[String(q.id)]) {
+            delete next[String(q.id)];
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }
+  }, [memberQueues]);
+
   // 🏆 Round Management States
   const [activeRoundItem, setActiveRoundItem] = useState<AuctionItemType>("Album");
   const [roundMembers, setRoundMembers] = useState<any[]>([]);
@@ -169,8 +206,9 @@ export default function AuctionWindow({
     const cached = roundCacheRef.current[itemName];
     const hasCache = cached && Array.isArray(cached.members) && cached.members.length > 0;
 
-    // 🚀 ถ้ามีแคชในความจำ ให้แสดงผลทันทีแบบ 0ms ไม่ต้องรอโหลด!
-    if (hasCache) {
+    if (forceShowLoading) {
+      setIsLoadingRoundData(true);
+    } else if (hasCache) {
       setRoundMembers(cached.members);
       setRoundLogs(cached.logs);
     } else {
@@ -179,14 +217,10 @@ export default function AuctionWindow({
       setIsLoadingRoundData(true);
     }
 
-    if (forceShowLoading && !hasCache) {
-      setIsLoadingRoundData(true);
-    }
-
     try {
       const [membersRes, logsRes] = await Promise.all([
         getRoundMembersList(activeRound.id),
-        getRoundAuditLogs(itemName, activeRound.round_number),
+        getRoundAuditLogs(itemName),
       ]);
 
       const newMembers = membersRes.success ? (membersRes.members || []) : [];
@@ -270,7 +304,162 @@ export default function AuctionWindow({
     await onRefresh();
   };
 
+  // 🌟 Toggle เลือกสล็อต (Staging 0ms Instant Click)
+  const toggleStageQueue = (queueId: string) => {
+    setStagedQueueIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(queueId)) {
+        next.delete(queueId);
+      } else {
+        next.add(queueId);
+      }
+      return next;
+    });
+  };
+
+  // 🌟 กดยืนยันบันทึกผลการประมูลแบบกลุ่ม (Batch 1-Click Multi-Award)
+  const handleBatchSubmit = async () => {
+    if (stagedQueueIds.size === 0) return;
+    setIsBatchSubmitting(true);
+
+    try {
+      const queueIdArray = Array.from(stagedQueueIds);
+      const result = await batchAwardAuctionQueues(queueIdArray);
+
+      if (result.success) {
+        // อัปเดต state ในเครื่องทันทีให้อยู่สถานะสำเร็จถาวร
+        setConfirmedSlots((prev) => {
+          const next = { ...prev };
+          queueIdArray.forEach((qId) => {
+            next[qId] = {
+              status: "confirmed",
+              awardedQty: 1,
+            };
+          });
+          return next;
+        });
+
+        // 🌟 อัปเดตรายการประวัติทันที 0ms (Optimistic History Prepend)
+        const newHistoryItems: AuctionHistoryEntry[] = queueIdArray.map((qId) => {
+          const slotInfo = rawSlots?.find(s => s.queueId === qId) || memberQueues?.find(q => q.id === qId);
+          return {
+            id: qId,
+            item_name: ((slotInfo as any)?.type || (slotInfo as any)?.item_type || 'Album') as AuctionItemType,
+            display_name: (slotInfo as any)?.assignedTo || (slotInfo as any)?.display_name || 'สมาชิก',
+            uid_game: (slotInfo as any)?.uid || (slotInfo as any)?.uid_game || '-',
+            requested_qty: (slotInfo as any)?.requestedQty || (slotInfo as any)?.requested_qty || 1,
+            awarded_qty: 1,
+            status: 'completed',
+            awarded_at: new Date().toISOString(),
+          };
+        });
+
+        setLocalHistory((prev) => {
+          const existingIds = new Set(prev.map((p) => String(p.id)));
+          const toAdd = newHistoryItems.filter((item) => !existingIds.has(String(item.id)));
+          return [...toAdd, ...prev];
+        });
+
+        // ล้างรายการที่เลือก
+        setStagedQueueIds(new Set());
+
+        // เคลียร์แคชรอบเพื่อให้ดึงยอดสะสมล่าสุด
+        roundCacheRef.current = {};
+
+        if (onRefresh) await onRefresh();
+      } else {
+        alert(result.error || "เกิดข้อผิดพลาดในการบันทึกผลการประมูล");
+      }
+    } catch (err: any) {
+      alert(err.message || "เกิดข้อผิดพลาดที่ไม่คาดคิด");
+    } finally {
+      setIsBatchSubmitting(false);
+    }
+  };
+
+  // 🌟 Toggle เลือกประวัติเพื่อลบ (History Batch Selection)
+  const toggleStageHistory = (historyId: string | number) => {
+    setStagedHistoryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(historyId)) {
+        next.delete(historyId);
+      } else {
+        next.add(historyId);
+      }
+      return next;
+    });
+  };
+
+  // 🌟 เลือกทั้งหมดในหน้านี้ (Select All on current page)
+  const handleSelectAllHistory = (itemsOnPage: any[]) => {
+    setStagedHistoryIds((prev) => {
+      const allSelected = itemsOnPage.every((item) => prev.has(item.id));
+      const next = new Set(prev);
+      if (allSelected) {
+        itemsOnPage.forEach((item) => next.delete(item.id));
+      } else {
+        itemsOnPage.forEach((item) => next.add(item.id));
+      }
+      return next;
+    });
+  };
+
+  // 🌟 กดยืนยันลบประวัติแบบกลุ่ม (Batch Delete)
+  const handleBatchHistoryDelete = async () => {
+    if (stagedHistoryIds.size === 0) return;
+    if (!confirm(`ยืนยันการลบประวัติ ${stagedHistoryIds.size} รายการ? (คิวทั้งหมดจะถูกดึงกลับไปรอแจกใหม่ที่หน้ากระดานหลัก)`)) {
+      return;
+    }
+
+    setIsBatchHistoryDeleting(true);
+    const idsToDelete = Array.from(stagedHistoryIds);
+
+    // Optimistic Update: ซ่อนรายการออกจาก UI ทันที และเคลียร์สถานะสำเร็จของสล็อต
+    setDeletedHistoryIds((prev) => {
+      const next = new Set(prev);
+      idsToDelete.forEach((id) => next.add(id));
+      return next;
+    });
+    setLocalHistory((prev) => prev.filter((item) => !stagedHistoryIds.has(item.id)));
+    setConfirmedSlots((prev) => {
+      const next = { ...prev };
+      idsToDelete.forEach((id) => delete next[String(id)]);
+      return next;
+    });
+
+    try {
+      const result = await batchRevertAuctionQueues(idsToDelete);
+
+      if (result.success) {
+        setStagedHistoryIds(new Set());
+        roundCacheRef.current = {};
+        if (onRefresh) await onRefresh();
+      } else {
+        // Rollback
+        setDeletedHistoryIds((prev) => {
+          const next = new Set(prev);
+          idsToDelete.forEach((id) => next.delete(id));
+          return next;
+        });
+        if (onRefresh) await onRefresh();
+        alert(result.error || "เกิดข้อผิดพลาดในการลบประวัติแบบกลุ่ม");
+      }
+    } catch (err: any) {
+      // Rollback
+      setDeletedHistoryIds((prev) => {
+        const next = new Set(prev);
+        idsToDelete.forEach((id) => next.delete(id));
+        return next;
+      });
+      if (onRefresh) await onRefresh();
+      alert(err.message || "เกิดข้อผิดพลาดที่ไม่คาดคิด");
+    } finally {
+      setIsBatchHistoryDeleting(false);
+    }
+  };
+
   const renderSlotRow = (slot: AuctionSlot, index: number) => {
+    const isStaged = slot.queueId ? stagedQueueIds.has(slot.queueId) : false;
     const confirmed = slot.queueId ? confirmedSlots[slot.queueId] : undefined;
     const localReceived = confirmed?.awardedQty !== undefined
       ? Math.max(confirmed.awardedQty, slot.receivedQty ?? 0)
@@ -286,7 +475,13 @@ export default function AuctionWindow({
     return (
       <div
         key={slot.id}
-        className={`flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4 p-4 rounded-2xl border transition-all ${slot.isMe ? "bg-blue-50 dark:bg-blue-900/40 border-blue-300 dark:border-blue-500 shadow-md" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md"} ${slot.isEmpty ? "opacity-80 hover:opacity-100 bg-slate-50/50 dark:bg-slate-800/50" : ""}`}
+        className={`flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4 p-4 rounded-2xl border transition-all ${
+          isStaged
+            ? "bg-blue-50/80 dark:bg-blue-950/40 border-blue-400 dark:border-blue-500 shadow-sm"
+            : slot.isMe
+            ? "bg-blue-50 dark:bg-blue-900/40 border-blue-300 dark:border-blue-500 shadow-md"
+            : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md"
+        } ${slot.isEmpty ? "opacity-80 hover:opacity-100 bg-slate-50/50 dark:bg-slate-800/50" : ""}`}
       >
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <div className="shrink-0 flex items-center justify-center">
@@ -333,6 +528,10 @@ export default function AuctionWindow({
                   <span className="text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200 font-bold whitespace-nowrap">
                     ประมูลเสร็จแล้ว
                   </span>
+                ) : isStaged ? (
+                  <span className="text-xs px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 font-bold whitespace-nowrap animate-pulse">
+                    เลือกไว้แล้ว
+                  </span>
                 ) : (
                   <span className="text-xs px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300 font-bold whitespace-nowrap">
                     รอประมูล
@@ -373,63 +572,24 @@ export default function AuctionWindow({
                   <button
                     type="button"
                     disabled={
-                      actionLoading[slot.queueId] || localRemaining <= 0 || computedCompleted
+                      localRemaining <= 0 || computedCompleted || isBatchSubmitting
                     }
-                    onClick={async () => {
-                      if (!slot.queueId) return;
-
-                      setActionLoading((prev) => ({
-                        ...prev,
-                        [slot.queueId!]: true,
-                      }));
-
-                      const targetQty = (slot.receivedQty ?? 0) + 1;
-                      setConfirmedSlots((prev) => ({
-                        ...prev,
-                        [slot.queueId!]: {
-                          awardedQty: targetQty,
-                          status: "confirmed",
-                        },
-                      }));
-
-                      const result = await awardAuctionQueue(slot.queueId, 1);
-
-                      setActionLoading((prev) => ({
-                        ...prev,
-                        [slot.queueId!]: false,
-                      }));
-
-                      if (result?.success) {
-                        // 🌟 Keep confirmedSlots active so the slot stays permanently completed and never flashes green!
-                        if (onRefresh) await onRefresh();
-                      } else {
-                        setConfirmedSlots((prev) => {
-                          const next = { ...prev };
-                          delete next[slot.queueId!];
-                          return next;
-                        });
-                        alert(result?.error || 'เกิดข้อผิดพลาดในการประมูล');
-                      }
+                    onClick={() => {
+                      if (!slot.queueId || computedCompleted) return;
+                      toggleStageQueue(slot.queueId);
                     }}
-                    className={`w-full sm:w-auto rounded-xl text-sm font-bold px-6 py-3 disabled:opacity-50 transition-all shadow-md whitespace-nowrap flex items-center justify-center gap-2 ${computedCompleted
+                    className={`w-full sm:w-auto rounded-xl text-sm font-bold px-6 py-3 disabled:opacity-50 transition-all shadow-md whitespace-nowrap flex items-center justify-center gap-2 ${
+                      computedCompleted
                         ? 'bg-slate-200 dark:bg-slate-700 text-slate-500 cursor-not-allowed shadow-none'
+                        : isStaged
+                        ? 'cursor-pointer bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-blue-500/30 ring-2 ring-blue-400'
                         : 'cursor-pointer bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-emerald-500/20'
-                      }`}
+                    }`}
                   >
-                    {actionLoading[slot.queueId] ? (
-                      <>
-                        <svg
-                          className="animate-spin h-4 w-4 text-white"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                        >
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                        </svg>
-                        กำลัง...
-                      </>
-                    ) : computedCompleted ? (
+                    {computedCompleted ? (
                       <><span>✅</span> สำเร็จ</>
+                    ) : isStaged ? (
+                      <><span>✓</span> เลือกแล้ว</>
                     ) : (
                       <>ประมูล</>
                     )}
@@ -560,7 +720,10 @@ export default function AuctionWindow({
             </button>
           )}
           <button
-            onClick={() => setViewMode("history")}
+            onClick={() => {
+              setViewMode("history");
+              if (onRefresh) onRefresh();
+            }}
             className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${viewMode === "history" ? "bg-white text-blue-600 shadow-md font-extrabold" : "bg-white/15 hover:bg-white/25 text-white"}`}
           >
             ประวัติการประมูล
@@ -961,107 +1124,297 @@ export default function AuctionWindow({
               )}
             </div>
           ) : viewMode === "history" ? (
-            <div className="flex-1 flex flex-col justify-start space-y-4">
-              <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                Auction History
+            <div className="flex-1 flex flex-col justify-start space-y-3">
+              {/* Row 1: Title & Item Filter Pills */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base font-black text-slate-800 dark:text-slate-100">
+                    ประวัติการประมูล
+                  </span>
+                  <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider hidden sm:inline">
+                    Auction History
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60">
+                    {(localHistory || []).filter((entry) => !deletedHistoryIds.has(entry.id)).length} รายการ
+                  </span>
+                </div>
+
+                {/* Item Filter Tabs */}
+                <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 self-start lg:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHistoryItemFilter("all");
+                      setHistoryPage(1);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      historyItemFilter === "all"
+                        ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs"
+                        : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    ทั้งหมด
+                  </button>
+                  {(['Album', 'Puppet', 'White', 'RedBlack'] as const).map(type => (
+                    <button
+                      key={`history-filter-${type}`}
+                      type="button"
+                      onClick={() => {
+                        setHistoryItemFilter(type);
+                        setHistoryPage(1);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        historyItemFilter === type
+                          ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs"
+                          : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      {ITEM_CONFIG[type]?.label || type}
+                    </button>
+                  ))}
+                </div>
               </div>
+
               {(() => {
-                const displayedHistory = (history || []).filter((entry) => !deletedHistoryIds.has(entry.id));
-                return displayedHistory.length > 0 ? (
-                  <div className="space-y-3">
-                    {displayedHistory.map((entry) => (
-                      <div key={entry.id} className="flex flex-wrap xl:flex-nowrap justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl items-center">
+                const HISTORY_PER_PAGE = 8;
+                let displayedHistory = (localHistory || []).filter((entry) => !deletedHistoryIds.has(entry.id));
 
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`relative w-14 h-14 bg-linear-to-b ${ITEM_CONFIG[entry.item_name as AuctionItemType]?.color || "from-slate-200/40 to-slate-400/10"} rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center`}
+                if (historyItemFilter !== "all") {
+                  displayedHistory = displayedHistory.filter(e => e.item_name === historyItemFilter);
+                }
+
+                if (historySearchQuery.trim()) {
+                  const q = historySearchQuery.toLowerCase().trim();
+                  displayedHistory = displayedHistory.filter(e =>
+                    e.display_name?.toLowerCase().includes(q) || e.uid_game?.toLowerCase().includes(q)
+                  );
+                }
+
+                const totalHistoryPages = Math.max(1, Math.ceil(displayedHistory.length / HISTORY_PER_PAGE));
+                const safeHistoryPage = Math.min(historyPage, totalHistoryPages);
+                const paginatedHistory = displayedHistory.slice(
+                  (safeHistoryPage - 1) * HISTORY_PER_PAGE,
+                  safeHistoryPage * HISTORY_PER_PAGE
+                );
+
+                return (
+                  <>
+                    {/* Row 2: Secondary Toolbar (Select All & Search Box) */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-2 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                      <div className="flex items-center gap-2">
+                        {isAdmin && paginatedHistory.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAllHistory(paginatedHistory)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer flex items-center gap-1.5 ${
+                              paginatedHistory.length > 0 && paginatedHistory.every(item => stagedHistoryIds.has(item.id))
+                                ? "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+                                : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700"
+                            }`}
                           >
-                            <Image
-                              src={
-                                ITEM_CONFIG[entry.item_name as AuctionItemType]
-                                  ?.icon || "/auction/Puppet.png"
-                              }
-                              alt={entry.item_name}
-                              fill
-                              className="object-contain p-2"
-                              sizes="56px"
-                            />
-                          </div>
-
-                          <div>
-                            <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                              {entry.display_name}
-                            </div>
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                              {entry.uid_game}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2 mt-2 xl:mt-0">
-                          <div className="flex items-center justify-center w-24 sm:w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-                            <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
-                              จอง {entry.requested_qty}
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-center w-24 sm:w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-                            <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
-                              ได้รับ {entry.awarded_qty}
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-center w-24 sm:w-30 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-                            <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
-                              {entry.status}
-                            </div>
-                          </div>
-                          <div className="gap-2 flex flex-col sm:flex-row items-center justify-center w-full sm:w-auto bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-                            <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100">
-                              วันที่ประมูล
-                            </div>
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400 text-center sm:text-left">
-                              {entry.awarded_at
-                                ? new Date(entry.awarded_at).toLocaleString("th-TH")
-                                : "ไม่ระบุ"}
-                            </div>
-                          </div>
-
-                          {isAdmin && (
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                if (!confirm("ยืนยันการลบประวัติ? (คิวจะถูกดึงกลับไปรอแจกใหม่ที่หน้ากระดานหลัก)")) return;
-
-                                // Optimistic Update: ซ่อนรายการออกจากหน้าจอทันที ไม่ต้องรอเซิร์ฟเวอร์
-                                setDeletedHistoryIds((prev) => new Set(prev).add(entry.id));
-
-                                const result = await revertAuctionQueue(entry.id);
-
-                                if (!result.success) {
-                                  // Rollback หากลบไม่สำเร็จ
-                                  setDeletedHistoryIds((prev) => {
-                                    const next = new Set(prev);
-                                    next.delete(entry.id);
-                                    return next;
-                                  });
-                                  alert("ไม่สามารถลบได้: " + result.error);
-                                } else {
-                                  if (onRefresh) await onRefresh();
-                                }
-                              }}
-                              className="w-full sm:w-auto cursor-pointer flex items-center justify-center bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400 dark:hover:bg-rose-900/40 px-6 py-2 h-[42px] rounded-xl border border-rose-200 dark:border-rose-800/50 text-sm font-bold transition-all disabled:opacity-50 shadow-sm"
-                            >
-                              ลบ
-                            </button>
-                          )}
-                        </div>
-
+                            <span>{paginatedHistory.length > 0 && paginatedHistory.every(item => stagedHistoryIds.has(item.id)) ? "ยกเลิกเลือกทั้งหมดในหน้านี้" : "☑️ เลือกทั้งหมดในหน้านี้"}</span>
+                          </button>
+                        )}
+                        {stagedHistoryIds.size > 0 && (
+                          <span className="text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 px-2.5 py-1 rounded-xl">
+                            เลือกแล้ว {stagedHistoryIds.size} รายการ
+                          </span>
+                        )}
                       </div>
-                    ))}
+
+                      <div className="relative w-full sm:w-60">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="ค้นหาชื่อ หรือ UID..."
+                          value={historySearchQuery}
+                          onChange={(e) => {
+                            setHistorySearchQuery(e.target.value);
+                            setHistoryPage(1);
+                          }}
+                          className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    {displayedHistory.length > 0 ? (
+                      <div className="space-y-3">
+                    {/* Scrollable Container with Custom Scrollbar */}
+                    <div className="max-h-[500px] overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-300">
+                      {paginatedHistory.map((entry) => {
+                        const isStaged = stagedHistoryIds.has(entry.id);
+
+                        return (
+                          <div
+                            key={entry.id}
+                            className={`flex flex-wrap xl:flex-nowrap justify-between gap-4 p-4 rounded-2xl items-center transition ${
+                              isStaged
+                                ? "bg-rose-50/80 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-700 shadow-sm"
+                                : "bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xs hover:shadow-xs"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              {isAdmin && (
+                                <input
+                                  type="checkbox"
+                                  checked={isStaged}
+                                  onChange={() => toggleStageHistory(entry.id)}
+                                  className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
+                                />
+                              )}
+
+                              <div
+                                className={`relative w-14 h-14 bg-linear-to-b ${ITEM_CONFIG[entry.item_name as AuctionItemType]?.color || "from-slate-200/40 to-slate-400/10"} rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0`}
+                              >
+                                <Image
+                                  src={
+                                    ITEM_CONFIG[entry.item_name as AuctionItemType]
+                                      ?.icon || "/auction/Puppet.png"
+                                  }
+                                  alt={entry.item_name}
+                                  fill
+                                  className="object-contain p-2"
+                                  sizes="56px"
+                                />
+                              </div>
+
+                              <div>
+                                <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                                  {entry.display_name}
+                                </div>
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                                  {entry.uid_game}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 mt-2 xl:mt-0">
+                              <div className="flex items-center justify-center w-24 sm:w-28 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100 font-mono">
+                                  จอง {entry.requested_qty}
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-center w-24 sm:w-28 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <div className="text-xs sm:text-sm text-slate-900 dark:text-slate-100 font-mono font-bold text-green-600 dark:text-green-400">
+                                  ได้รับ {entry.awarded_qty}
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-center w-24 sm:w-28 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <div className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200">
+                                  {entry.status}
+                                </div>
+                              </div>
+                              <div className="gap-1.5 flex flex-col sm:flex-row items-center justify-center w-full sm:w-auto bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <div className="text-[11px] text-slate-400">
+                                  วันที่ประมูล:
+                                </div>
+                                <div className="text-[11px] text-slate-600 dark:text-slate-300 font-mono text-center sm:text-left">
+                                  {entry.awarded_at
+                                    ? new Date(entry.awarded_at).toLocaleString("th-TH")
+                                    : "ไม่ระบุ"}
+                                </div>
+                              </div>
+
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleStageHistory(entry.id)}
+                                  className={`w-full sm:w-auto cursor-pointer flex items-center justify-center px-4 py-2 h-[40px] rounded-xl text-xs font-bold transition-all shadow-xs gap-1.5 ${
+                                    isStaged
+                                      ? "bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white ring-2 ring-rose-400 shadow-rose-500/30"
+                                      : "bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400 dark:hover:bg-rose-900/40 border border-rose-200 dark:border-rose-800/50"
+                                  }`}
+                                >
+                                  {isStaged ? (
+                                    <><span>✓</span> เลือกแล้ว</>
+                                  ) : (
+                                    <><span>ลบ</span></>
+                                  )}
+                                </button>
+                              )}
+                            </div>
+
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Pagination Footer Controls */}
+                    {totalHistoryPages > 1 && (
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-700 text-xs">
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          แสดงหน้า <span className="font-bold text-slate-700 dark:text-slate-200 font-mono">{safeHistoryPage}</span> จากทั้งหมด <span className="font-bold text-slate-700 dark:text-slate-200 font-mono">{totalHistoryPages}</span> หน้า
+                        </span>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setHistoryPage(1)}
+                            disabled={safeHistoryPage <= 1}
+                            className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
+                            title="หน้าแรกสุด"
+                          >
+                            ««
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                            disabled={safeHistoryPage <= 1}
+                            className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
+                          >
+                            ‹ ก่อนหน้า
+                          </button>
+
+                          {/* Page Numbers */}
+                          {Array.from({ length: totalHistoryPages }, (_, i) => i + 1)
+                            .filter(p => p === 1 || p === totalHistoryPages || Math.abs(p - safeHistoryPage) <= 1)
+                            .map((p, idx, arr) => {
+                              const prev = arr[idx - 1];
+                              return (
+                                <span key={`history-page-${p}`} className="flex items-center">
+                                  {prev && p - prev > 1 && <span className="px-1 text-slate-400">...</span>}
+                                  <button
+                                    type="button"
+                                    onClick={() => setHistoryPage(p)}
+                                    className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold font-mono transition cursor-pointer ${
+                                      p === safeHistoryPage
+                                        ? 'bg-blue-600 text-white shadow-xs'
+                                        : 'border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                    }`}
+                                  >
+                                    {p}
+                                  </button>
+                                </span>
+                              );
+                            })}
+
+                          <button
+                            type="button"
+                            onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
+                            disabled={safeHistoryPage >= totalHistoryPages}
+                            className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
+                          >
+                            ถัดไป ›
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setHistoryPage(totalHistoryPages)}
+                            disabled={safeHistoryPage >= totalHistoryPages}
+                            className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
+                            title="หน้าสุดท้าย"
+                          >
+                            »»
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center text-slate-500 dark:text-slate-400 py-8 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
                     ยังไม่มีประวัติการประมูล
                   </div>
+                )}
+                  </>
                 );
               })()}
             </div>
@@ -1296,6 +1649,107 @@ export default function AuctionWindow({
           ) : null}
         </div>
       </div>
+
+      {/* 🌟 Floating Sticky Batch Action Bar */}
+      {isAdmin && viewMode === "slots" && stagedQueueIds.size > 0 && (
+        <div className="fixed bottom-6 inset-x-0 z-40 max-w-xl mx-auto px-4 animate-in slide-in-from-bottom duration-200">
+          <div className="bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-md text-white p-3.5 sm:p-4 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0 text-blue-400 font-black font-mono text-base">
+                {stagedQueueIds.size}
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs sm:text-sm font-bold truncate flex items-center gap-1.5">
+                  <span>เลือกประมูลแล้ว</span>
+                  <span className="font-extrabold text-blue-400 font-mono">{stagedQueueIds.size}</span>
+                  <span>ช่อง</span>
+                </div>
+                <div className="text-[10px] sm:text-xs text-slate-400 truncate">
+                  คลิกช่องอื่นๆ เพื่อเลือกเพิ่ม หรือกดยืนยันบันทึก
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                disabled={isBatchSubmitting}
+                onClick={() => setStagedQueueIds(new Set())}
+                className="px-3 py-2 text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition cursor-pointer disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                disabled={isBatchSubmitting}
+                onClick={handleBatchSubmit}
+                className="px-4 sm:px-5 py-2.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black transition shadow-lg shadow-blue-600/30 flex items-center gap-2 cursor-pointer"
+              >
+                {isBatchSubmitting ? (
+                  <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                  </svg>
+                ) : (
+                  <CheckCircle2 size={16} />
+                )}
+                <span>{isBatchSubmitting ? "กำลังบันทึก..." : "ยืนยันบันทึก"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🌟 Floating Sticky History Batch Delete Action Bar */}
+      {isAdmin && viewMode === "history" && stagedHistoryIds.size > 0 && (
+        <div className="fixed bottom-6 inset-x-0 z-40 max-w-xl mx-auto px-4 animate-in slide-in-from-bottom duration-200">
+          <div className="bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-md text-white p-3.5 sm:p-4 rounded-2xl shadow-2xl border border-rose-600/60 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-400/30 flex items-center justify-center shrink-0 text-rose-400 font-black font-mono text-base">
+                {stagedHistoryIds.size}
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs sm:text-sm font-bold truncate flex items-center gap-1.5">
+                  <span>เลือกประวัติที่จะลบ</span>
+                  <span className="font-extrabold text-rose-400 font-mono">{stagedHistoryIds.size}</span>
+                  <span>รายการ</span>
+                </div>
+                <div className="text-[10px] sm:text-xs text-slate-400 truncate">
+                  คิวจะถูกย้อนคืนกลับสู่กระดานหลัก
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                disabled={isBatchHistoryDeleting}
+                onClick={() => setStagedHistoryIds(new Set())}
+                className="px-3 py-2 text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition cursor-pointer disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                disabled={isBatchHistoryDeleting}
+                onClick={handleBatchHistoryDelete}
+                className="px-4 sm:px-5 py-2.5 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black transition shadow-lg shadow-rose-600/30 flex items-center gap-2 cursor-pointer"
+              >
+                {isBatchHistoryDeleting ? (
+                  <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                  </svg>
+                ) : (
+                  <Trash2 size={16} />
+                )}
+                <span>{isBatchHistoryDeleting ? "กำลังลบ..." : "ยืนยันลบ"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {renderEditModal()}
 
       {/* 🏆 Round Modals */}

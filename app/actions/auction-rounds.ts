@@ -902,17 +902,28 @@ export async function advanceToNextRound(itemName: ItemType, nextBaseQuota: numb
       note: `ปิดรอบที่ ${currentRound.round_number}`,
     })
 
-    // 2. ดึงสมาชิกที่ยังไม่ครบในรอบที่ผ่านมา (หากต้องการ rollover สิทธิ์)
+    // 2. ดึงสมาชิกที่ยังไม่ครบในรอบที่ผ่านมา (หากต้องการ rollover สิทธิ์ พร้อมทบยอดโควตาที่ค้าง)
     let priorityUserIds: string[] = []
+    const userDeficitMap: Record<string, number> = {}
+
     if (rolloverIncomplete) {
       const { data: incompleteMembers } = await supabase
         .from('auction_round_members')
-        .select('user_id')
+        .select('user_id, base_quota, transferred_in_quota, transferred_out_quota, received_qty')
         .eq('round_id', currentRound.id)
         .in('status', ['pending', 'in_progress'])
         .order('queue_order', { ascending: true })
 
-      priorityUserIds = (incompleteMembers || []).map(m => m.user_id)
+      if (incompleteMembers && incompleteMembers.length > 0) {
+        for (const m of incompleteMembers) {
+          const target = m.base_quota + m.transferred_in_quota - m.transferred_out_quota
+          const deficit = Math.max(0, target - m.received_qty)
+          if (deficit > 0) {
+            priorityUserIds.push(m.user_id)
+            userDeficitMap[m.user_id] = deficit
+          }
+        }
+      }
     }
 
     // 3. เริ่มรอบใหม่
@@ -941,32 +952,38 @@ export async function advanceToNextRound(itemName: ItemType, nextBaseQuota: numb
 
     if (newRoundErr) throw newRoundErr
 
-    // จัดเรียงสมาชิก: คนที่ตกหล่นในรอบก่อนหน้าขึ้นมาก่อน
+    // จัดเรียงสมาชิก: คนที่ตกหล่นในรอบก่อนหน้าขึ้นมาก่อน พร้อมทบยอดโควตาค้างสะสม (Carry-over Deficit)
     const prioritySet = new Set(priorityUserIds)
     const sortedProfiles = [
       ...(profiles?.filter(p => prioritySet.has(p.id)) || []),
       ...(profiles?.filter(p => !prioritySet.has(p.id)) || []),
     ]
 
-    const newMembersData = sortedProfiles.map((p, idx) => ({
-      round_id: newRound.id,
-      guild_id: guildId,
-      user_id: p.id,
-      item_name: itemName,
-      round_number: nextRoundNum,
-      base_quota: nextBaseQuota,
-      transferred_in_quota: 0,
-      transferred_out_quota: 0,
-      received_qty: 0,
-      status: 'pending',
-      queue_order: idx + 1,
-    }))
+    const newMembersData = sortedProfiles.map((p, idx) => {
+      const carriedDeficit = userDeficitMap[p.id] || 0
+      const calculatedQuota = nextBaseQuota + carriedDeficit
+
+      return {
+        round_id: newRound.id,
+        guild_id: guildId,
+        user_id: p.id,
+        item_name: itemName,
+        round_number: nextRoundNum,
+        base_quota: calculatedQuota,
+        transferred_in_quota: 0,
+        transferred_out_quota: 0,
+        received_qty: 0,
+        status: 'pending',
+        queue_order: idx + 1,
+      }
+    })
 
     if (newMembersData.length > 0) {
       await supabase.from('auction_round_members').insert(newMembersData)
     }
 
     // บันทึก Log เริ่มรอบใหม่
+    const rolledOverCount = priorityUserIds.length
     await supabase.from('auction_round_logs').insert({
       guild_id: guildId,
       round_id: newRound.id,
@@ -974,7 +991,7 @@ export async function advanceToNextRound(itemName: ItemType, nextBaseQuota: numb
       item_name: itemName,
       action_type: 'ROUND_START',
       performed_by: session.profile.id,
-      note: `เริ่มต้นรอบที่ ${nextRoundNum} (โควตาคนละ ${nextBaseQuota} ชิ้น, มีสิทธิ์บุริมสิทธิ์ตกหล่น ${priorityUserIds.length} คน)`,
+      note: `เริ่มต้นรอบที่ ${nextRoundNum} (โควตาคนละ ${nextBaseQuota} ชิ้น, มีสิทธิ์ทบยอดตกหล่น ${rolledOverCount} คน)`,
     })
 
     revalidatePath('/auction')

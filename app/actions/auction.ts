@@ -230,6 +230,8 @@ export async function getTodayAuctionDashboard() {
       .eq('guild_id', session.profile.guild_id)
       .in('status', ['waiting', 'partial', 'completed'])
       .order('queue_timestamp', { ascending: true })
+      .order('slot_number', { ascending: true })
+      .order('id', { ascending: true })
 
     // 🌟 พระเอกของงาน: กรองแยกประวัติวันเก่าออกจากวันปัจจุบัน
     const processedQueues = (rawQueues || [])
@@ -250,7 +252,9 @@ export async function getTodayAuctionDashboard() {
         requested_qty: q.requested_qty,
         received_qty: q.received_qty,
         status: q.status,
-        queue_timestamp: q.queue_timestamp
+        queue_timestamp: q.queue_timestamp,
+        slot_number: q.slot_number ?? 1,
+        created_at: q.created_at,
       }))
 
     // 🌟 ดึงรายชื่อสมาชิกในกิลด์ทั้งหมดสำหรับแอดมินใช้ในการจองแทน
@@ -381,13 +385,9 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
       })
       .reduce((sum, q) => sum + (q.received_qty || 0), 0) || 0
 
-    // เซฟตี้ด่าน 1: ถ้าวันนี้เขารับไปจนครบโควตาก่อนหน้านี้แล้ว ให้กวาดล้างคิวรอที่เหลือทิ้งและแจ้งเตือน
+    // เซฟตี้ด่าน 1: ถ้าวันนี้เขารับไปจนครบโควตาก่อนหน้านี้แล้ว
     if (receivedTodayBefore >= personalLimit) {
-        const waitingIds = userQueues?.filter(q => q.status === 'waiting').map(q => q.id) || []
-        if (waitingIds.length > 0) {
-           await supabase.from('auction_queues').delete().in('id', waitingIds)
-        }
-        return { success: false, error: `วันนี้สมาชิกได้รับครบโควตา ${personalLimit} ชิ้นแล้ว ระบบลบคิวส่วนเกินให้แล้วครับ` }
+        return { success: false, error: `วันนี้สมาชิกได้รับครบโควตา ${personalLimit} ชิ้นแล้วครับ` }
     }
 
     // อัปเดตคิวปัจจุบันแสตมป์สถานะสำเร็จ
@@ -401,21 +401,6 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
       .eq('id', String(queueId))
 
     if (updateError) throw updateError
-
-    // 🌟 เช็คยอดรวมในวันนี้หลังแจกชิ้นนี้ไป: ถ้าครบโควตาของวันนี้พอดี -> สั่งทำลาย (DELETE) คิว waiting ที่เหลือทิ้งทันที!
-    const totalNow = receivedTodayBefore + 1
-    if (totalNow >= personalLimit) {
-        const remainingWaitingIds = userQueues
-          ?.filter(q => q.id !== queue.id && q.status === 'waiting')
-          .map(q => q.id) || []
-
-        if (remainingWaitingIds.length > 0) {
-           await supabase
-             .from('auction_queues')
-             .delete()
-             .in('id', remainingWaitingIds)
-        }
-    }
 
     // 🌟 Auto-Link: อัปเดตสะสมยอดในรอบการประมูล (Round Quota)
     try {
@@ -438,6 +423,97 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
     return { success: true }
   } catch (err: any) {
     return { success: false, error: err.message }
+  }
+}
+
+/**
+ * 🌟 5.1 แอดมินกดบันทึกผลการประมูลแบบกลุ่ม (Batch Multi-Award)
+ * รับ Array ของ queueIds ที่เลือกไว้ และประมวลผลก้อนเดียวใน 1 Transaction
+ */
+export async function batchAwardAuctionQueues(queueIds: string[], note?: string) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin') {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    if (!queueIds || queueIds.length === 0) {
+      return { success: true, awardedCount: 0 }
+    }
+
+    const guildId = session.profile.guild_id
+    if (!guildId) return { success: false, error: 'ไม่พบข้อมูลกิลด์' }
+
+    const supabase = await createClient()
+
+    // 1. ดึงคิวทั้งหมดที่ถูกเลือก และต้องยังไม่ completed
+    const { data: targetQueues, error: fetchErr } = await supabase
+      .from('auction_queues')
+      .select('id, user_id, guild_id, item_name, status, requested_qty, received_qty')
+      .in('id', queueIds)
+      .eq('guild_id', guildId)
+      .neq('status', 'completed')
+
+    if (fetchErr) throw fetchErr
+    if (!targetQueues || targetQueues.length === 0) {
+      return { success: false, error: 'ไม่พบคิวที่พร้อมบันทึก หรือคิวทั้งหมดได้รับการประมูลไปแล้ว' }
+    }
+
+    const validIds = targetQueues.map(q => q.id)
+
+    // 2. อัปเดตตาราง auction_queues ให้เป็น completed ทั้งหมดในคำสั่งเดียว
+    const nowIso = new Date().toISOString()
+    const { error: updateErr } = await supabase
+      .from('auction_queues')
+      .update({
+        status: 'completed',
+        received_qty: 1,
+        updated_at: nowIso,
+      })
+      .in('id', validIds)
+
+    if (updateErr) throw updateErr
+
+    // 3. รวมยอดและตัดโควตารอบกิลด์ (Group by User & Item)
+    const userItemMap: Record<string, { userId: string; itemName: ItemType; count: number }> = {}
+    for (const q of targetQueues) {
+      if (!q.user_id) continue
+      const key = `${q.user_id}_${q.item_name}`
+      if (!userItemMap[key]) {
+        userItemMap[key] = { userId: q.user_id, itemName: q.item_name as ItemType, count: 0 }
+      }
+      userItemMap[key].count += 1
+    }
+
+    // 4. บันทึกผลสะสมในรอบของสมาชิกแต่ละคน
+    try {
+      const { awardRoundProgress } = await import('./auction-rounds')
+      for (const entry of Object.values(userItemMap)) {
+        await awardRoundProgress(
+          guildId,
+          entry.userId,
+          entry.itemName,
+          entry.count,
+          session.profile.id,
+          note || `บันทึกการประมูลแบบกลุ่ม ${entry.count} ชิ้น`
+        )
+      }
+    } catch (roundErr) {
+      console.error('Batch awardRoundProgress error:', roundErr)
+    }
+
+    revalidatePath('/')
+    revalidatePath('/auction')
+    revalidatePath('/profile')
+
+    return {
+      success: true,
+      awardedCount: validIds.length,
+      awardedIds: validIds,
+    }
+  } catch (err: any) {
+    console.error('batchAwardAuctionQueues error:', err)
+    return { success: false, error: err.message || 'เกิดข้อผิดพลาดในการบันทึกการประมูลแบบกลุ่ม' }
   }
 }
 
@@ -708,6 +784,91 @@ export async function revertAuctionQueue(id: string | number) {
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 🌟 9.1 ลบประวัติประมูลแบบกลุ่ม (Batch Revert Action)
+ * รับ Array ของ queueIds และย้อนคืนสถานะทั้งหมดในคำสั่งเดียว
+ */
+export async function batchRevertAuctionQueues(ids: (string | number)[]) {
+  try {
+    const session = await getSession();
+    if (!session?.profile || session.profile.role !== 'admin') {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' };
+    }
+
+    if (!ids || ids.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    const guildId = session.profile.guild_id;
+    if (!guildId) return { success: false, error: 'ไม่พบข้อมูลกิลด์' };
+
+    const supabase = await createClient();
+    const stringIds = ids.map(id => String(id));
+
+    // 1. ดึงข้อมูลคิวที่ตรงกับ IDs
+    const { data: queues, error: fetchErr } = await supabase
+      .from('auction_queues')
+      .select('id, user_id, guild_id, item_name, status, received_qty')
+      .in('id', stringIds)
+      .eq('guild_id', guildId);
+
+    if (fetchErr) throw fetchErr;
+    if (!queues || queues.length === 0) {
+      return { success: false, error: 'ไม่พบรายการคิวที่ต้องการลบ' };
+    }
+
+    // 2. ⚡ Auto-Link: ถ้ารายการไหนเคย completed ให้ย้อนคืนสิทธิ์ในรอบการประมูลทันที (Group by User & Item)
+    const userItemMap: Record<string, { userId: string; itemName: ItemType; count: number }> = {};
+    for (const q of queues) {
+      if (q.status === 'completed' && q.user_id) {
+        const key = `${q.user_id}_${q.item_name}`;
+        if (!userItemMap[key]) {
+          userItemMap[key] = { userId: q.user_id, itemName: q.item_name as ItemType, count: 0 };
+        }
+        userItemMap[key].count += 1;
+      }
+    }
+
+    try {
+      const { revertRoundProgress } = await import('./auction-rounds');
+      for (const entry of Object.values(userItemMap)) {
+        await revertRoundProgress(
+          guildId,
+          entry.userId,
+          entry.itemName,
+          entry.count,
+          session.profile.id,
+          `ลบประวัติการประมูลแบบกลุ่ม ${entry.count} ชิ้น และย้อนคืนสิทธิ์`
+        );
+      }
+    } catch (revertErr) {
+      console.error('Batch revertRoundProgress error (non-fatal):', revertErr);
+    }
+
+    // 3. 🔄 อัปเดตสถานะกลับเป็นรอรับของ (waiting)
+    const validIds = queues.map(q => q.id);
+    const { error: updateErr } = await supabase
+      .from('auction_queues')
+      .update({
+        received_qty: 0,
+        status: 'waiting',
+        updated_at: new Date().toISOString(),
+      })
+      .in('id', validIds);
+
+    if (updateErr) throw updateErr;
+
+    revalidatePath('/');
+    revalidatePath('/auction');
+    revalidatePath('/profile');
+
+    return { success: true, count: validIds.length };
+  } catch (err: any) {
+    console.error('batchRevertAuctionQueues error:', err);
+    return { success: false, error: err.message || 'เกิดข้อผิดพลาดในการลบประวัติแบบกลุ่ม' };
   }
 }
 

@@ -40,6 +40,8 @@ export default function RoundMemberTabs({
   const [awardNote, setAwardNote] = useState('')
   const [isAwarding, setIsAwarding] = useState(false)
   const [awardError, setAwardError] = useState<string | null>(null)
+  const [selectedRoundFilter, setSelectedRoundFilter] = useState<'all' | number>('all')
+  const [logPage, setLogPage] = useState(1)
 
   const itemInfo = ITEM_CONFIG[activeItem]
 
@@ -183,7 +185,7 @@ export default function RoundMemberTabs({
 
       {/* Tab Contents */}
       <div className="p-3 sm:p-4 min-h-[350px]">
-        {isLoading && members.length === 0 ? (
+        {isLoading ? (
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-400 dark:text-slate-500 animate-pulse px-1">
               <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
@@ -386,69 +388,213 @@ export default function RoundMemberTabs({
             )}
 
             {/* 3. Audit Logs Tab */}
-            {activeTab === 'logs' && (
-              <div className="space-y-2">
-                {logs.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm">
-                    ยังไม่มีบันทึกประวัติในรอบนี้
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {logs.map(log => {
-                      const dateStr = log.created_at ? new Date(log.created_at).toLocaleString('th-TH') : '-'
-                      const actionType = log.action_type
-                      const isAward = actionType === 'AWARD' || actionType === 'MANUAL_OVERRIDE'
-                      const isTransfer = actionType === 'TRANSFER'
-                      const isSwap = actionType === 'SWAP'
-                      const isSkip = actionType === 'SKIP'
+            {activeTab === 'logs' && (() => {
+              const LOGS_PER_PAGE = 8
+              const availableLogRounds = Array.from(new Set(logs.map(l => l.round_number || 1))).sort((a, b) => b - a)
+              const filteredLogs = selectedRoundFilter === 'all'
+                ? logs
+                : logs.filter(l => (l.round_number || 1) === selectedRoundFilter)
 
-                      return (
-                        <div
-                          key={log.id}
-                          className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+              const totalLogPages = Math.max(1, Math.ceil(filteredLogs.length / LOGS_PER_PAGE))
+              const safeLogPage = Math.min(logPage, totalLogPages)
+              const paginatedLogs = filteredLogs.slice((safeLogPage - 1) * LOGS_PER_PAGE, safeLogPage * LOGS_PER_PAGE)
+
+              return (
+                <div className="space-y-3">
+                  {/* Round Filter Selector Bar */}
+                  {availableLogRounds.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedRoundFilter('all')
+                            setLogPage(1)
+                          }}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                            selectedRoundFilter === 'all'
+                              ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                          }`}
                         >
-                          <div className="flex items-start sm:items-center gap-2.5">
-                            <span
-                              className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md shrink-0 ${
-                                isAward
-                                  ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                                  : isTransfer
-                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                                  : isSwap
-                                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
-                                  : isSkip
-                                  ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                                  : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
-                              }`}
-                            >
-                              {actionType}
+                          <span>🌐 ทุกรอบทั้งหมด</span>
+                          <span className="text-[10px] bg-slate-200 dark:bg-slate-600 px-1.5 py-0.2 rounded-full font-mono">
+                            {logs.length}
+                          </span>
+                        </button>
+
+                        {availableLogRounds.map(rNum => (
+                          <button
+                            key={`filter-round-${rNum}`}
+                            type="button"
+                            onClick={() => {
+                              setSelectedRoundFilter(rNum)
+                              setLogPage(1)
+                            }}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                              selectedRoundFilter === rNum
+                                ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                            }`}
+                          >
+                            <span>รอบที่ {rNum} {rNum === roundNumber ? '(ปัจจุบัน)' : ''}</span>
+                            <span className="text-[10px] bg-slate-200 dark:bg-slate-600 px-1.5 py-0.2 rounded-full font-mono">
+                              {logs.filter(l => (l.round_number || 1) === rNum).length}
                             </span>
-                            <div>
-                              <div className="text-slate-800 dark:text-slate-200 font-medium">
-                                {log.note || `ดำเนินการ ${actionType}`}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="text-[11px] text-slate-400 px-2 font-mono">
+                        รวม {filteredLogs.length} รายการ
+                      </div>
+                    </div>
+                  )}
+
+                  {filteredLogs.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm">
+                      ยังไม่มีบันทึกประวัติในรอบที่เลือก
+                    </div>
+                  ) : (
+                    <>
+                      {/* Scrollable Container with Custom Scrollbar */}
+                      <div className="max-h-[460px] overflow-y-auto space-y-2 pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-300">
+                        {paginatedLogs.map(log => {
+                          const dateStr = log.created_at ? new Date(log.created_at).toLocaleString('th-TH') : '-'
+                          const actionType = log.action_type
+                          const logRound = log.round_number || 1
+                          const isAward = actionType === 'AWARD' || actionType === 'MANUAL_OVERRIDE'
+                          const isTransfer = actionType === 'TRANSFER'
+                          const isSwap = actionType === 'SWAP'
+                          const isSkip = actionType === 'SKIP'
+                          const isRoundStart = actionType === 'ROUND_START'
+
+                          return (
+                            <div
+                              key={log.id}
+                              className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800/70 transition flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shadow-2xs"
+                            >
+                              <div className="flex items-start sm:items-center gap-2.5">
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono">
+                                    R#{logRound}
+                                  </span>
+                                  <span
+                                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md shrink-0 ${
+                                      isAward
+                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                                        : isTransfer
+                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                        : isSwap
+                                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                                        : isSkip
+                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                        : isRoundStart
+                                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                                        : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                                    }`}
+                                  >
+                                    {actionType}
+                                  </span>
+                                </div>
+                                <div>
+                                  <div className="text-slate-800 dark:text-slate-200 font-medium">
+                                    {log.note || `ดำเนินการ ${actionType}`}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400">
+                                    เป้าหมาย: <span className="font-semibold text-slate-600 dark:text-slate-300">{log.target?.display_name || '-'}</span>
+                                    {log.related && (
+                                      <span> | เกี่ยวข้อง: <span className="font-semibold text-slate-600 dark:text-slate-300">{log.related?.display_name}</span></span>
+                                    )}
+                                    {log.admin && (
+                                      <span> | โดย: <span className="text-blue-500 font-semibold">{log.admin?.display_name}</span></span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                              <div className="text-[10px] text-slate-400">
-                                เป้าหมาย: <span className="font-semibold text-slate-600 dark:text-slate-300">{log.target?.display_name || '-'}</span>
-                                {log.related && (
-                                  <span> | เกี่ยวข้อง: <span className="font-semibold text-slate-600 dark:text-slate-300">{log.related?.display_name}</span></span>
-                                )}
-                                {log.admin && (
-                                  <span> | โดย: <span className="text-blue-500 font-semibold">{log.admin?.display_name}</span></span>
-                                )}
+
+                              <div className="text-[10px] text-slate-400 font-mono sm:text-right shrink-0">
+                                {dateStr}
                               </div>
                             </div>
-                          </div>
+                          )
+                        })}
+                      </div>
 
-                          <div className="text-[10px] text-slate-400 font-mono sm:text-right shrink-0">
-                            {dateStr}
+                      {/* Pagination Footer Controls */}
+                      {totalLogPages > 1 && (
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+                          <span className="text-[11px] text-slate-400 font-medium">
+                            แสดงหน้า <span className="font-bold text-slate-700 dark:text-slate-200 font-mono">{safeLogPage}</span> จากทั้งหมด <span className="font-bold text-slate-700 dark:text-slate-200 font-mono">{totalLogPages}</span> หน้า
+                          </span>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setLogPage(1)}
+                              disabled={safeLogPage <= 1}
+                              className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
+                              title="หน้าแรกสุด"
+                            >
+                              ««
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setLogPage(p => Math.max(1, p - 1))}
+                              disabled={safeLogPage <= 1}
+                              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
+                            >
+                              ‹ ก่อนหน้า
+                            </button>
+
+                            {/* Page Numbers */}
+                            {Array.from({ length: totalLogPages }, (_, i) => i + 1)
+                              .filter(p => p === 1 || p === totalLogPages || Math.abs(p - safeLogPage) <= 1)
+                              .map((p, idx, arr) => {
+                                const prev = arr[idx - 1]
+                                return (
+                                  <span key={`log-page-${p}`} className="flex items-center">
+                                    {prev && p - prev > 1 && <span className="px-1 text-slate-400">...</span>}
+                                    <button
+                                      type="button"
+                                      onClick={() => setLogPage(p)}
+                                      className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold font-mono transition cursor-pointer ${
+                                        p === safeLogPage
+                                          ? 'bg-blue-600 text-white shadow-xs'
+                                          : 'border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                      }`}
+                                    >
+                                      {p}
+                                    </button>
+                                  </span>
+                                )
+                              })}
+
+                            <button
+                              type="button"
+                              onClick={() => setLogPage(p => Math.min(totalLogPages, p + 1))}
+                              disabled={safeLogPage >= totalLogPages}
+                              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
+                            >
+                              ถัดไป ›
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setLogPage(totalLogPages)}
+                              disabled={safeLogPage >= totalLogPages}
+                              className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
+                              title="หน้าสุดท้าย"
+                            >
+                              »»
+                            </button>
                           </div>
                         </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            })()}
           </>
         )}
       </div>

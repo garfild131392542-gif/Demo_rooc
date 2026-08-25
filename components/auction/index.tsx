@@ -33,7 +33,7 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
     },
     initialData,
     refetchInterval: false, // ⚡ Disable polling loop since Supabase Realtime WebSocket handles updates instantly!
-    staleTime: 5000,
+    staleTime: 0,
   })
   
   const { isAdmin, todayItems, memberQueues, myProfile, history = [], guildMembers = [], roundsData = null } = data
@@ -187,9 +187,14 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
         userBookingGroups.get(groupKey)!.push(q)
       })
 
-      // ✨ 2. Sort internal slots within each user group by slot_number (1, 2, 3...)
+      // ✨ 2. Sort internal slots within each user group by slot_number (1, 2, 3...) then id deterministically
       userBookingGroups.forEach((group) => {
-        group.sort((a, b) => (a.slot_number ?? 0) - (b.slot_number ?? 0))
+        group.sort((a, b) => {
+          if ((a.slot_number ?? 0) !== (b.slot_number ?? 0)) {
+            return (a.slot_number ?? 0) - (b.slot_number ?? 0)
+          }
+          return String(a.id || '').localeCompare(String(b.id || ''))
+        })
       })
 
       // ✨ 3. Sort user groups by the group's earliest queue_timestamp / id

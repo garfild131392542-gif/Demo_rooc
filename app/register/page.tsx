@@ -52,14 +52,17 @@ export default function RegisterPage() {
 
           <RegisterForm />
 
-          {/* ลิงก์ย้อนกลับไปหน้าล็อกอิน */}
-          <div className="mt-6 flex flex-col items-center border-t border-white/10 pt-5 text-center">
+          {/* ลิงก์ย้อนกลับไปหน้าล็อกอิน & นโยบายความเป็นส่วนตัว */}
+          <div className="mt-6 flex flex-col items-center gap-2.5 border-t border-white/10 pt-5 text-center">
             <p className="text-sm text-blue-100/90">
               มีบัญชีอยู่แล้วใช่ไหม?{' '}
               <Link href="/login" className="font-bold text-blue-400 hover:text-blue-300 hover:underline transition-colors ml-1">
                 เข้าสู่ระบบที่นี่
               </Link>
             </p>
+            <Link href="/privacy-policy" className="text-xs text-white/60 hover:text-white underline decoration-white/20 transition-colors">
+              นโยบายความเป็นส่วนตัว (Privacy Policy)
+            </Link>
           </div>
 
         </div>

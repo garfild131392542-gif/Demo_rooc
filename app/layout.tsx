@@ -12,6 +12,7 @@ import PoringAssistant from "@/components/PoringAssistant";
 import UpdateTicker from "@/components/UpdateTicker";
 import AnnouncementModal from "@/components/AnnouncementModal";
 import QueryProvider from "@/components/QueryProvider";
+import Link from "next/link";
 import { getActiveAnnouncementForGuild, getUpdateTickerSetting } from "@/app/actions/admin-guilds";
 
 const geistSans = Geist({
@@ -91,6 +92,20 @@ export default async function RootLayout({
             <main className="flex-1">
               {children}
             </main>
+
+            {/* Footer with Privacy Policy */}
+            <footer className="w-full py-4 border-t border-slate-200/60 dark:border-slate-800/80 bg-white/40 dark:bg-slate-950/40 backdrop-blur-xs text-center text-xs text-slate-500 dark:text-slate-400 mt-auto transition-colors">
+              <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+                <div>
+                  © {new Date().getFullYear()} ROOC Guild Management System
+                </div>
+                <div className="flex items-center gap-3">
+                  <Link href="/privacy-policy" className="hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors">
+                    นโยบายความเป็นส่วนตัว (Privacy Policy)
+                  </Link>
+                </div>
+              </div>
+            </footer>
 
             {/* 2. วางน้อง Poring ไว้ตรงนี้ครับ น้องจะลอยตามไปทุกๆ หน้า */}
             <PoringAssistant />

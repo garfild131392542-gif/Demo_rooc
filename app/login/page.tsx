@@ -233,7 +233,11 @@ export default function LoginPage() {
 
               <div className="mt-6 flex flex-col items-center gap-3 border-t border-white/10 pt-6 text-center">
                 <p className="text-sm text-blue-100/90">ยังไม่มีบัญชีใช่ไหม? <Link href="/register" className="font-bold text-blue-400 hover:text-blue-300 hover:underline transition-colors">สมัครสมาชิกที่นี่</Link></p>
-                <button type="button" onClick={() => setShowContactModal(true)} className="cursor-pointer text-xs text-white/60 font-medium hover:text-white underline decoration-white/20 transition-colors">พบปัญหาในการใช้งาน? ติดต่อผู้ดูแลระบบ</button>
+                <div className="flex items-center justify-center gap-3 text-xs text-white/60 font-medium">
+                  <button type="button" onClick={() => setShowContactModal(true)} className="cursor-pointer hover:text-white underline decoration-white/20 transition-colors">พบปัญหาในการใช้งาน?</button>
+                  <span>•</span>
+                  <Link href="/privacy-policy" className="hover:text-white underline decoration-white/20 transition-colors">นโยบายความเป็นส่วนตัว</Link>
+                </div>
               </div>
             </form>
 

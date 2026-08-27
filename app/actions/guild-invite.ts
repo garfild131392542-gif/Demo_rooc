@@ -42,7 +42,9 @@ export async function registerMemberWithGuildInvite(
   })
 
   if (authError) {
-    // Keep it simple but user-friendly
+    if (authError.message?.toLowerCase().includes('already been registered') || authError.message?.toLowerCase().includes('already registered')) {
+      return { success: false, error: `UID Game "${normalizedUsername}" นี้ถูกลงทะเบียนในระบบแล้ว` }
+    }
     return { success: false, error: authError.message }
   }
 

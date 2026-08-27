@@ -136,6 +136,9 @@ export async function createMember(formData: FormData) {
     });
 
     if (authError) {
+      if (authError.message?.toLowerCase().includes('already been registered') || authError.message?.toLowerCase().includes('already registered')) {
+        return { success: false, error: `UID Game "${cleanUidGame}" นี้ถูกลงทะเบียนในระบบแล้ว กรุณาตรวจสอบอีกครั้ง` };
+      }
       return { success: false, error: `ไม่สามารถลงทะเบียนผู้ใช้ได้: ${authError.message}` };
     }
 

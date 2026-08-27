@@ -166,6 +166,7 @@ export default async function HistoryPage() {
 
     if (!groups[key]) {
       groups[key] = {
+        user_id: q.user_id,
         queue_timestamp: q.queue_timestamp,
         item_name: q.item_name,
         calculated_status: q.calculated_status,
@@ -210,6 +211,7 @@ export default async function HistoryPage() {
 
     return {
       id: `${group.queue_timestamp}_${group.item_name}_${index}`,
+      user_id: group.user_id,
       item_name: group.item_name,
       requested_qty: group.requested_qty,
       received_qty: group.received_qty,
@@ -222,8 +224,13 @@ export default async function HistoryPage() {
   })
 
   return (
-    <div className="w-full mx-auto px-4 py-4 md:py-6 h-[calc(100vh-4.5rem)] overflow-hidden flex flex-col">
-      <HistoryClient initialQueues={groupedQueues} rawQueues={processedQueues} />
+    <div className="w-full mx-auto px-2 sm:px-4 py-4 md:py-6 h-[calc(100vh-4.5rem)] overflow-hidden flex flex-col">
+      <HistoryClient 
+        initialQueues={groupedQueues} 
+        rawQueues={processedQueues} 
+        currentUserId={userId}
+        currentUserDisplayName={profile.display_name || profile.uid_game || 'คุณ'}
+      />
     </div>
   )
 }

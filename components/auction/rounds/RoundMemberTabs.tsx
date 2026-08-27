@@ -443,58 +443,62 @@ export default function RoundMemberTabs({
                           const dateStr = log.created_at ? new Date(log.created_at).toLocaleString('th-TH') : '-'
                           const actionType = log.action_type
                           const logRound = log.round_number || 1
-                          const isAward = actionType === 'AWARD' || actionType === 'MANUAL_OVERRIDE'
-                          const isTransfer = actionType === 'TRANSFER'
-                          const isSwap = actionType === 'SWAP'
-                          const isSkip = actionType === 'SKIP'
-                          const isRoundStart = actionType === 'ROUND_START'
+
+                          const getActionInfo = (type: string) => {
+                            switch (type) {
+                              case 'MANUAL_OVERRIDE':
+                                return { text: '🛠️ แอดมินปรับคิว', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' }
+                              case 'AWARD':
+                                return { text: '🎁 มอบรางวัล', color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' }
+                              case 'TRANSFER':
+                                return { text: '🔁 โอนสิทธิ์', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' }
+                              case 'SWAP':
+                                return { text: '🔀 สลับคิว', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' }
+                              case 'SKIP':
+                                return { text: '⏭️ ข้ามสิทธิ์', color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' }
+                              case 'ROUND_START':
+                                return { text: '🚀 เริ่มรอบใหม่', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' }
+                              default:
+                                return { text: type, color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' }
+                            }
+                          }
+
+                          const actionBadge = getActionInfo(actionType)
 
                           return (
                             <div
                               key={log.id}
-                              className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800/70 transition flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shadow-2xs"
+                              className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800/70 transition flex flex-col gap-1.5 text-xs shadow-2xs"
                             >
-                              <div className="flex items-start sm:items-center gap-2.5">
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono">
-                                    R#{logRound}
+                              {/* Top row: Round badge + Action badge + Timestamp */}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 font-sans">
+                                    รอบที่ {logRound}
                                   </span>
-                                  <span
-                                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md shrink-0 ${
-                                      isAward
-                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                                        : isTransfer
-                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                                        : isSwap
-                                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
-                                        : isSkip
-                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                                        : isRoundStart
-                                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-                                        : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
-                                    }`}
-                                  >
-                                    {actionType}
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${actionBadge.color}`}>
+                                    {actionBadge.text}
                                   </span>
                                 </div>
-                                <div>
-                                  <div className="text-slate-800 dark:text-slate-200 font-medium">
-                                    {log.note || `ดำเนินการ ${actionType}`}
-                                  </div>
-                                  <div className="text-[10px] text-slate-400">
-                                    เป้าหมาย: <span className="font-semibold text-slate-600 dark:text-slate-300">{log.target?.display_name || '-'}</span>
-                                    {log.related && (
-                                      <span> | เกี่ยวข้อง: <span className="font-semibold text-slate-600 dark:text-slate-300">{log.related?.display_name}</span></span>
-                                    )}
-                                    {log.admin && (
-                                      <span> | โดย: <span className="text-blue-500 font-semibold">{log.admin?.display_name}</span></span>
-                                    )}
-                                  </div>
+                                <div className="text-[10px] text-slate-400 font-mono shrink-0">
+                                  {dateStr}
                                 </div>
                               </div>
 
-                              <div className="text-[10px] text-slate-400 font-mono sm:text-right shrink-0">
-                                {dateStr}
+                              {/* Bottom row: Note / Detail in full width */}
+                              <div className="pt-0.5">
+                                <div className="text-slate-800 dark:text-slate-200 font-medium leading-snug">
+                                  {log.note || `ดำเนินการ ${actionType}`}
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+                                  <span>เป้าหมาย: <span className="font-semibold text-slate-600 dark:text-slate-300">{log.target?.display_name || '-'}</span></span>
+                                  {log.related && (
+                                    <span>| เกี่ยวข้อง: <span className="font-semibold text-slate-600 dark:text-slate-300">{log.related?.display_name}</span></span>
+                                  )}
+                                  {log.admin && (
+                                    <span>| โดย: <span className="text-blue-500 font-semibold">{log.admin?.display_name}</span></span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           )

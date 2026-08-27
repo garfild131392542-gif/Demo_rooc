@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { logoutAction } from '@/app/actions/auth'
 import { 
   Users, 
-  Gavel, 
+  Coins, 
   Swords, 
   User, 
   LayoutGrid, 
@@ -60,7 +60,7 @@ export default function MobileBottomNav({
       id: 'auction',
       name: 'ประมูล',
       href: '/auction',
-      icon: Gavel,
+      icon: Coins,
       isActive: pathname.startsWith('/auction'),
     },
     {

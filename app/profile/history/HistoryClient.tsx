@@ -66,7 +66,7 @@ export default function HistoryClient({
   const [mainTab, setMainTab] = useState<"my_queues" | "guild_board" | "all_history">("my_queues");
   const [boardItemTab, setBoardItemTab] = useState<ItemKey>("Album");
   const [searchTerm, setSearchTerm] = useState("");
-  const [historyStatusFilter, setHistoryStatusFilter] = useState<"all" | "waiting" | "completed" | "canceled">("all");
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<"waiting" | "completed" | "canceled">("waiting");
   const [historyItemFilter, setHistoryItemFilter] = useState<"all" | ItemKey>("all");
 
   useEffect(() => {
@@ -273,13 +273,12 @@ export default function HistoryClient({
       q.display_name.toLowerCase().includes(searchTerm.toLowerCase());
 
     if (!matchesSearch) return false;
-    if (historyStatusFilter === "all") return true;
     if (historyStatusFilter === "waiting") {
       return q.calculated_status === "waiting" || q.calculated_status === "waitlist" || q.calculated_status === "partial";
     }
     if (historyStatusFilter === "completed") return q.calculated_status === "completed";
     if (historyStatusFilter === "canceled") return q.calculated_status === "canceled";
-    return true;
+    return false;
   });
 
   return (
@@ -595,7 +594,6 @@ export default function HistoryClient({
                 <div className="flex flex-wrap gap-1 p-1 bg-slate-100 dark:bg-slate-950 rounded-xl">
                   {(
                     [
-                      { id: "all", label: "ทั้งหมด" },
                       { id: "waiting", label: "กำลังรอคิว" },
                       { id: "completed", label: "ได้รับแล้ว" },
                       { id: "canceled", label: "ยกเลิกแล้ว" },

@@ -91,7 +91,7 @@ type AuctionWindowProps = {
   setCurrentPage: Dispatch<SetStateAction<number>>;
   totalPages: number;
   currentSlots: AuctionSlot[];
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
   isSaving: boolean;
   viewMode?: "slots" | "history" | "queue" | "summary" | "proxy" | "rounds";
   setViewMode?: (mode: "slots" | "history" | "queue" | "summary" | "proxy" | "rounds") => void;
@@ -271,6 +271,14 @@ export default function AuctionWindow({
     setEditQueueId(null);
     setEditQty("");
     setEditLoading(false);
+  };
+
+  const handleFullRoundRefresh = async () => {
+    roundCacheRef.current = {};
+    if (onRefresh) {
+      await onRefresh();
+    }
+    await fetchRoundDetails(activeRoundItem, true);
   };
 
   const handleSaveEdit = async () => {
@@ -1640,8 +1648,7 @@ export default function AuctionWindow({
                         } catch (e) {
                           console.error(e);
                         }
-                        onRefresh();
-                        fetchRoundDetails(activeRoundItem, true);
+                        await handleFullRoundRefresh();
                       }}
                       isLoading={isLoadingRoundData}
                     />
@@ -1662,9 +1669,7 @@ export default function AuctionWindow({
                           const { skipOrDeferRoundMember } = await import('@/app/actions/auction-rounds');
                           const res = await skipOrDeferRoundMember(member.id, reason);
                           if (res.success) {
-                            roundCacheRef.current = {};
-                            onRefresh();
-                            fetchRoundDetails(activeRoundItem, true);
+                            await handleFullRoundRefresh();
                           } else {
                             alert('เกิดข้อผิดพลาด: ' + res.error);
                           }
@@ -1675,9 +1680,7 @@ export default function AuctionWindow({
                         setIsTransferModalOpen(true);
                       }}
                       onRefreshData={() => {
-                        roundCacheRef.current = {};
-                        onRefresh();
-                        fetchRoundDetails(activeRoundItem, true);
+                        handleFullRoundRefresh();
                       }}
                       isLoading={isLoadingRoundData}
                     />
@@ -1795,10 +1798,8 @@ export default function AuctionWindow({
       <AdminTransferModal
         isOpen={isTransferModalOpen}
         onClose={() => setIsTransferModalOpen(false)}
-        onSuccess={() => {
-          roundCacheRef.current = {};
-          onRefresh();
-          fetchRoundDetails(activeRoundItem, true);
+        onSuccess={async () => {
+          await handleFullRoundRefresh();
         }}
         activeItem={activeRoundItem}
         guildMembers={guildMembers}
@@ -1809,10 +1810,8 @@ export default function AuctionWindow({
       <AdminRoundSettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
-        onSuccess={() => {
-          roundCacheRef.current = {};
-          onRefresh();
-          fetchRoundDetails(activeRoundItem, true);
+        onSuccess={async () => {
+          await handleFullRoundRefresh();
         }}
         activeItem={activeRoundItem}
         activeRound={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)}
@@ -1823,10 +1822,8 @@ export default function AuctionWindow({
       <AdminSwapModal
         isOpen={isSwapModalOpen}
         onClose={() => setIsSwapModalOpen(false)}
-        onSuccess={() => {
-          roundCacheRef.current = {};
-          onRefresh();
-          fetchRoundDetails(activeRoundItem, true);
+        onSuccess={async () => {
+          await handleFullRoundRefresh();
         }}
         targetMember={selectedMemberForAction}
         pendingMembers={roundMembers.filter(m => m.status !== 'completed')}

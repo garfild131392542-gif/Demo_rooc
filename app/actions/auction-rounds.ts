@@ -436,6 +436,30 @@ export async function transferRoundQuota(
       note: note || `โอนสิทธิ์ ${actualTransferQty} ชิ้น จากผู้ใช้ให้ผู้รับ`,
     })
 
+    // 5. อัปเดต updated_at ในตาราง auction_rounds
+    await supabase
+      .from('auction_rounds')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', activeRound.id)
+
+    // 6. ⚡ Auto Re-allocate สล็อตของวันนี้ทันที (ถ้ามี session เปิดใช้งานอยู่)
+    const today = new Date().toISOString().split('T')[0]
+    const { data: todaySession } = await supabase
+      .from('auction_sessions')
+      .select('*')
+      .eq('guild_id', guildId)
+      .eq('item_name', itemName)
+      .eq('session_date', today)
+      .maybeSingle()
+
+    if (todaySession && Number(todaySession.total_quantity) > 0) {
+      await autoPopulateSlotsFromRound(
+        itemName,
+        Number(todaySession.total_quantity),
+        Number(todaySession.personal_limit) || 2
+      )
+    }
+
     revalidatePath('/auction')
     return { success: true, transferredQty: actualTransferQty }
   } catch (err: any) {
@@ -464,8 +488,14 @@ export async function swapRoundQueueOrder(memberId1: string, memberId2: string, 
     const order1 = member1.queue_order
     const order2 = member2.queue_order
 
-    await supabase.from('auction_round_members').update({ queue_order: order2 }).eq('id', memberId1)
-    await supabase.from('auction_round_members').update({ queue_order: order1 }).eq('id', memberId2)
+    await supabase.from('auction_round_members').update({ queue_order: order2, updated_at: new Date().toISOString() }).eq('id', memberId1)
+    await supabase.from('auction_round_members').update({ queue_order: order1, updated_at: new Date().toISOString() }).eq('id', memberId2)
+
+    // อัปเดต updated_at ในตาราง auction_rounds
+    await supabase
+      .from('auction_rounds')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', member1.round_id)
 
     // บันทึก Log
     await supabase.from('auction_round_logs').insert({
@@ -479,6 +509,24 @@ export async function swapRoundQueueOrder(memberId1: string, memberId2: string, 
       performed_by: session.profile.id,
       note: reason || `สลับลำดับคิว ${order1} <-> ${order2}`,
     })
+
+    // ⚡ Auto Re-allocate สล็อตของวันนี้ทันที (ถ้ามี session เปิดใช้งานอยู่)
+    const today = new Date().toISOString().split('T')[0]
+    const { data: todaySession } = await supabase
+      .from('auction_sessions')
+      .select('*')
+      .eq('guild_id', member1.guild_id)
+      .eq('item_name', member1.item_name)
+      .eq('session_date', today)
+      .maybeSingle()
+
+    if (todaySession && Number(todaySession.total_quantity) > 0) {
+      await autoPopulateSlotsFromRound(
+        member1.item_name as ItemType,
+        Number(todaySession.total_quantity),
+        Number(todaySession.personal_limit) || 2
+      )
+    }
 
     revalidatePath('/auction')
     return { success: true }
@@ -509,6 +557,12 @@ export async function skipOrDeferRoundMember(roundMemberId: string, reason?: str
       })
       .eq('id', roundMemberId)
 
+    // อัปเดต updated_at ในตาราง auction_rounds
+    await supabase
+      .from('auction_rounds')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', member.round_id)
+
     // บันทึก Log
     await supabase.from('auction_round_logs').insert({
       guild_id: member.guild_id,
@@ -520,6 +574,24 @@ export async function skipOrDeferRoundMember(roundMemberId: string, reason?: str
       performed_by: session.profile.id,
       note: reason || 'สละสิทธิ์/ข้ามคิวในรอบนี้',
     })
+
+    // ⚡ Auto Re-allocate สล็อตของวันนี้ทันที (ถ้ามี session เปิดใช้งานอยู่)
+    const today = new Date().toISOString().split('T')[0]
+    const { data: todaySession } = await supabase
+      .from('auction_sessions')
+      .select('*')
+      .eq('guild_id', member.guild_id)
+      .eq('item_name', member.item_name)
+      .eq('session_date', today)
+      .maybeSingle()
+
+    if (todaySession && Number(todaySession.total_quantity) > 0) {
+      await autoPopulateSlotsFromRound(
+        member.item_name as ItemType,
+        Number(todaySession.total_quantity),
+        Number(todaySession.personal_limit) || 2
+      )
+    }
 
     revalidatePath('/auction')
     return { success: true }
@@ -1095,6 +1167,24 @@ export async function manualAwardRoundMember(roundMemberId: string, awardQty: nu
         updated_at: new Date().toISOString(),
       })
       .eq('id', member.round_id)
+
+    // ⚡ Auto Re-allocate สล็อตของวันนี้ทันที (ถ้ามี session เปิดใช้งานอยู่)
+    const today = new Date().toISOString().split('T')[0]
+    const { data: todaySession } = await supabase
+      .from('auction_sessions')
+      .select('*')
+      .eq('guild_id', member.guild_id)
+      .eq('item_name', member.item_name)
+      .eq('session_date', today)
+      .maybeSingle()
+
+    if (todaySession && Number(todaySession.total_quantity) > 0) {
+      await autoPopulateSlotsFromRound(
+        member.item_name as ItemType,
+        Number(todaySession.total_quantity),
+        Number(todaySession.personal_limit) || 2
+      )
+    }
 
     revalidatePath('/auction')
     return { success: true, isComplete, newReceived, targetQuota }

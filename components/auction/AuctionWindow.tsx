@@ -93,6 +93,8 @@ type AuctionWindowProps = {
   currentSlots: AuctionSlot[];
   onRefresh: () => void;
   isSaving: boolean;
+  viewMode?: "slots" | "history" | "queue" | "summary" | "proxy" | "rounds";
+  setViewMode?: (mode: "slots" | "history" | "queue" | "summary" | "proxy" | "rounds") => void;
   limits?: Record<AuctionItemType, number | "">;
   positions?: Record<
     AuctionItemType,
@@ -107,6 +109,8 @@ type AuctionWindowProps = {
 };
 
 export default function AuctionWindow({
+  viewMode: propsViewMode,
+  setViewMode: propsSetViewMode,
   isAdmin,
   history = [],
   memberQueues = [],
@@ -125,9 +129,11 @@ export default function AuctionWindow({
   onRefresh,
   isSaving,
 }: AuctionWindowProps) {
-  const [viewMode, setViewMode] = useState<"slots" | "history" | "queue" | "summary" | "proxy" | "rounds">(
+  const [internalViewMode, setInternalViewMode] = useState<"slots" | "history" | "queue" | "summary" | "proxy" | "rounds">(
     "slots",
   );
+  const viewMode = propsViewMode ?? internalViewMode;
+  const setViewMode = propsSetViewMode ?? setInternalViewMode;
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
     {},
   );
@@ -1281,9 +1287,6 @@ export default function AuctionWindow({
                               <div>
                                 <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
                                   {entry.display_name}
-                                </div>
-                                <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                                  {entry.uid_game}
                                 </div>
                               </div>
                             </div>

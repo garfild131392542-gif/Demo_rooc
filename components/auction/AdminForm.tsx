@@ -76,20 +76,20 @@ export default function AdminForm({ positions, setPositions, onSave, isSaving, o
       </div>
 
       {/* สรุปยอดรวม Live */}
-      <div className="mb-4 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div className="mb-4 bg-slate-50 dark:bg-slate-800/50 p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-700">
         <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2">1. ยอดรวมที่ได้จากการคำนวณ (Live)</div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-4 xl:grid-cols-2 gap-1.5 sm:gap-2">
           {(['Album', 'Puppet', 'White', 'RedBlack'] as const).map(type => {
             const totalValue = positions[type].total
             return (
-              <div key={`total-${type}`} className="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm">
-                <div className={`w-16 h-16 bg-linear-to-b ${ITEM_CONFIG[type].color} rounded-lg border border-slate-200 dark:border-slate-600 flex items-center justify-center relative mb-2 shadow-inner`}>
+              <div key={`total-${type}`} className="flex flex-col items-center justify-center p-1.5 sm:p-2 xl:p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-xs">
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 xl:w-16 xl:h-16 bg-linear-to-b ${ITEM_CONFIG[type].color} rounded-lg border border-slate-200 dark:border-slate-600 flex items-center justify-center relative mb-1 xl:mb-2 shadow-inner`}>
                   <Image src={ITEM_CONFIG[type].icon} alt={ITEM_CONFIG[type].label} fill className="object-contain p-1" sizes="64px" />
                 </div>
                 <input
                   type="number"
                   min={0}
-                  placeholder="จำนวน"
+                  placeholder="0"
                   value={totalValue === '' ? '' : totalValue}
                   onFocus={() => {
                     if (totalValue === 0) {
@@ -97,9 +97,9 @@ export default function AdminForm({ positions, setPositions, onSave, isSaving, o
                     }
                   }}
                   onChange={e => handleTotalChange(type, e.target.value)}
-                  className={`w-full text-center text-xl font-black font-mono ${typeof totalValue === 'number' && totalValue > 0 ? 'text-green-500 dark:text-green-400' : 'text-slate-300 dark:text-slate-600'} bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg p-2 outline-none focus:border-blue-500`}
+                  className={`w-full text-center text-sm sm:text-base xl:text-xl font-black font-mono ${typeof totalValue === 'number' && totalValue > 0 ? 'text-green-500 dark:text-green-400' : 'text-slate-300 dark:text-slate-600'} bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg p-1 xl:p-2 outline-none focus:border-blue-500`}
                 />
-                <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">ชิ้น</span>
+                <span className="text-[10px] xl:text-xs text-slate-500 dark:text-slate-400 mt-0.5">ชิ้น</span>
               </div>
             )
           })}

@@ -126,9 +126,6 @@ export default function AdminSwapModal({
             <div className="font-bold text-purple-900 dark:text-purple-200">
               ตำแหน่งปัจจุบัน: คิวที่ #{targetMember.queue_order} ({targetProfile.display_name})
             </div>
-            <div className="text-[11px] text-purple-700 dark:text-purple-300 mt-0.5">
-              UID: {targetProfile.uid_game || '-'}
-            </div>
           </div>
 
           {/* Select Swap Target */}
@@ -148,7 +145,7 @@ export default function AdminSwapModal({
                 .filter(m => m.id !== targetMember.id)
                 .map(m => (
                   <option key={`swap-${m.id}`} value={m.id}>
-                    คิวที่ #{m.queue_order} - {m.profiles?.display_name || 'ไม่ระบุชื่อ'} (UID: {m.profiles?.uid_game || '-'})
+                    คิวที่ #{m.queue_order} - {m.profiles?.display_name || 'ไม่ระบุชื่อ'}
                   </option>
                 ))}
             </select>

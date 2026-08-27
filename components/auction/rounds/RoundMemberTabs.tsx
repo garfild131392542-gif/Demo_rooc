@@ -246,39 +246,36 @@ export default function RoundMemberTabs({
                       return (
                         <div
                           key={member.id}
-                          className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700 transition flex items-center justify-between gap-3 shadow-2xs"
+                          className="p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700 transition flex items-center justify-between gap-2 sm:gap-3 shadow-2xs"
                         >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-mono text-xs font-bold flex items-center justify-center shrink-0">
-                              {member.queue_order || index + 1}
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                            <span className="text-[10px] font-bold font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded shrink-0">
+                              #{member.queue_order || index + 1}
                             </span>
-                            <div className="w-9 h-9 rounded-full bg-linear-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white font-black text-xs shrink-0 overflow-hidden relative">
+                            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-linear-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white font-black text-xs shrink-0 overflow-hidden relative">
                               {profile.avatar_url ? (
                                 <Image src={profile.avatar_url} alt={profile.display_name} fill className="object-cover" />
                               ) : (
                                 profile.display_name?.[0] || 'U'
                               )}
                             </div>
-                            <div className="min-w-0">
-                              <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
                                 {profile.display_name || 'ไม่ระบุชื่อ'}
                                 {profile.role === 'admin' && (
                                   <ShieldCheck size={12} className="text-blue-500 shrink-0" />
                                 )}
                               </div>
-                              <div className="text-[10px] text-slate-400 font-mono truncate">
-                                UID: {profile.uid_game || '-'}
-                              </div>
                             </div>
                           </div>
 
                           {/* Quota & Action */}
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                             <div className="text-right">
-                              <div className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400">
+                              <div className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400 whitespace-nowrap">
                                 {member.received_qty}/{target} ชิ้น
                               </div>
-                              <div className="text-[9px] text-slate-400">
+                              <div className="text-[9px] text-slate-400 whitespace-nowrap">
                                 {isSkipped ? (
                                   <span className="text-red-500 font-bold">สละสิทธิ์รอบนี้</span>
                                 ) : isTransferred ? (
@@ -290,11 +287,11 @@ export default function RoundMemberTabs({
                             </div>
 
                             {isAdmin && (
-                              <div className="flex items-center gap-1 border-l border-slate-100 dark:border-slate-800 pl-2">
+                              <div className="flex items-center gap-0.5 sm:gap-1 border-l border-slate-100 dark:border-slate-800 pl-1.5 sm:pl-2">
                                 {remaining > 0 && !isSkipped && !isTransferred && (
                                   <button
                                     onClick={() => handleOpenAwardModal(member)}
-                                    className="p-1.5 bg-green-50 hover:bg-green-100 dark:bg-green-950/40 text-green-600 rounded-lg transition cursor-pointer"
+                                    className="p-1 sm:p-1.5 bg-green-50 hover:bg-green-100 dark:bg-green-950/40 text-green-600 rounded-lg transition cursor-pointer"
                                     title="มอบรางวัลให้คนนี้โดยตรง"
                                   >
                                     <Award size={13} />
@@ -302,21 +299,21 @@ export default function RoundMemberTabs({
                                 )}
                                 <button
                                   onClick={() => onSwapOrder(member)}
-                                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 rounded-lg transition cursor-pointer"
+                                  className="p-1 sm:p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 rounded-lg transition cursor-pointer"
                                   title="สลับลำดับคิว"
                                 >
                                   <ArrowUpDown size={13} />
                                 </button>
                                 <button
                                   onClick={() => onTransferForMember(member)}
-                                  className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-500 rounded-lg transition cursor-pointer"
+                                  className="p-1 sm:p-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-500 rounded-lg transition cursor-pointer"
                                   title="โอนสิทธิ์ให้ผู้อื่น"
                                 >
                                   <ArrowRightLeft size={13} />
                                 </button>
                                 <button
                                   onClick={() => onSkipMember(member)}
-                                  className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 rounded-lg transition cursor-pointer"
+                                  className="p-1 sm:p-1.5 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 rounded-lg transition cursor-pointer"
                                   title="ข้ามสิทธิ์รอบนี้"
                                 >
                                   <UserX size={13} />
@@ -348,34 +345,31 @@ export default function RoundMemberTabs({
                       return (
                         <div
                           key={member.id}
-                          className="p-3 rounded-xl border border-green-200/60 dark:border-green-900/40 bg-green-50/30 dark:bg-green-950/10 flex items-center justify-between gap-3"
+                          className="p-2.5 sm:p-3 rounded-xl border border-green-200/60 dark:border-green-900/40 bg-green-50/30 dark:bg-green-950/10 flex items-center justify-between gap-2 sm:gap-3"
                         >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 font-mono text-xs font-bold flex items-center justify-center shrink-0">
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                            <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/50 px-1.5 py-0.5 rounded shrink-0">
                               ✓
                             </span>
-                            <div className="w-9 h-9 rounded-full bg-linear-to-tr from-green-500 to-emerald-500 flex items-center justify-center text-white font-black text-xs shrink-0 overflow-hidden relative">
+                            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-linear-to-tr from-green-500 to-emerald-500 flex items-center justify-center text-white font-black text-xs shrink-0 overflow-hidden relative">
                               {profile.avatar_url ? (
                                 <Image src={profile.avatar_url} alt={profile.display_name} fill className="object-cover" />
                               ) : (
                                 profile.display_name?.[0] || 'U'
                               )}
                             </div>
-                            <div className="min-w-0">
-                              <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
                                 {profile.display_name || 'ไม่ระบุชื่อ'}
-                              </div>
-                              <div className="text-[10px] text-slate-400 font-mono truncate">
-                                UID: {profile.uid_game || '-'}
                               </div>
                             </div>
                           </div>
 
                           <div className="text-right shrink-0">
-                            <div className="text-xs font-bold font-mono text-green-600 dark:text-green-400 flex items-center gap-1 justify-end">
+                            <div className="text-xs font-bold font-mono text-green-600 dark:text-green-400 flex items-center gap-1 justify-end whitespace-nowrap">
                               <CheckCircle2 size={13} /> {member.received_qty}/{target} ชิ้น
                             </div>
-                            <div className="text-[9px] text-green-600/80 font-medium">
+                            <div className="text-[9px] text-green-600/80 font-medium whitespace-nowrap">
                               ครบโควตารอบ {roundNumber}
                             </div>
                           </div>

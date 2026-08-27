@@ -221,10 +221,7 @@ export default function AdminProxyBooking({
                 </div>
                 <div className="min-w-0">
                   <div className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
-                    {selectedMember.display_name}
-                  </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                    UID: {selectedMember.uid_game || '-'} {selectedMember.role === 'admin' && '• 👑 แอดมิน'}
+                    {selectedMember.display_name} {selectedMember.role === 'admin' && '• 👑 แอดมิน'}
                   </div>
                 </div>
               </div>
@@ -249,7 +246,7 @@ export default function AdminProxyBooking({
                   autoFocus
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="พิมพ์ค้นหาชื่อสมาชิก หรือ UID..."
+                  placeholder="พิมพ์ค้นหาชื่อสมาชิก..."
                   className="w-full bg-transparent text-xs text-slate-900 dark:text-white placeholder-slate-400 outline-none font-semibold"
                 />
                 {searchQuery && (
@@ -280,9 +277,6 @@ export default function AdminProxyBooking({
                         </div>
                         <div className="min-w-0">
                           <p className="text-xs font-bold truncate">{member.display_name}</p>
-                          <p className={`text-[10px] truncate ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>
-                            UID: {member.uid_game || '-'}
-                          </p>
                         </div>
                       </div>
                       {isSelected && <Check className="w-4 h-4 text-white shrink-0" strokeWidth={3} />}

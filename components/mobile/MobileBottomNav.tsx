@@ -47,7 +47,7 @@ export default function MobileBottomNav({
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  // 5 Main Tabs for the Bottom Bar
+  // 4 Main Tabs for the Bottom Bar (+ 1 More Menu Button)
   const mainTabs = [
     {
       id: 'party',
@@ -55,13 +55,6 @@ export default function MobileBottomNav({
       href: '/',
       icon: LayoutGrid,
       isActive: pathname === '/',
-    },
-    {
-      id: 'tactics',
-      name: 'วางแผน',
-      href: '/tactics',
-      icon: Swords,
-      isActive: pathname.startsWith('/tactics'),
     },
     {
       id: 'auction',
@@ -226,6 +219,23 @@ export default function MobileBottomNav({
                 <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1.5">
                   ฟีเจอร์หลัก
                 </div>
+
+                <Link
+                  href="/tactics"
+                  onClick={() => setIsMoreOpen(false)}
+                  className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors group text-slate-700 dark:text-slate-200"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">
+                      <Swords size={18} />
+                    </div>
+                    <div>
+                      <div className="font-bold text-sm">วางแผนกลยุทธ์ (Tactics)</div>
+                      <div className="text-xs text-slate-400">กระดานวางแผน Guild War</div>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
 
                 <Link
                   href="/profile/history"

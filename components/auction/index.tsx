@@ -342,14 +342,20 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
     }
   }
 
+  const [viewMode, setViewMode] = useState<"slots" | "history" | "queue" | "summary" | "proxy" | "rounds">("slots")
+
   return (
     <div className="w-full max-w-475 mx-auto grid grid-cols-1 xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)_minmax(320px,360px)] gap-6 items-start pb-16">
-      <div className="w-full flex flex-col gap-3 sticky top-15">
-        {isAdmin && <AdminLimits limits={limits} setLimits={setLimits} />}
-      </div>
+      {isAdmin && (
+        <div className={`w-full flex-col gap-3 sticky top-15 ${viewMode === 'slots' ? 'flex' : 'hidden xl:flex'}`}>
+          <AdminLimits limits={limits} setLimits={setLimits} />
+        </div>
+      )}
 
       <div className="w-full min-w-0">
         <AuctionWindow 
+          viewMode={viewMode}
+          setViewMode={setViewMode}
           isAdmin={isAdmin}
           limits={limits}
           positions={positions}
@@ -373,7 +379,7 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
       </div>
 
       {isAdmin && (
-        <div className="w-full flex flex-col gap-4 sticky top-24">
+        <div className={`w-full flex-col gap-4 sticky top-24 ${viewMode === 'slots' ? 'flex' : 'hidden xl:flex'}`}>
           <AdminForm 
           positions={positions} 
           setPositions={setPositions} 

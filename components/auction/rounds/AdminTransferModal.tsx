@@ -165,7 +165,7 @@ export default function AdminTransferModal({
                 <option value="">-- เลือกผู้โอน --</option>
                 {guildMembers.map(m => (
                   <option key={`from-${m.id}`} value={m.id}>
-                    {m.display_name} ({m.uid_game || '-'})
+                    {m.display_name}
                   </option>
                 ))}
               </select>
@@ -188,7 +188,7 @@ export default function AdminTransferModal({
                   .filter(m => m.id !== fromUserId)
                   .map(m => (
                     <option key={`to-${m.id}`} value={m.id}>
-                      {m.display_name} ({m.uid_game || '-'})
+                      {m.display_name}
                     </option>
                   ))}
               </select>

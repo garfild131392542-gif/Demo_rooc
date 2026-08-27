@@ -477,15 +477,15 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                       <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-rose-500 disabled:opacity-50"></div>
                     </label>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div className="flex flex-col space-y-1">
-                      <span className="text-gray-500 dark:text-gray-400 text-xs">{formatUpdatedAt(item.last_stat_update)}</span>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm" suppressHydrationWarning>
+                    <div className="flex flex-col space-y-1" suppressHydrationWarning>
+                      <span className="text-gray-500 dark:text-gray-400 text-xs" suppressHydrationWarning>{formatUpdatedAt(item.last_stat_update)}</span>
                       {needsUpdate(item.last_stat_update) ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 w-fit">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 w-fit" suppressHydrationWarning>
                           🔴 ยังไม่อัพเดท
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 w-fit">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 w-fit" suppressHydrationWarning>
                           🟢 อัพเดทแล้ว
                         </span>
                       )}

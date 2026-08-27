@@ -124,17 +124,19 @@ export default function RoundMemberTabs({
         <div className="flex items-center gap-1 sm:gap-1.5 p-1 bg-slate-200/70 dark:bg-slate-800 rounded-xl w-full sm:w-auto">
           <button
             onClick={() => setActiveTab('pending')}
-            className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer ${
+            className={`flex-1 sm:flex-initial px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 cursor-pointer ${
               activeTab === 'pending'
                 ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
-            <Clock size={14} className="shrink-0" />
-            <span>
-              <span className="sm:hidden">รอรับ</span>
-              <span className="hidden sm:inline">กำลังรอรับ</span>
-            </span>
+            <div className="flex items-center gap-1">
+              <Clock size={13} className="shrink-0" />
+              <span>
+                <span className="sm:hidden">รอรับ</span>
+                <span className="hidden sm:inline">กำลังรอรับ</span>
+              </span>
+            </div>
             <span className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-[10px] px-1.5 py-0.2 rounded-full font-mono font-black">
               {pendingMembers.length}
             </span>
@@ -142,17 +144,19 @@ export default function RoundMemberTabs({
 
           <button
             onClick={() => setActiveTab('completed')}
-            className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer ${
+            className={`flex-1 sm:flex-initial px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 cursor-pointer ${
               activeTab === 'completed'
                 ? 'bg-white dark:bg-slate-700 text-green-600 dark:text-green-400 shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
-            <CheckCircle2 size={14} className="shrink-0" />
-            <span>
-              <span className="sm:hidden">ได้รับ</span>
-              <span className="hidden sm:inline">ได้รับครบแล้ว</span>
-            </span>
+            <div className="flex items-center gap-1">
+              <CheckCircle2 size={13} className="shrink-0" />
+              <span>
+                <span className="sm:hidden">ได้รับ</span>
+                <span className="hidden sm:inline">ได้รับครบแล้ว</span>
+              </span>
+            </div>
             <span className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 text-[10px] px-1.5 py-0.2 rounded-full font-mono font-black">
               {completedMembers.length}
             </span>
@@ -160,17 +164,19 @@ export default function RoundMemberTabs({
 
           <button
             onClick={() => setActiveTab('logs')}
-            className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer ${
+            className={`flex-1 sm:flex-initial px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 cursor-pointer ${
               activeTab === 'logs'
                 ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
-            <History size={14} className="shrink-0" />
-            <span>
-              <span className="sm:hidden">ประวัติ</span>
-              <span className="hidden sm:inline">Audit Log ประวัติ</span>
-            </span>
+            <div className="flex items-center gap-1">
+              <History size={13} className="shrink-0" />
+              <span>
+                <span className="sm:hidden">ประวัติ</span>
+                <span className="hidden sm:inline">Audit Log ประวัติ</span>
+              </span>
+            </div>
             <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-[10px] px-1.5 py-0.2 rounded-full font-mono font-black">
               {logs.length}
             </span>

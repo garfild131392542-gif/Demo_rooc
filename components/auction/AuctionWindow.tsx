@@ -1532,13 +1532,13 @@ export default function AuctionWindow({
             </div>
           ) : viewMode === "rounds" ? (
             <div className="flex-1 flex flex-col justify-start">
-              {/* Item Selector Sub-Tabs with Navigation Arrows */}
-              <div className="relative mb-4 group/tabs flex items-center">
+              {/* Item Selector Sub-Tabs with Navigation Arrows (placed beside to avoid blocking cards) */}
+              <div className="flex items-center gap-1.5 mb-4 w-full">
                 {/* Left Scroll Arrow */}
                 <button
                   type="button"
                   onClick={() => scrollRoundTabs('left')}
-                  className="absolute left-0 z-10 w-7 h-7 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 shadow-md border border-slate-200 dark:border-slate-700 rounded-full flex items-center justify-center text-slate-700 dark:text-slate-200 transition-all hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-xs shrink-0"
+                  className="w-8 h-8 shrink-0 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 shadow-xs border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center text-slate-700 dark:text-slate-200 transition-all hover:scale-105 active:scale-95 cursor-pointer"
                   title="เลื่อนซ้าย"
                   aria-label="Scroll left"
                 >
@@ -1548,7 +1548,7 @@ export default function AuctionWindow({
                 {/* Tabs Container */}
                 <div
                   ref={roundTabsContainerRef}
-                  className="flex items-center gap-2 overflow-x-auto px-8 py-1 scrollbar-none snap-x touch-pan-x scroll-smooth w-full"
+                  className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none snap-x touch-pan-x scroll-smooth flex-1 min-w-0"
                 >
                   {(['Album', 'Puppet', 'White', 'RedBlack'] as const).map(type => {
                     const cfg = ITEM_CONFIG[type];
@@ -1584,7 +1584,7 @@ export default function AuctionWindow({
                 <button
                   type="button"
                   onClick={() => scrollRoundTabs('right')}
-                  className="absolute right-0 z-10 w-7 h-7 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 shadow-md border border-slate-200 dark:border-slate-700 rounded-full flex items-center justify-center text-slate-700 dark:text-slate-200 transition-all hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-xs shrink-0"
+                  className="w-8 h-8 shrink-0 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 shadow-xs border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center text-slate-700 dark:text-slate-200 transition-all hover:scale-105 active:scale-95 cursor-pointer"
                   title="เลื่อนขวา"
                   aria-label="Scroll right"
                 >

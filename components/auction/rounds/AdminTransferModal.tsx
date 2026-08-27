@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ItemType } from '@/app/actions/auction'
 import { ITEM_CONFIG } from '../constants'
 import { transferRoundQuota } from '@/app/actions/auction-rounds'
@@ -35,14 +35,46 @@ export default function AdminTransferModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // 🔄 ซิงค์ข้อมูลผู้โอนและรีเซ็ตค่าทุกครั้งที่เปิด Modal
+  useEffect(() => {
+    if (isOpen && preselectedFromMember) {
+      setFromUserId(preselectedFromMember.user_id || '')
+      setToUserId('')
+      const target =
+        (preselectedFromMember.base_quota || 0) +
+        (preselectedFromMember.transferred_in_quota || 0) -
+        (preselectedFromMember.transferred_out_quota || 0)
+      const remaining = Math.max(1, target - (preselectedFromMember.received_qty || 0))
+      setTransferQty(Math.min(1, remaining))
+      setTransferType('partial')
+      setNote('')
+      setError(null)
+    }
+  }, [isOpen, preselectedFromMember])
+
   if (!isOpen) return null
 
   const itemInfo = ITEM_CONFIG[activeItem]
 
+  const fromMemberName =
+    preselectedFromMember?.profiles?.display_name ||
+    guildMembers.find(m => m.id === fromUserId)?.display_name ||
+    'ไม่ระบุชื่อ'
+
+  const targetQuota = preselectedFromMember
+    ? (preselectedFromMember.base_quota || 0) +
+      (preselectedFromMember.transferred_in_quota || 0) -
+      (preselectedFromMember.transferred_out_quota || 0)
+    : 0
+
+  const fromRemaining = preselectedFromMember
+    ? Math.max(0, targetQuota - (preselectedFromMember.received_qty || 0))
+    : 20
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!fromUserId || !toUserId) {
-      setError('กรุณาเลือกทั้งผู้โอนและผู้รับโอน')
+      setError('กรุณาเลือกผู้รับโอน')
       return
     }
     if (fromUserId === toUserId) {
@@ -50,7 +82,7 @@ export default function AdminTransferModal({
       return
     }
 
-    const actualQty = Number(transferQty) || 1
+    const actualQty = transferType === 'full' ? fromRemaining : Number(transferQty) || 1
 
     // ⚡ Optimistic UI Update: อัปเดตโควตาทันที 0ms และปิด Modal ทันที
     onOptimisticTransfer?.(fromUserId, toUserId, actualQty)
@@ -110,7 +142,7 @@ export default function AdminTransferModal({
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg transition disabled:opacity-50"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg transition disabled:opacity-50 cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -149,45 +181,62 @@ export default function AdminTransferModal({
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              ยกให้ทั้งหมด (Full Transfer)
+              ยกให้ทั้งหมด (โอน {fromRemaining} ชิ้น)
             </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* From User */}
+            {/* From User (Fixed/Locked to the selected member) */}
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                ผู้ยกสิทธิ์ (โอนออก):
+                ผู้ยกสิทธิ์ (โอนออกจาก):
               </label>
-              <select
-                value={fromUserId}
-                disabled={isSubmitting}
-                onChange={e => setFromUserId(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 font-medium disabled:opacity-50"
-                required
-              >
-                <option value="">-- เลือกผู้โอน --</option>
-                {guildMembers.map(m => (
-                  <option key={`from-${m.id}`} value={m.id}>
-                    {m.display_name}
-                  </option>
-                ))}
-              </select>
+              {preselectedFromMember ? (
+                <div className="w-full p-2.5 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[10px] font-bold font-mono text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded shrink-0">
+                      #{preselectedFromMember.queue_order || 1}
+                    </span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                      {fromMemberName}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 shrink-0">
+                    เหลือ {fromRemaining} ชิ้น
+                  </span>
+                </div>
+              ) : (
+                <select
+                  value={fromUserId}
+                  disabled={isSubmitting}
+                  onChange={e => setFromUserId(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 font-medium disabled:opacity-50"
+                  required
+                >
+                  <option value="">-- เลือกผู้โอน --</option>
+                  {guildMembers.map(m => (
+                    <option key={`from-${m.id}`} value={m.id}>
+                      {m.display_name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
-            {/* To User */}
+            {/* To User (Select target recipient) */}
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                ผู้รับสิทธิ์ (โอนเข้า):
+                ผู้รับสิทธิ์ (โอนเข้าให้ใคร): <span className="text-blue-500">*</span>
               </label>
               <select
                 value={toUserId}
                 disabled={isSubmitting}
                 onChange={e => setToUserId(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 font-medium disabled:opacity-50"
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 font-medium disabled:opacity-50 cursor-pointer"
                 required
+                autoFocus
               >
-                <option value="">-- เลือกผู้รับ --</option>
+                <option value="">-- เลือกผู้รับสิทธิ์ --</option>
                 {guildMembers
                   .filter(m => m.id !== fromUserId)
                   .map(m => (
@@ -209,7 +258,7 @@ export default function AdminTransferModal({
                 <input
                   type="number"
                   min={1}
-                  max={20}
+                  max={fromRemaining || 20}
                   value={transferQty}
                   disabled={isSubmitting}
                   onFocus={e => e.target.select()}
@@ -217,11 +266,12 @@ export default function AdminTransferModal({
                   onBlur={e => {
                     const val = parseInt(e.target.value)
                     if (isNaN(val) || val < 1) setTransferQty(1)
+                    else setTransferQty(Math.min(fromRemaining || 20, val))
                   }}
                   className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base font-black font-mono outline-none focus:border-blue-500 text-center disabled:opacity-50"
                   required
                 />
-                <span className="text-xs text-slate-500 font-bold shrink-0">ชิ้น</span>
+                <span className="text-xs text-slate-500 font-bold shrink-0">ชิ้น (สูงสุด {fromRemaining} ชิ้น)</span>
               </div>
             </div>
           )}

@@ -89,12 +89,12 @@ export default async function RootLayout({
                 initialVisible={tickerSettings?.is_visible}
               />
             )}
-            <main className="flex-1">
+            <main className="flex-1 pb-20 lg:pb-0">
               {children}
             </main>
 
             {/* Footer with Privacy Policy */}
-            <footer className="w-full py-4 border-t border-slate-200/60 dark:border-slate-800/80 bg-white/40 dark:bg-slate-950/40 backdrop-blur-xs text-center text-xs text-slate-500 dark:text-slate-400 mt-auto transition-colors">
+            <footer className="w-full py-4 border-t border-slate-200/60 dark:border-slate-800/80 bg-white/40 dark:bg-slate-950/40 backdrop-blur-xs text-center text-xs text-slate-500 dark:text-slate-400 mt-auto transition-colors pb-20 lg:pb-4">
               <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
                 <div>
                   © {new Date().getFullYear()} ROOC Guild Management System

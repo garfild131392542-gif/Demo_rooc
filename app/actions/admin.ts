@@ -114,7 +114,12 @@ export async function createMember(formData: FormData) {
     if (!uid_game || !uid_game.trim()) {
       return { success: false, error: "กรุณาระบุ UID Game" };
     }
-    const finalEmail = `${uid_game.trim().toLowerCase()}@member.rooc`;
+    const cleanUidGame = uid_game.trim();
+    const cleanDisplayName = display_name?.trim();
+    if (!cleanDisplayName) {
+      return { success: false, error: "กรุณาระบุชื่อตัวละคร (ต้องไม่เป็นค่าว่างหรือเว้นวรรค)" };
+    }
+    const finalEmail = `${cleanUidGame.toLowerCase()}@member.rooc`;
 
     // 2. สุ่มสร้างรหัสผ่านเริ่มต้นความยาว 8 หลัก
     const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -146,8 +151,8 @@ export async function createMember(formData: FormData) {
         {
           id: newUserId,
           guild_id: admin.guild_id,
-          uid_game: uid_game.trim(),
-          display_name: display_name?.trim() || uid_game.trim(),
+          uid_game: cleanUidGame,
+          display_name: cleanDisplayName,
           job_name,
           role,
           cp,
@@ -207,9 +212,13 @@ export async function updateMember(id: string, formData: FormData) {
     }
 
     const uid_game = formData.get("uid_game") as string;
-    const display_name = formData.get("display_name") as string;
+    const display_name = (formData.get("display_name") as string)?.trim();
     const job_name = formData.get("job_name") as string;
     const role = formData.get("role") as "admin" | "member";
+
+    if (!display_name) {
+      return { success: false, error: "กรุณาระบุชื่อตัวละคร (ต้องไม่เป็นค่าว่างหรือเว้นวรรค)" };
+    }
 
     const cp = parseInt(formData.get("cp") as string) || 0;
     const pvp_reduc = parseInt(formData.get("pvp_reduc") as string) || 0;
@@ -247,28 +256,37 @@ export async function updateMember(id: string, formData: FormData) {
       }
     }
 
+    const updatePayload: Record<string, any> = {
+      display_name,
+      job_name,
+      role,
+      cp,
+      p_atk,
+      m_atk,
+      p_def,
+      m_def,
+      p_dmg,
+      m_dmg,
+      p_reduc,
+      m_reduc,
+      pvp_reduc,
+      pvp_dmg,
+      hp,
+      sp,
+      ignore_pdef,
+      ignore_mdef,
+      cri,
+      cri_dmg,
+      last_stat_update: new Date().toISOString(),
+    };
+
+    if (uid_game && uid_game.trim() !== "") {
+      updatePayload.uid_game = uid_game.trim();
+    }
+
     const { error } = await (supabase as any)
       .from("profiles")
-      .update({
-        uid_game,
-        display_name,
-        job_name,
-        role,
-        cp,
-        p_atk,
-        m_atk,
-        p_def,
-        m_def,
-        p_dmg,
-        m_dmg,
-        p_reduc,
-        m_reduc,
-        pvp_reduc,
-        pvp_dmg,
-        hp, sp, ignore_pdef, ignore_mdef,
-        cri, cri_dmg,
-        last_stat_update: new Date().toISOString(),
-      } as any)
+      .update(updatePayload)
       .eq("id", id)
       .eq("guild_id", admin.guild_id!);
 

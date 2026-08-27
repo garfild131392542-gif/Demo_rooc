@@ -9,6 +9,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { SunIcon, MoonIcon } from '@heroicons/react/24/outline'
 import { createClient } from '@/lib/supabase/client'
 
+import MobileBottomNav from '@/components/mobile/MobileBottomNav'
+
 type SessionType = {
     uid_game: string;
     role: string;
@@ -24,7 +26,7 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
     const [guildName, setGuildName] = useState('กำลังโหลด...')
     const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
-    // 🌟 1. เพิ่ม State สำหรับจัดการ Modal Logout
+    // 🌟 State สำหรับจัดการ Modal Logout
     const [showLogoutModal, setShowLogoutModal] = useState(false)
     const [isLoggingOut, setIsLoggingOut] = useState(false)
 
@@ -96,7 +98,6 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
 
     const isDarkMode = mounted && resolvedTheme === 'dark'
 
-    // 🌟 2. ปรับฟังก์ชันให้ทำงานเมื่อกดยืนยันใน Modal
     const confirmLogout = async () => {
         setIsLoggingOut(true)
         await logoutAction()
@@ -107,86 +108,74 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
         setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
     }
 
-    const menuVariants = {
-        closed: {
-            opacity: 0,
-            height: 0,
-            transition: { duration: 0.1, ease: 'easeInOut', when: "afterChildren" }
-        },
-        open: {
-            opacity: 1,
-            height: 'auto',
-            transition: { duration: 0.2, ease: 'easeInOut', when: "beforeChildren" }
-        }
-    } as any
-
-    const itemVariants = {
-        closed: { x: -20, opacity: 0 },
-        open: { x: 0, opacity: 1 }
-    } as any
-
     return (
         <>
-            <nav className="sticky top-0 z-[100] bg-blue-500/90 dark:bg-gray-900/90 backdrop-blur-md text-white shadow-lg transition-colors border-b border-white/10">
+            <nav className="sticky top-0 z-[100] bg-blue-600/95 dark:bg-slate-900/95 backdrop-blur-xl text-white shadow-md transition-colors border-b border-white/10">
                 <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-                    <div className="flex justify-between h-16 sm:h-18">
+                    <div className="flex justify-between items-center h-14 sm:h-16 lg:h-18">
 
-                        <div className="flex items-center sm:gap-4">
-                            <div>
-                                <Link href="/" className="flex items-center hover:scale-105 transition-transform gap-2 py-1">
-                                    {logoUrl ? (
-                                        <img src={logoUrl} alt={guildName} className="h-11 sm:h-14 w-auto object-contain rounded" />
-                                    ) : (
-                                        <span className="font-bold text-2xl sm:text-2xl tracking-tighter flex items-center">
-                                            {guildName}<span className="ml-1 text-indigo-200 sm:text-xl">Guild</span>
-                                        </span>
-                                    )}
-                                </Link>
-                            </div>
+                        {/* Brand Logo & Name */}
+                        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                            <Link href="/" className="flex items-center hover:scale-102 transition-transform gap-2 py-1 min-w-0">
+                                {logoUrl ? (
+                                    <img src={logoUrl} alt={guildName} className="h-9 w-9 sm:h-12 sm:w-12 object-cover rounded-full border border-white/20 shadow-sm shrink-0" />
+                                ) : (
+                                    <div className="h-9 w-9 sm:h-11 sm:w-11 rounded-full bg-white/20 flex items-center justify-center font-black text-sm shrink-0 border border-white/20">
+                                        🛡️
+                                    </div>
+                                )}
+                                <div className="flex flex-col min-w-0">
+                                    <span className="font-extrabold text-base sm:text-xl tracking-tight leading-tight truncate">
+                                        {guildName}
+                                    </span>
+                                    <span className="text-[10px] text-blue-200 dark:text-blue-300 font-medium truncate sm:hidden">
+                                        {enrichedSession.display_name} • {enrichedSession.role === 'admin' ? 'แอดมิน' : 'สมาชิก'}
+                                    </span>
+                                </div>
+                            </Link>
 
-                            <div className="hidden sm:flex gap-1">
+                            {/* 🖥️ Desktop Main Navigation Links (Hidden on Mobile) */}
+                            <div className="hidden lg:flex items-center gap-1 ml-2">
                                 {[
                                     { name: 'จัดปาร์ตี้', href: '/' },
                                     { name: 'วางแผน', href: '/tactics' },
                                     { name: 'กิลด์', href: '/guild/edit' },
                                     { name: 'ข้อมูลส่วนตัว', href: '/profile' },
-
                                     { name: 'สมาชิก', href: '/members' },
                                     { name: 'คิวประมูล', href: '/profile/history' },
                                     { name: 'ประมูล', href: '/auction' },
-
                                 ].map((item) => (
                                     <Link
                                         key={item.name}
                                         href={item.href}
-                                        className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all hover:bg-white/10 ${pathname === item.href ? 'bg-white/20' : ''}`}
+                                        className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:bg-white/10 ${pathname === item.href ? 'bg-white/20 shadow-xs' : ''}`}
                                     >
                                         {item.name}
                                     </Link>
                                 ))}
                                 {enrichedSession.role === 'admin' && (
-                                    <Link href="/guild-admin/credentials" className="px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all hover:bg-white/10 bg-indigo-500/30 border border-white/20">
+                                    <Link href="/guild-admin/credentials" className="px-3 py-2 rounded-xl text-xs font-bold transition-all hover:bg-white/10 bg-indigo-500/30 border border-white/20">
                                         จัดการสมาชิก
                                     </Link>
                                 )}
                                 {enrichedSession.is_system_admin && (
-                                    <Link href="/admin-control" className="px-3 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all hover:bg-white/10 bg-rose-600/30 border border-rose-500/40 text-rose-200">
+                                    <Link href="/admin-control" className="px-3 py-2 rounded-xl text-xs font-bold transition-all hover:bg-white/10 bg-rose-600/40 border border-rose-500/40 text-rose-200">
                                         แผงควบคุมระบบ
                                     </Link>
                                 )}
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-1 sm:gap-2 lg:gap-4 pl-2 sm:pl-4">
+                        {/* Top Right Action Tools */}
+                        <div className="flex items-center gap-1.5 sm:gap-3">
                             {/* Dark Mode Switch */}
                             <button
                                 type="button"
                                 onClick={toggleDarkMode}
-                                className="cursor-pointer relative p-2 rounded-full hover:bg-white/10 dark:hover:bg-gray-800 transition-colors focus:outline-none active:scale-95"
+                                className="cursor-pointer p-2 rounded-xl hover:bg-white/10 dark:hover:bg-gray-800 transition-colors focus:outline-none active:scale-95"
                                 aria-label="Toggle Dark Mode"
                             >
                                 <span className="sr-only">Toggle Dark Mode</span>
-
                                 <div className="relative h-5 w-5 sm:h-6 sm:w-6">
                                     <div className={`absolute inset-0 transition-transform duration-500 ease-in-out ${isDarkMode ? 'rotate-[180deg] opacity-0 scale-50' : 'rotate-0 opacity-100 scale-100'}`}>
                                         <SunIcon className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-300" />
@@ -197,100 +186,32 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
                                 </div>
                             </button>
 
-                            <div className="hidden sm:flex items-center gap-2 lg:gap-4 border-l border-white/20 pl-2 lg:pl-4">
-                                <div className="hidden lg:flex items-center space-x-1">
-                                    <span className="text-xs font-mono opacity-80 bg-black/20 px-2 py-1 rounded-md border border-white/5">
-                                        <span className="text-indigo-200">{enrichedSession.display_name}</span>
-                                        <span className="mx-1 opacity-40">|</span>
-                                        <span className="hidden lg:inline">{enrichedSession.uid_game}</span>
-                                    </span>
-                                </div>
-                                {/* 🌟 3. เปลี่ยนจาก Form เป็นปุ่มเปิด Modal ธรรมดา (สำหรับ Desktop) */}
+                            {/* 🖥️ Desktop User Info & Logout Button */}
+                            <div className="hidden lg:flex items-center gap-3 border-l border-white/20 pl-3">
+                                <span className="text-xs font-mono bg-black/20 px-2.5 py-1.5 rounded-xl border border-white/10">
+                                    <span className="text-indigo-200 font-bold">{enrichedSession.display_name}</span>
+                                    <span className="mx-1.5 opacity-40">|</span>
+                                    <span>{enrichedSession.uid_game}</span>
+                                </span>
                                 <button
                                     type="button"
                                     onClick={() => setShowLogoutModal(true)}
-                                    className="hover cursor-pointer text-xs sm:text-sm bg-red-600/95 py-1 px-2 sm:px-3 rounded font-semibold text-red-200 hover:text-white hover:bg-red-600/10 transition-colors"
+                                    className="cursor-pointer text-xs bg-red-600/90 hover:bg-red-600 py-1.5 px-3 rounded-xl font-bold text-white transition-all shadow-xs active:scale-95"
                                 >
                                     Logout
                                 </button>
                             </div>
-
-                            {/* Animated Hamburger Button */}
-                            <button
-                                onClick={() => setIsOpen(!isOpen)}
-                                className="sm:hidden p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all active:scale-95"
-                            >
-                                <div className="w-6 h-5 relative flex flex-col justify-between items-center">
-                                    <motion.span
-                                        animate={isOpen ? { rotate: 45, y: 8 } : { rotate: 0, y: 0 }}
-                                        className="w-full h-0.5 bg-white rounded-full origin-center"
-                                    />
-                                    <motion.span
-                                        animate={isOpen ? { opacity: 0, x: -10 } : { opacity: 1, x: 0 }}
-                                        className="w-full h-0.5 bg-white rounded-full"
-                                    />
-                                    <motion.span
-                                        animate={isOpen ? { rotate: -45, y: -10 } : { rotate: 0, y: 0 }}
-                                        className="w-full h-0.5 bg-white rounded-full origin-center"
-                                    />
-                                </div>
-                            </button>
                         </div>
                     </div>
                 </div>
-
-                {/* Mobile Menu with Framer Motion */}
-                <AnimatePresence>
-                    {isOpen && (
-                        <motion.div
-                            initial="closed"
-                            animate="open"
-                            exit="closed"
-                            variants={menuVariants}
-                            className="sm:hidden overflow-hidden bg-gray-700/95 dark:bg-gray-950/95 backdrop-blur-xl border-t border-white/10"
-                        >
-                            <div className="px-4 pb-6 space-y-2">
-                                {[
-                                    { name: 'จัดปาร์ตี้', href: '/' },
-                                    { name: 'วางแผน', href: '/tactics' },
-                                    { name: 'กิลด์', href: '/guild/edit' },
-                                    { name: 'ข้อมูลส่วนตัว', href: '/profile' },
-
-                                    { name: 'สมาชิก', href: '/members' },
-                                    { name: 'คิวประมูล', href: '/profile/history' },
-                                    { name: 'ประมูล', href: '/auction' },
-
-                                    ...(enrichedSession.role === 'admin' ? [{ name: 'จัดการข้อมูลสมาชิกกิล', href: '/guild-admin/credentials' }] : []),
-                                    ...(enrichedSession.is_system_admin ? [{ name: '⚙️ แผงควบคุมระบบ', href: '/admin-control' }] : [])
-                                ].map((item) => (
-                                    <motion.div key={item.name} variants={itemVariants}>
-                                        <Link
-                                            href={item.href}
-                                            className="block px-4 py-3 rounded-xl text-md font-medium hover:bg-white/10 active:bg-white/20 transition-colors"
-                                        >
-                                            {item.name}
-                                        </Link>
-                                    </motion.div>
-                                ))}
-
-                                <motion.div variants={itemVariants} className="pt-4 mt-4 border-t border-white/10">
-                                    <div className="px-4 text-xs opacity-50 mb-4">
-                                        Logged in as: {enrichedSession.uid_game} ({enrichedSession.role})
-                                    </div>
-                                    {/* 🌟 4. เปลี่ยนจาก Form เป็นปุ่มเปิด Modal ธรรมดา (สำหรับ Mobile) */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowLogoutModal(true)}
-                                        className="cursor-pointer w-[100px] py-4 rounded-xl bg-red-500 text-white font-bold border border-red-500 active:scale-95 transition-all"
-                                    >
-                                        Logout
-                                    </button>
-                                </motion.div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
             </nav>
+
+            {/* 📱 Mobile Bottom Navigation Component */}
+            <MobileBottomNav 
+                enrichedSession={enrichedSession} 
+                guildName={guildName} 
+                logoUrl={logoUrl} 
+            />
 
             {/* 🌟 5. Modal แจ้งเตือนก่อนออกจากระบบ (ใช้ Framer Motion ให้เด้งสมูทๆ) */}
             <AnimatePresence>

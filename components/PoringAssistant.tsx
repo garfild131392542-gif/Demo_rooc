@@ -131,7 +131,7 @@ export default function PoringAssistant() {
         animate={controls}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        className="absolute bottom-4 right-4 sm:bottom-10 sm:right-10 pointer-events-auto flex flex-col items-end cursor-grab active:cursor-grabbing select-none"
+        className="absolute bottom-20 right-3 sm:bottom-8 sm:right-8 pointer-events-auto flex flex-col items-end cursor-grab active:cursor-grabbing select-none"
       >
         <AnimatePresence>
           {isOpen && (

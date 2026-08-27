@@ -1652,7 +1652,7 @@ export default function AuctionWindow({
 
       {/* 🌟 Floating Sticky Batch Action Bar */}
       {isAdmin && viewMode === "slots" && stagedQueueIds.size > 0 && (
-        <div className="fixed bottom-6 inset-x-0 z-40 max-w-xl mx-auto px-4 animate-in slide-in-from-bottom duration-200">
+        <div className="fixed bottom-20 lg:bottom-6 inset-x-0 z-40 max-w-xl mx-auto px-4 animate-in slide-in-from-bottom duration-200">
           <div className="bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-md text-white p-3.5 sm:p-4 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0 text-blue-400 font-black font-mono text-base">
@@ -1702,7 +1702,7 @@ export default function AuctionWindow({
 
       {/* 🌟 Floating Sticky History Batch Delete Action Bar */}
       {isAdmin && viewMode === "history" && stagedHistoryIds.size > 0 && (
-        <div className="fixed bottom-6 inset-x-0 z-40 max-w-xl mx-auto px-4 animate-in slide-in-from-bottom duration-200">
+        <div className="fixed bottom-20 lg:bottom-6 inset-x-0 z-40 max-w-xl mx-auto px-4 animate-in slide-in-from-bottom duration-200">
           <div className="bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-md text-white p-3.5 sm:p-4 rounded-2xl shadow-2xl border border-rose-600/60 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-400/30 flex items-center justify-center shrink-0 text-rose-400 font-black font-mono text-base">

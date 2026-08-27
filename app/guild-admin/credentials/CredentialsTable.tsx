@@ -118,6 +118,11 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
     e.preventDefault()
     if (!editingMember) return
     const formData = new FormData(e.currentTarget)
+    const displayName = (formData.get("display_name") as string)?.trim()
+    if (!displayName) {
+      alert("กรุณาระบุชื่อตัวละคร (ห้ามเป็นค่าว่างหรือเว้นวรรค)")
+      return
+    }
 
     // ตรวจสอบลิมิตของสเตตัสฝั่งหน้าบ้าน
     for (const key of Object.keys(STAT_LIMITS) as (keyof typeof STAT_LIMITS)[]) {
@@ -144,7 +149,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
         // อัปเดตข้อมูลในตารางทันทีโดยไม่ต้องรอโหลดหน้าใหม่
         const updatedItem = {
           ...editingMember,
-          display_name: formData.get("display_name") as string,
+          display_name: displayName,
           job_name: formData.get("job_name") as string,
           role: formData.get("role") as string,
           cp: parseInt(formData.get("cp") as string) || 0,
@@ -178,6 +183,17 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
   const handleCreateSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
+    const uidGame = (formData.get("uid_game") as string)?.trim()
+    const displayName = (formData.get("display_name") as string)?.trim()
+
+    if (!uidGame) {
+      alert("กรุณาระบุ UID Game (ห้ามเป็นค่าว่างหรือเว้นวรรค)")
+      return
+    }
+    if (!displayName) {
+      alert("กรุณาระบุชื่อตัวละคร (ห้ามเป็นค่าว่างหรือเว้นวรรค)")
+      return
+    }
 
     // ตรวจสอบลิมิตของสเตตัสฝั่งหน้าบ้าน
     for (const key of Object.keys(STAT_LIMITS) as (keyof typeof STAT_LIMITS)[]) {
@@ -520,11 +536,11 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="sm:col-span-2 lg:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UID Game <span className="text-red-500">*</span></label>
-                    <input name="uid_game" required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                    <input name="uid_game" required pattern=".*\S+.*" title="กรุณาระบุ UID Game (ห้ามเป็นเฉพาะช่องว่าง)" className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
                   </div>
                   <div className="sm:col-span-2 lg:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อตัวละคร <span className="text-red-500">*</span></label>
-                    <input name="display_name" required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                    <input name="display_name" required pattern=".*\S+.*" title="กรุณาระบุชื่อตัวละคร (ห้ามเป็นเฉพาะช่องว่าง)" className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
                   </div>
                   <div className="sm:col-span-2 lg:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">อาชีพ</label>
@@ -637,8 +653,12 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   
                   <div className="sm:col-span-2 lg:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Name (UID Game)</label>
+                    <input name="uid_game" value={editingMember.uid_game || ''} readOnly className="w-full px-3 py-2 border rounded-md text-sm bg-gray-100 dark:bg-gray-700/50 dark:border-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed outline-none" />
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อตัวละคร <span className="text-red-500">*</span></label>
-                    <input name="display_name" defaultValue={editingMember.display_name} required className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                    <input name="display_name" defaultValue={editingMember.display_name} required pattern=".*\S+.*" title="กรุณาระบุชื่อตัวละคร (ห้ามเป็นเฉพาะช่องว่าง)" className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
                   </div>
                   <div className="sm:col-span-2 lg:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">อาชีพ</label>

@@ -206,181 +206,232 @@ export default function RoundMemberTabs({
               <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
               <span>กำลังดึงข้อมูลสมาชิกและสถานะโควตาของรอบ...</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                <div
-                  key={`skeleton-card-${i}`}
-                  className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 flex items-center justify-between gap-3 animate-pulse shadow-2xs"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0" />
-                    <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0" />
-                    <div className="space-y-1.5 min-w-0">
-                      <div className="w-24 h-3.5 bg-slate-200 dark:bg-slate-800 rounded-md" />
-                      <div className="w-16 h-2.5 bg-slate-100 dark:bg-slate-800/60 rounded-md" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-start">
+              <div className="flex flex-col gap-2.5">
+                {[1, 2, 3, 4].map(i => (
+                  <div
+                    key={`skeleton-card-${i}`}
+                    className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 flex items-center justify-between gap-3 animate-pulse shadow-2xs"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0" />
+                      <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0" />
+                      <div className="space-y-1.5 min-w-0">
+                        <div className="w-24 h-3.5 bg-slate-200 dark:bg-slate-800 rounded-md" />
+                        <div className="w-16 h-2.5 bg-slate-100 dark:bg-slate-800/60 rounded-md" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="space-y-1 text-right">
+                        <div className="w-12 h-3.5 bg-slate-200 dark:bg-slate-800 rounded-md ml-auto" />
+                        <div className="w-16 h-2.5 bg-slate-100 dark:bg-slate-800/60 rounded-md ml-auto" />
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="space-y-1 text-right">
-                      <div className="w-12 h-3.5 bg-slate-200 dark:bg-slate-800 rounded-md ml-auto" />
-                      <div className="w-16 h-2.5 bg-slate-100 dark:bg-slate-800/60 rounded-md ml-auto" />
+                ))}
+              </div>
+              <div className="flex flex-col gap-2.5">
+                {[5, 6, 7, 8].map(i => (
+                  <div
+                    key={`skeleton-card-${i}`}
+                    className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 flex items-center justify-between gap-3 animate-pulse shadow-2xs"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0" />
+                      <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0" />
+                      <div className="space-y-1.5 min-w-0">
+                        <div className="w-24 h-3.5 bg-slate-200 dark:bg-slate-800 rounded-md" />
+                        <div className="w-16 h-2.5 bg-slate-100 dark:bg-slate-800/60 rounded-md" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="space-y-1 text-right">
+                        <div className="w-12 h-3.5 bg-slate-200 dark:bg-slate-800 rounded-md ml-auto" />
+                        <div className="w-16 h-2.5 bg-slate-100 dark:bg-slate-800/60 rounded-md ml-auto" />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         ) : (
           <>
             {/* 1. Pending Members Tab */}
-            {activeTab === 'pending' && (
-              <div className="space-y-2">
-                {filteredPending.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm space-y-2">
-                    {members.length === 0 ? (
-                      <>
-                        <div className="text-2xl">📋</div>
-                        <div className="font-bold text-slate-700 dark:text-slate-300">ยังไม่ได้เริ่มรอบการประมูล ({itemInfo.label})</div>
-                        <div className="text-xs text-slate-400">
-                          หัวกิลด์สามารถกดปุ่ม <span className="font-bold text-blue-500">"ตั้งค่ารอบ"</span> ด้านบน เพื่อกำหนดโควตาที่ต้องการและเริ่มรอบการประมูลได้ทันทีครับ
+            {activeTab === 'pending' && (() => {
+              const halfPending = Math.ceil(filteredPending.length / 2)
+              const pendingCol1 = filteredPending.slice(0, halfPending)
+              const pendingCol2 = filteredPending.slice(halfPending)
+
+              const renderPendingCard = (member: any, index: number) => {
+                const profile = member.profiles || {}
+                const target = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
+                const isSkipped = member.status === 'skipped'
+                const isTransferred = member.status === 'transferred' || target <= 0
+                const remaining = Math.max(0, target - member.received_qty)
+
+                return (
+                  <div
+                    key={member.id}
+                    className="p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700 transition flex items-center justify-between gap-2 sm:gap-3 shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+                      <span className="text-[10px] font-bold font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded shrink-0">
+                        #{member.queue_order || index + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
+                          {profile.display_name || 'ไม่ระบุชื่อ'}
+                          {profile.role === 'admin' && (
+                            <ShieldCheck size={12} className="text-blue-500 shrink-0" />
+                          )}
                         </div>
-                      </>
-                    ) : (
-                      <>🎉 สมาชิกทุกคนในรอบนี้ได้รับไอเทมครบตามโควตาแล้ว!</>
-                    )}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                    {filteredPending.map((member, index) => {
-                      const profile = member.profiles || {}
-                      const target = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
-                      const isSkipped = member.status === 'skipped'
-                      const isTransferred = member.status === 'transferred' || target <= 0
-                      const remaining = Math.max(0, target - member.received_qty)
+                      </div>
+                    </div>
 
-                      return (
-                        <div
-                          key={member.id}
-                          className="p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700 transition flex items-center justify-between gap-2 sm:gap-3 shadow-2xs"
-                        >
-                          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
-                            <span className="text-[10px] font-bold font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded shrink-0">
-                              #{member.queue_order || index + 1}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
-                                {profile.display_name || 'ไม่ระบุชื่อ'}
-                                {profile.role === 'admin' && (
-                                  <ShieldCheck size={12} className="text-blue-500 shrink-0" />
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Quota & Action */}
-                          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                            <div className="text-right">
-                              <div className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400 whitespace-nowrap">
-                                {member.received_qty}/{target} ชิ้น
-                              </div>
-                              <div className="text-[9px] text-slate-400 whitespace-nowrap">
-                                {isSkipped ? (
-                                  <span className="text-red-500 font-bold">สละสิทธิ์รอบนี้</span>
-                                ) : isTransferred ? (
-                                  <span className="text-blue-500 font-bold">โอนสิทธิ์หมด</span>
-                                ) : (
-                                  <span>รอรับอีก {remaining} ชิ้น</span>
-                                )}
-                              </div>
-                            </div>
-
-                            {isAdmin && (
-                              <div className="flex items-center gap-0.5 sm:gap-1 border-l border-slate-100 dark:border-slate-800 pl-1.5 sm:pl-2">
-                                {remaining > 0 && !isSkipped && !isTransferred && (
-                                  <button
-                                    onClick={() => handleOpenAwardModal(member)}
-                                    className="p-1 sm:p-1.5 bg-green-50 hover:bg-green-100 dark:bg-green-950/40 text-green-600 rounded-lg transition cursor-pointer"
-                                    title="มอบรางวัลให้คนนี้โดยตรง"
-                                  >
-                                    <Award size={13} />
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => onSwapOrder(member)}
-                                  className="p-1 sm:p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 rounded-lg transition cursor-pointer"
-                                  title="สลับลำดับคิว"
-                                >
-                                  <ArrowUpDown size={13} />
-                                </button>
-                                <button
-                                  onClick={() => onTransferForMember(member)}
-                                  className="p-1 sm:p-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-500 rounded-lg transition cursor-pointer"
-                                  title="โอนสิทธิ์ให้ผู้อื่น"
-                                >
-                                  <ArrowRightLeft size={13} />
-                                </button>
-                                <button
-                                  onClick={() => onSkipMember(member)}
-                                  className="p-1 sm:p-1.5 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 rounded-lg transition cursor-pointer"
-                                  title="ข้ามสิทธิ์รอบนี้"
-                                >
-                                  <UserX size={13} />
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                    {/* Quota & Action */}
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                      <div className="text-right">
+                        <div className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                          {member.received_qty}/{target} ชิ้น
                         </div>
-                      )
-                    })}
+                        <div className="text-[9px] text-slate-400 whitespace-nowrap">
+                          {isSkipped ? (
+                            <span className="text-red-500 font-bold">สละสิทธิ์รอบนี้</span>
+                          ) : isTransferred ? (
+                            <span className="text-blue-500 font-bold">โอนสิทธิ์หมด</span>
+                          ) : (
+                            <span>รอรับอีก {remaining} ชิ้น</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {isAdmin && (
+                        <div className="flex items-center gap-0.5 sm:gap-1 border-l border-slate-100 dark:border-slate-800 pl-1.5 sm:pl-2">
+                          {remaining > 0 && !isSkipped && !isTransferred && (
+                            <button
+                              onClick={() => handleOpenAwardModal(member)}
+                              className="p-1 sm:p-1.5 bg-green-50 hover:bg-green-100 dark:bg-green-950/40 text-green-600 rounded-lg transition cursor-pointer"
+                              title="มอบรางวัลให้คนนี้โดยตรง"
+                            >
+                              <Award size={13} />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => onSwapOrder(member)}
+                            className="p-1 sm:p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 rounded-lg transition cursor-pointer"
+                            title="สลับลำดับคิว"
+                          >
+                            <ArrowUpDown size={13} />
+                          </button>
+                          <button
+                            onClick={() => onTransferForMember(member)}
+                            className="p-1 sm:p-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-500 rounded-lg transition cursor-pointer"
+                            title="โอนสิทธิ์ให้ผู้อื่น"
+                          >
+                            <ArrowRightLeft size={13} />
+                          </button>
+                          <button
+                            onClick={() => onSkipMember(member)}
+                            className="p-1 sm:p-1.5 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 rounded-lg transition cursor-pointer"
+                            title="ข้ามสิทธิ์รอบนี้"
+                          >
+                            <UserX size={13} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
+                )
+              }
+
+              return (
+                <div className="space-y-2">
+                  {filteredPending.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm space-y-2">
+                      {members.length === 0 ? (
+                        <>
+                          <div className="text-2xl">📋</div>
+                          <div className="font-bold text-slate-700 dark:text-slate-300">ยังไม่ได้เริ่มรอบการประมูล ({itemInfo.label})</div>
+                          <div className="text-xs text-slate-400">
+                            หัวกิลด์สามารถกดปุ่ม <span className="font-bold text-blue-500">"ตั้งค่ารอบ"</span> ด้านบน เพื่อกำหนดโควตาที่ต้องการและเริ่มรอบการประมูลได้ทันทีครับ
+                          </div>
+                        </>
+                      ) : (
+                        <>🎉 สมาชิกทุกคนในรอบนี้ได้รับไอเทมครบตามโควตาแล้ว!</>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-start">
+                      <div className="flex flex-col gap-2.5">
+                        {pendingCol1.map((member, idx) => renderPendingCard(member, idx))}
+                      </div>
+                      <div className="flex flex-col gap-2.5">
+                        {pendingCol2.map((member, idx) => renderPendingCard(member, halfPending + idx))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* 2. Completed Members Tab */}
-            {activeTab === 'completed' && (
-              <div className="space-y-2">
-                {filteredCompleted.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm">
-                    ยังไม่มีสมาชิกที่ได้รับครบตามโควตาในรอบนี้
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                    {filteredCompleted.map(member => {
-                      const profile = member.profiles || {}
-                      const target = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
+            {activeTab === 'completed' && (() => {
+              const halfCompleted = Math.ceil(filteredCompleted.length / 2)
+              const completedCol1 = filteredCompleted.slice(0, halfCompleted)
+              const completedCol2 = filteredCompleted.slice(halfCompleted)
 
-                      return (
-                        <div
-                          key={member.id}
-                          className="p-2.5 sm:p-3 rounded-xl border border-green-200/60 dark:border-green-900/40 bg-green-50/30 dark:bg-green-950/10 flex items-center justify-between gap-2 sm:gap-3"
-                        >
-                          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
-                            <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/50 px-1.5 py-0.5 rounded shrink-0">
-                              ✓
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
-                                {profile.display_name || 'ไม่ระบุชื่อ'}
-                              </div>
-                            </div>
-                          </div>
+              const renderCompletedCard = (member: any) => {
+                const profile = member.profiles || {}
+                const target = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
 
-                          <div className="text-right shrink-0">
-                            <div className="text-xs font-bold font-mono text-green-600 dark:text-green-400 flex items-center gap-1 justify-end whitespace-nowrap">
-                              <CheckCircle2 size={13} /> {member.received_qty}/{target} ชิ้น
-                            </div>
-                            <div className="text-[9px] text-green-600/80 font-medium whitespace-nowrap">
-                              ครบโควตารอบ {roundNumber}
-                            </div>
-                          </div>
+                return (
+                  <div
+                    key={member.id}
+                    className="p-2.5 sm:p-3 rounded-xl border border-green-200/60 dark:border-green-900/40 bg-green-50/30 dark:bg-green-950/10 flex items-center justify-between gap-2 sm:gap-3"
+                  >
+                    <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+                      <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/50 px-1.5 py-0.5 rounded shrink-0">
+                        ✓
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
+                          {profile.display_name || 'ไม่ระบุชื่อ'}
                         </div>
-                      )
-                    })}
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <div className="text-xs font-bold font-mono text-green-600 dark:text-green-400 flex items-center gap-1 justify-end whitespace-nowrap">
+                        <CheckCircle2 size={13} /> {member.received_qty}/{target} ชิ้น
+                      </div>
+                      <div className="text-[9px] text-green-600/80 font-medium whitespace-nowrap">
+                        ครบโควตารอบ {roundNumber}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
+                )
+              }
+
+              return (
+                <div className="space-y-2">
+                  {filteredCompleted.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm">
+                      ยังไม่มีสมาชิกที่ได้รับครบตามโควตาในรอบนี้
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-start">
+                      <div className="flex flex-col gap-2.5">
+                        {completedCol1.map(member => renderCompletedCard(member))}
+                      </div>
+                      <div className="flex flex-col gap-2.5">
+                        {completedCol2.map(member => renderCompletedCard(member))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* 3. Audit Logs Tab */}
             {activeTab === 'logs' && (() => {

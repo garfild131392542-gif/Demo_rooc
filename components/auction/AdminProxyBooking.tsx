@@ -351,28 +351,29 @@ export default function AdminProxyBooking({
             return (
               <div
                 key={item.key}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/60 hover:border-blue-400/50 transition-all"
+                className="flex items-center justify-between gap-2 sm:gap-3 p-2.5 sm:p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/60 hover:border-blue-400/50 transition-all shadow-2xs"
               >
                 {/* Item Label & Icon */}
-                <div className="flex items-center gap-3 min-w-[140px]">
-                  <div className={`w-10 h-10 bg-linear-to-b ${ITEM_CONFIG[item.key].color} rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center relative shrink-0 shadow-inner`}>
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                  <div className={`w-9 h-9 sm:w-10 sm:h-10 bg-linear-to-b ${ITEM_CONFIG[item.key].color} rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center relative shrink-0 shadow-inner`}>
                     <Image src={ITEM_CONFIG[item.key].icon} alt={item.label} fill className="object-contain p-1" sizes="40px" />
                   </div>
-                  <div>
-                    <span className="font-bold text-sm text-slate-800 dark:text-slate-200 block">{item.label}</span>
-                    <span className={`text-[10px] font-semibold ${isSessionActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                  <div className="min-w-0 flex-1">
+                    <span className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-200 block truncate">{item.label}</span>
+                    <span className={`text-[9px] sm:text-[10px] font-semibold block truncate ${isSessionActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
                       {isSessionActive ? '🟢 มีเปิดประมูลวันนี้' : '⚪ ยังไม่มีรอบประมูล'}
                     </span>
                   </div>
                 </div>
 
                 {/* Input & Action */}
-                <div className="flex items-center gap-3 flex-1 max-w-xs justify-end">
-                  <div className="relative w-28">
+                <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+                  <div className="relative w-16 sm:w-24">
                     <input
                       type="number"
                       min={0}
                       max={10}
+                      placeholder="0"
                       value={currentVal}
                       onChange={e => {
                         const raw = e.target.value
@@ -390,8 +391,7 @@ export default function AdminProxyBooking({
                           setReservationQtys(prev => ({ ...prev, [item.key]: String(num) }))
                         }
                       }}
-
-                      className="w-full text-center font-bold font-mono rounded-xl border border-slate-300 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 shadow-inner"
+                      className="w-full text-center font-bold font-mono rounded-xl border border-slate-300 dark:border-white/15 bg-white dark:bg-slate-900 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm text-slate-900 dark:text-white outline-none focus:border-blue-500 shadow-inner"
                     />
                   </div>
 
@@ -400,7 +400,7 @@ export default function AdminProxyBooking({
                     type="button"
                     disabled={!selectedUserId || parsedVal <= 0 || isSubmittingThis || isSubmittingAll}
                     onClick={() => handleBookSingle(item.key)}
-                    className="cursor-pointer px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-md shadow-blue-500/10 shrink-0 flex items-center gap-1"
+                    className="cursor-pointer px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-md shadow-blue-500/10 shrink-0 flex items-center justify-center min-w-[50px] sm:min-w-[58px]"
                   >
                     {isSubmittingThis ? 'จอง...' : 'จอง'}
                   </button>

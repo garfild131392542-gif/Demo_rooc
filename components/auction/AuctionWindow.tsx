@@ -225,10 +225,6 @@ export default function AuctionWindow({
     } else if (hasCache) {
       setRoundMembers(cached.members);
       setRoundLogs(cached.logs);
-    } else {
-      setRoundMembers([]);
-      setRoundLogs([]);
-      setIsLoadingRoundData(true);
     }
 
     try {
@@ -273,12 +269,55 @@ export default function AuctionWindow({
     setEditLoading(false);
   };
 
-  const handleFullRoundRefresh = async () => {
+  // ⚡ Optimistic UI: สลับลำดับคิวใน State ทันที 0ms
+  const handleOptimisticSwap = (memberId1: string, memberId2: string) => {
+    setRoundMembers((prev) => {
+      const idx1 = prev.findIndex((m) => m.id === memberId1);
+      const idx2 = prev.findIndex((m) => m.id === memberId2);
+      if (idx1 === -1 || idx2 === -1) return prev;
+      const copy = [...prev];
+      const order1 = copy[idx1].queue_order;
+      const order2 = copy[idx2].queue_order;
+      copy[idx1] = { ...copy[idx1], queue_order: order2 };
+      copy[idx2] = { ...copy[idx2], queue_order: order1 };
+      copy.sort((a, b) => (a.queue_order || 0) - (b.queue_order || 0));
+      return copy;
+    });
+  };
+
+  // ⚡ Optimistic UI: สละสิทธิ์ใน State ทันที 0ms
+  const handleOptimisticSkip = (memberId: string) => {
+    setRoundMembers((prev) => {
+      return prev.map((m) => (m.id === memberId ? { ...m, status: 'skipped' } : m));
+    });
+  };
+
+  // ⚡ Optimistic UI: โอนสิทธิ์ใน State ทันที 0ms
+  const handleOptimisticTransfer = (fromUserId: string, toUserId: string, qty: number) => {
+    setRoundMembers((prev) => {
+      return prev.map((m) => {
+        if (m.user_id === fromUserId) {
+          const newTransferredOut = (m.transferred_out_quota || 0) + qty;
+          const target = m.base_quota + (m.transferred_in_quota || 0) - newTransferredOut;
+          const newStatus = target <= m.received_qty ? (m.received_qty > 0 ? 'completed' : 'transferred') : m.status;
+          return { ...m, transferred_out_quota: newTransferredOut, status: newStatus };
+        }
+        if (m.user_id === toUserId) {
+          const newTransferredIn = (m.transferred_in_quota || 0) + qty;
+          return { ...m, transferred_in_quota: newTransferredIn, status: m.status === 'transferred' ? 'pending' : m.status };
+        }
+        return m;
+      });
+    });
+  };
+
+  // ⚡ Silent Parallel Refresh: รีเฟรชข้อมูลเบื้องหลังแบบขนาน ไม่บล็อก UI
+  const handleFullRoundRefresh = async (silent: boolean = true) => {
     roundCacheRef.current = {};
-    if (onRefresh) {
-      await onRefresh();
-    }
-    await fetchRoundDetails(activeRoundItem, true);
+    await Promise.all([
+      onRefresh ? onRefresh() : Promise.resolve(),
+      fetchRoundDetails(activeRoundItem, !silent),
+    ]);
   };
 
   const handleSaveEdit = async () => {
@@ -1666,12 +1705,14 @@ export default function AuctionWindow({
                       onSkipMember={async (member) => {
                         const reason = prompt(`ระบุเหตุผลในการข้ามคิวของ "${member.profiles?.display_name || 'สมาชิก'}":`, 'สละสิทธิ์รอบนี้');
                         if (reason !== null) {
+                          handleOptimisticSkip(member.id);
                           const { skipOrDeferRoundMember } = await import('@/app/actions/auction-rounds');
                           const res = await skipOrDeferRoundMember(member.id, reason);
                           if (res.success) {
-                            await handleFullRoundRefresh();
+                            await handleFullRoundRefresh(true);
                           } else {
                             alert('เกิดข้อผิดพลาด: ' + res.error);
+                            await handleFullRoundRefresh(true);
                           }
                         }
                       }}
@@ -1680,7 +1721,7 @@ export default function AuctionWindow({
                         setIsTransferModalOpen(true);
                       }}
                       onRefreshData={() => {
-                        handleFullRoundRefresh();
+                        handleFullRoundRefresh(true);
                       }}
                       isLoading={isLoadingRoundData}
                     />
@@ -1799,8 +1840,9 @@ export default function AuctionWindow({
         isOpen={isTransferModalOpen}
         onClose={() => setIsTransferModalOpen(false)}
         onSuccess={async () => {
-          await handleFullRoundRefresh();
+          await handleFullRoundRefresh(true);
         }}
+        onOptimisticTransfer={handleOptimisticTransfer}
         activeItem={activeRoundItem}
         guildMembers={guildMembers}
         preselectedFromMember={selectedMemberForAction}
@@ -1811,7 +1853,7 @@ export default function AuctionWindow({
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         onSuccess={async () => {
-          await handleFullRoundRefresh();
+          await handleFullRoundRefresh(false);
         }}
         activeItem={activeRoundItem}
         activeRound={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)}
@@ -1823,8 +1865,9 @@ export default function AuctionWindow({
         isOpen={isSwapModalOpen}
         onClose={() => setIsSwapModalOpen(false)}
         onSuccess={async () => {
-          await handleFullRoundRefresh();
+          await handleFullRoundRefresh(true);
         }}
+        onOptimisticSwap={handleOptimisticSwap}
         targetMember={selectedMemberForAction}
         pendingMembers={roundMembers.filter(m => m.status !== 'completed')}
       />

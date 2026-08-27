@@ -10,6 +10,7 @@ type AdminTransferModalProps = {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
+  onOptimisticTransfer?: (fromUserId: string, toUserId: string, qty: number) => void
   activeItem: ItemType
   guildMembers: any[]
   preselectedFromMember?: any
@@ -20,6 +21,7 @@ export default function AdminTransferModal({
   isOpen,
   onClose,
   onSuccess,
+  onOptimisticTransfer,
   activeItem,
   guildMembers,
   preselectedFromMember,
@@ -48,29 +50,31 @@ export default function AdminTransferModal({
       return
     }
 
-    setIsSubmitting(true)
-    setError(null)
+    const actualQty = Number(transferQty) || 1
+
+    // ⚡ Optimistic UI Update: อัปเดตโควตาทันที 0ms และปิด Modal ทันที
+    onOptimisticTransfer?.(fromUserId, toUserId, actualQty)
+    onClose()
 
     try {
       const res = await transferRoundQuota(
         fromUserId,
         toUserId,
         activeItem,
-        Number(transferQty) || 1,
+        actualQty,
         transferType,
         note
       )
 
       if (res.success) {
         onSuccess()
-        onClose()
       } else {
-        setError(res.error || 'เกิดข้อผิดพลาดในการโอนสิทธิ์')
+        alert(res.error || 'เกิดข้อผิดพลาดในการโอนสิทธิ์')
+        onSuccess()
       }
     } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ')
-    } finally {
-      setIsSubmitting(false)
+      alert(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ')
+      onSuccess()
     }
   }
 

@@ -8,6 +8,7 @@ type AdminSwapModalProps = {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
+  onOptimisticSwap?: (memberId1: string, memberId2: string) => void
   targetMember?: any
   pendingMembers: any[]
 }
@@ -16,6 +17,7 @@ export default function AdminSwapModal({
   isOpen,
   onClose,
   onSuccess,
+  onOptimisticSwap,
   targetMember,
   pendingMembers,
 }: AdminSwapModalProps) {
@@ -35,21 +37,24 @@ export default function AdminSwapModal({
       return
     }
 
-    setIsSubmitting(true)
-    setError(null)
+    const selectedSwapId = swapWithMemberId
+    const currentTargetId = targetMember.id
+
+    // ⚡ Optimistic UI Update: สลับตำแหน่งทันที 0ms และปิด Modal ทันที
+    onOptimisticSwap?.(currentTargetId, selectedSwapId)
+    onClose()
 
     try {
-      const res = await swapRoundQueueOrder(targetMember.id, swapWithMemberId, reason)
+      const res = await swapRoundQueueOrder(currentTargetId, selectedSwapId, reason)
       if (res.success) {
         onSuccess()
-        onClose()
       } else {
-        setError(res.error || 'เกิดข้อผิดพลาดในการสลับคิว')
+        alert(res.error || 'เกิดข้อผิดพลาดในการสลับคิว')
+        onSuccess()
       }
     } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ')
-    } finally {
-      setIsSubmitting(false)
+      alert(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ')
+      onSuccess()
     }
   }
 

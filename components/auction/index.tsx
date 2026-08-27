@@ -303,8 +303,10 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
   const currentSlots = mappedSlots.slice((currentPage - 1) * slotsPerPage, currentPage * slotsPerPage)
 
   const handleRefresh = async () => {
-    await refetch()
-    await onRefresh?.()
+    await Promise.all([
+      refetch(),
+      onRefresh ? onRefresh() : Promise.resolve(),
+    ])
   }
 
   const handleAdminSave = async () => {

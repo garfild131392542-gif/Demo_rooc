@@ -190,6 +190,10 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
       alert("กรุณาระบุ UID Game (ห้ามเป็นค่าว่างหรือเว้นวรรค)")
       return
     }
+    if (!/^[a-zA-Z0-9_.-]+$/.test(uidGame)) {
+      alert("UID Game ต้องเป็นตัวเลขหรือตัวอักษรภาษาอังกฤษเท่านั้น (ห้ามใช้อักษรภาษาไทยหรือเว้นวรรค)")
+      return
+    }
     if (!displayName) {
       alert("กรุณาระบุชื่อตัวละคร (ห้ามเป็นค่าว่างหรือเว้นวรรค)")
       return
@@ -536,7 +540,7 @@ export default function CredentialsTable({ initialData }: { initialData: Managem
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="sm:col-span-2 lg:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UID Game <span className="text-red-500">*</span></label>
-                    <input name="uid_game" required pattern=".*\S+.*" title="กรุณาระบุ UID Game (ห้ามเป็นเฉพาะช่องว่าง)" className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
+                    <input name="uid_game" required pattern="^[a-zA-Z0-9_.-]+$" placeholder="เช่น 12345678 (ภาษาอังกฤษ/ตัวเลขเท่านั้น)" title="UID Game ต้องเป็นตัวเลขหรือตัวอักษรภาษาอังกฤษเท่านั้น (ห้ามใช้ภาษาไทย)" className="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" />
                   </div>
                   <div className="sm:col-span-2 lg:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อตัวละคร <span className="text-red-500">*</span></label>

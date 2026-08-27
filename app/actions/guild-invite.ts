@@ -42,8 +42,12 @@ export async function registerMemberWithGuildInvite(
   })
 
   if (authError) {
-    if (authError.message?.toLowerCase().includes('already been registered') || authError.message?.toLowerCase().includes('already registered')) {
+    const msg = authError.message?.toLowerCase() || ''
+    if (msg.includes('already been registered') || msg.includes('already registered')) {
       return { success: false, error: `UID Game "${normalizedUsername}" นี้ถูกลงทะเบียนในระบบแล้ว` }
+    }
+    if (msg.includes('unable to validate email') || msg.includes('invalid format')) {
+      return { success: false, error: "รูปแบบ UID Game ไม่ถูกต้อง (ต้องเป็นตัวเลขหรือตัวอักษรภาษาอังกฤษเท่านั้น ห้ามใช้ภาษาไทย)" }
     }
     return { success: false, error: authError.message }
   }

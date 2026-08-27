@@ -115,6 +115,12 @@ export async function createMember(formData: FormData) {
       return { success: false, error: "กรุณาระบุ UID Game" };
     }
     const cleanUidGame = uid_game.trim();
+    if (!/^[a-zA-Z0-9_.-]+$/.test(cleanUidGame)) {
+      return {
+        success: false,
+        error: "UID Game ต้องเป็นตัวเลขหรือตัวอักษรภาษาอังกฤษเท่านั้น (ห้ามใช้อักษรภาษาไทยหรือเว้นวรรค)",
+      };
+    }
     const cleanDisplayName = display_name?.trim();
     if (!cleanDisplayName) {
       return { success: false, error: "กรุณาระบุชื่อตัวละคร (ต้องไม่เป็นค่าว่างหรือเว้นวรรค)" };
@@ -136,8 +142,12 @@ export async function createMember(formData: FormData) {
     });
 
     if (authError) {
-      if (authError.message?.toLowerCase().includes('already been registered') || authError.message?.toLowerCase().includes('already registered')) {
+      const msg = authError.message?.toLowerCase() || '';
+      if (msg.includes('already been registered') || msg.includes('already registered')) {
         return { success: false, error: `UID Game "${cleanUidGame}" นี้ถูกลงทะเบียนในระบบแล้ว กรุณาตรวจสอบอีกครั้ง` };
+      }
+      if (msg.includes('unable to validate email') || msg.includes('invalid format')) {
+        return { success: false, error: "รูปแบบ UID Game ไม่ถูกต้อง (ต้องเป็นตัวเลขหรือตัวอักษรภาษาอังกฤษเท่านั้น ห้ามใช้ภาษาไทย)" };
       }
       return { success: false, error: `ไม่สามารถลงทะเบียนผู้ใช้ได้: ${authError.message}` };
     }

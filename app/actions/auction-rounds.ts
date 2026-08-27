@@ -383,64 +383,69 @@ export async function transferRoundQuota(
       toMember = newTo
     }
 
-    // 1. ตัดโควตาผู้โอน
+    // 1. คำนวณโควตาใหม่
     const newFromTransferredOut = fromMember.transferred_out_quota + actualTransferQty
     const newFromTarget = fromMember.base_quota + fromMember.transferred_in_quota - newFromTransferredOut
     const newFromStatus = newFromTarget <= fromMember.received_qty ? (fromMember.received_qty > 0 ? 'completed' : 'transferred') : fromMember.status
-
-    await supabase
-      .from('auction_round_members')
-      .update({
-        transferred_out_quota: newFromTransferredOut,
-        status: newFromStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', fromMember.id)
-
-    // 2. เพิ่มโควตาผู้รับ
     const newToTransferredIn = toMember.transferred_in_quota + actualTransferQty
-    await supabase
-      .from('auction_round_members')
-      .update({
-        transferred_in_quota: newToTransferredIn,
-        status: toMember.status === 'transferred' ? 'pending' : toMember.status,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', toMember.id)
 
-    // 3. บันทึกประวัติการโอน
-    await supabase.from('auction_round_transfers').insert({
-      guild_id: guildId,
-      round_id: activeRound.id,
-      round_number: activeRound.round_number,
-      item_name: itemName,
-      from_user_id: fromUserId,
-      to_user_id: toUserId,
-      transfer_qty: actualTransferQty,
-      transfer_type: transferType,
-      performed_by: session.profile.id,
-      note: note || `โอนสิทธิ์ ${itemName} จำนวน ${actualTransferQty} ชิ้น`,
-    })
+    // ⚡ Execute updates in parallel
+    const now = new Date().toISOString()
+    await Promise.all([
+      // 1. ตัดโควตาผู้โอน
+      supabase
+        .from('auction_round_members')
+        .update({
+          transferred_out_quota: newFromTransferredOut,
+          status: newFromStatus,
+          updated_at: now,
+        })
+        .eq('id', fromMember.id),
 
-    // 4. บันทึก Audit Log
-    await supabase.from('auction_round_logs').insert({
-      guild_id: guildId,
-      round_id: activeRound.id,
-      round_number: activeRound.round_number,
-      item_name: itemName,
-      action_type: 'TRANSFER',
-      target_user_id: toUserId,
-      related_user_id: fromUserId,
-      qty: actualTransferQty,
-      performed_by: session.profile.id,
-      note: note || `โอนสิทธิ์ ${actualTransferQty} ชิ้น จากผู้ใช้ให้ผู้รับ`,
-    })
+      // 2. เพิ่มโควตาผู้รับ
+      supabase
+        .from('auction_round_members')
+        .update({
+          transferred_in_quota: newToTransferredIn,
+          status: toMember.status === 'transferred' ? 'pending' : toMember.status,
+          updated_at: now,
+        })
+        .eq('id', toMember.id),
 
-    // 5. อัปเดต updated_at ในตาราง auction_rounds
-    await supabase
-      .from('auction_rounds')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', activeRound.id)
+      // 3. บันทึกประวัติการโอน
+      supabase.from('auction_round_transfers').insert({
+        guild_id: guildId,
+        round_id: activeRound.id,
+        round_number: activeRound.round_number,
+        item_name: itemName,
+        from_user_id: fromUserId,
+        to_user_id: toUserId,
+        transfer_qty: actualTransferQty,
+        transfer_type: transferType,
+        performed_by: session.profile.id,
+        note: note || `โอนสิทธิ์ ${itemName} จำนวน ${actualTransferQty} ชิ้น`,
+      }),
+
+      // 4. บันทึก Audit Log
+      supabase.from('auction_round_logs').insert({
+        guild_id: guildId,
+        round_id: activeRound.id,
+        round_number: activeRound.round_number,
+        item_name: itemName,
+        action_type: 'TRANSFER',
+        target_user_id: toUserId,
+        related_user_id: fromUserId,
+        qty: actualTransferQty,
+        performed_by: session.profile.id,
+        note: note || `โอนสิทธิ์ ${actualTransferQty} ชิ้น จากผู้ใช้ให้ผู้รับ`,
+      }),
+
+      // 5. อัปเดต updated_at ในตาราง auction_rounds
+      supabase
+        .from('auction_rounds')
+        .update({ updated_at: now })
+        .eq('id', activeRound.id),
+    ])
 
     // 6. ⚡ Auto Re-allocate สล็อตของวันนี้ทันที (ถ้ามี session เปิดใช้งานอยู่)
     const today = new Date().toISOString().split('T')[0]

@@ -295,7 +295,33 @@ export default function AuctionWindow({
   // ⚡ Optimistic UI: โอนสิทธิ์ใน State ทันที 0ms
   const handleOptimisticTransfer = (fromUserId: string, toUserId: string, qty: number) => {
     setRoundMembers((prev) => {
-      return prev.map((m) => {
+      const exists = prev.some((m) => m.user_id === toUserId);
+      let list = prev;
+      if (!exists) {
+        const targetProfile = guildMembers.find((gm) => gm.id === toUserId);
+        const newMemberStub = {
+          id: 'temp-' + toUserId,
+          round_id: activeRoundId || '',
+          guild_id: '',
+          user_id: toUserId,
+          item_name: activeRoundItem,
+          round_number: currentActiveRoundObj?.round_number || 1,
+          base_quota: currentActiveRoundObj?.base_quota_per_member || 2,
+          transferred_in_quota: qty,
+          transferred_out_quota: 0,
+          received_qty: 0,
+          status: 'pending',
+          queue_order: prev.length + 1,
+          profiles: targetProfile ? {
+            display_name: targetProfile.display_name,
+            uid_game: targetProfile.uid_game,
+            role: targetProfile.role,
+          } : { display_name: 'สมาชิก', uid_game: '', role: 'member' }
+        };
+        list = [...prev, newMemberStub];
+      }
+
+      return list.map((m) => {
         if (m.user_id === fromUserId) {
           const newTransferredOut = (m.transferred_out_quota || 0) + qty;
           const target = m.base_quota + (m.transferred_in_quota || 0) - newTransferredOut;

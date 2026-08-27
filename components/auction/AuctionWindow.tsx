@@ -57,7 +57,7 @@ import AdminRoundSettingsModal from "./rounds/AdminRoundSettingsModal";
 import AdminSwapModal from "./rounds/AdminSwapModal";
 import { getRoundMembersList, getRoundAuditLogs, autoPopulateSlotsFromRound } from "@/app/actions/auction-rounds";
 import { captureAndDownload } from "@/lib/export-image";
-import { Pencil, Trash2, Clock, CheckCircle2, ShieldAlert, Sparkles, AlertCircle, Search } from "lucide-react";
+import { Pencil, Trash2, Clock, CheckCircle2, ShieldAlert, Sparkles, AlertCircle, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 type AuctionWindowProps = {
   isAdmin: boolean;
@@ -194,6 +194,14 @@ export default function AuctionWindow({
   const [selectedMemberForAction, setSelectedMemberForAction] = useState<any>(null);
   // ⚡ In-Memory Cache for Instant 0ms Tab Switching between items
   const roundCacheRef = useRef<Record<string, { members: any[]; logs: any[]; fetchedAt: number }>>({});
+  const roundTabsContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollRoundTabs = (direction: 'left' | 'right') => {
+    if (roundTabsContainerRef.current) {
+      const amount = direction === 'left' ? -180 : 180;
+      roundTabsContainerRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+    }
+  };
 
   // Stable identifier for active round to prevent infinite re-render loops
   const currentActiveRoundObj = roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem);
@@ -1524,14 +1532,24 @@ export default function AuctionWindow({
             </div>
           ) : viewMode === "rounds" ? (
             <div className="flex-1 flex flex-col justify-start">
-              {/* Item Selector Sub-Tabs */}
-              <div className="relative mb-4">
-                <div className="flex items-center justify-between gap-2 mb-1.5 sm:hidden px-1">
-                  <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                    👈 👉 เลื่อนเพื่อเลือกดูไอเทมอื่น
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none snap-x touch-pan-x">
+              {/* Item Selector Sub-Tabs with Navigation Arrows */}
+              <div className="relative mb-4 group/tabs flex items-center">
+                {/* Left Scroll Arrow */}
+                <button
+                  type="button"
+                  onClick={() => scrollRoundTabs('left')}
+                  className="absolute left-0 z-10 w-7 h-7 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 shadow-md border border-slate-200 dark:border-slate-700 rounded-full flex items-center justify-center text-slate-700 dark:text-slate-200 transition-all hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-xs shrink-0"
+                  title="เลื่อนซ้าย"
+                  aria-label="Scroll left"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+
+                {/* Tabs Container */}
+                <div
+                  ref={roundTabsContainerRef}
+                  className="flex items-center gap-2 overflow-x-auto px-8 py-1 scrollbar-none snap-x touch-pan-x scroll-smooth w-full"
+                >
                   {(['Album', 'Puppet', 'White', 'RedBlack'] as const).map(type => {
                     const cfg = ITEM_CONFIG[type];
                     const isSelected = activeRoundItem === type;
@@ -1561,6 +1579,17 @@ export default function AuctionWindow({
                     );
                   })}
                 </div>
+
+                {/* Right Scroll Arrow */}
+                <button
+                  type="button"
+                  onClick={() => scrollRoundTabs('right')}
+                  className="absolute right-0 z-10 w-7 h-7 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 shadow-md border border-slate-200 dark:border-slate-700 rounded-full flex items-center justify-center text-slate-700 dark:text-slate-200 transition-all hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-xs shrink-0"
+                  title="เลื่อนขวา"
+                  aria-label="Scroll right"
+                >
+                  <ChevronRight size={16} />
+                </button>
               </div>
 
               {/* Round Status Header & Member Tabs */}

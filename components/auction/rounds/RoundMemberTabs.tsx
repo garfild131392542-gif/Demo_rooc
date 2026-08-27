@@ -308,15 +308,6 @@ export default function RoundMemberTabs({
 
                       {isAdmin && (
                         <div className="flex items-center gap-0.5 sm:gap-1 border-l border-slate-100 dark:border-slate-800 pl-1.5 sm:pl-2">
-                          {remaining > 0 && !isSkipped && !isTransferred && (
-                            <button
-                              onClick={() => handleOpenAwardModal(member)}
-                              className="p-1 sm:p-1.5 bg-green-50 hover:bg-green-100 dark:bg-green-950/40 text-green-600 rounded-lg transition cursor-pointer"
-                              title="มอบรางวัลให้คนนี้โดยตรง"
-                            >
-                              <Award size={13} />
-                            </button>
-                          )}
                           <button
                             onClick={() => onSwapOrder(member)}
                             className="p-1 sm:p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 rounded-lg transition cursor-pointer"

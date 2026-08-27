@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { ITEM_CONFIG } from "@/components/auction/constants";
 import { 
@@ -62,10 +62,16 @@ export default function HistoryClient({
   currentUserId, 
   currentUserDisplayName = 'คุณ' 
 }: HistoryClientProps) {
+  const [mounted, setMounted] = useState(false);
   const [mainTab, setMainTab] = useState<"my_queues" | "guild_board" | "all_history">("my_queues");
-  const [boardItemTab, setBoardItemTab] = useState<"all" | ItemKey>("all");
+  const [boardItemTab, setBoardItemTab] = useState<ItemKey>("Album");
   const [searchTerm, setSearchTerm] = useState("");
   const [historyStatusFilter, setHistoryStatusFilter] = useState<"all" | "waiting" | "completed" | "canceled">("all");
+  const [historyItemFilter, setHistoryItemFilter] = useState<"all" | ItemKey>("all");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const formatDate = (isoString: string | null | undefined) => {
     if (!isoString) return "-";
@@ -183,41 +189,83 @@ export default function HistoryClient({
   // 2. คิวของฉัน (My Queues)
   const myQueueList = initialQueues.filter((q) => q.user_id === currentUserId);
 
-  // 3. กระดานคิวกิลด์ (Guild Queue Board)
-  const filteredGuildRaw = rawQueues.filter((q) => {
-    if (boardItemTab === "all") return true;
-    return q.item_name === boardItemTab;
-  });
+  // 3. กระดานคิวกิลด์ (Guild Queue Board) - รวมยอดจองตามบุคคล (Sum per member)
+  const selectedItemQueues = rawQueues.filter((q) => q.item_name === boardItemTab);
 
-  // 3.1 สมาชิกที่ได้รับสำเร็จแล้ว (Completed Members)
-  const completedMembers = filteredGuildRaw
+  // 3.1 สมาชิกที่ได้รับสำเร็จแล้ว (Completed Members) - รวมยอดที่ได้รับต่อคน
+  const completedGroupMap = new Map<string, {
+    id: string;
+    user_id: string;
+    display_name: string;
+    item_name: string;
+    received_qty: number;
+    isMe: boolean;
+  }>();
+
+  selectedItemQueues
     .filter((q) => q.calculated_status === "completed")
-    .map((q) => ({
-      id: q.id,
-      user_id: q.user_id,
-      display_name: q.display_name,
-      item_name: q.item_name,
-      received_qty: q.received_qty || q.requested_qty || 0,
-      isMe: q.user_id === currentUserId,
-    }));
+    .forEach((q) => {
+      const existing = completedGroupMap.get(q.user_id);
+      const qty = q.received_qty || q.requested_qty || 0;
+      if (existing) {
+        existing.received_qty += qty;
+      } else {
+        completedGroupMap.set(q.user_id, {
+          id: q.id,
+          user_id: q.user_id,
+          display_name: q.display_name,
+          item_name: q.item_name,
+          received_qty: qty,
+          isMe: q.user_id === currentUserId,
+        });
+      }
+    });
 
-  // 3.2 สมาชิกที่กำลังรอคิว (Waiting Queue List)
-  const waitingMembers = filteredGuildRaw
+  const completedMembers = Array.from(completedGroupMap.values());
+
+  // 3.2 สมาชิกที่กำลังรอคิว (Waiting Queue List) - รวมยอดจองต่อคน
+  const waitingGroupMap = new Map<string, {
+    id: string;
+    user_id: string;
+    display_name: string;
+    item_name: string;
+    requested_qty: number;
+    queue_timestamp?: string | null;
+    calculated_status: string;
+    isMe: boolean;
+  }>();
+
+  selectedItemQueues
     .filter((q) => q.calculated_status === "waiting" || q.calculated_status === "waitlist" || q.calculated_status === "partial")
-    .map((q, index) => ({
-      id: q.id,
-      user_id: q.user_id,
-      display_name: q.display_name,
-      item_name: q.item_name,
-      requested_qty: q.requested_qty,
-      queue_timestamp: q.queue_timestamp,
-      calculated_status: q.calculated_status,
-      isMe: q.user_id === currentUserId,
-      order: index + 1,
-    }));
+    .forEach((q) => {
+      const existing = waitingGroupMap.get(q.user_id);
+      if (existing) {
+        existing.requested_qty += q.requested_qty;
+      } else {
+        waitingGroupMap.set(q.user_id, {
+          id: q.id,
+          user_id: q.user_id,
+          display_name: q.display_name,
+          item_name: q.item_name,
+          requested_qty: q.requested_qty,
+          queue_timestamp: q.queue_timestamp,
+          calculated_status: q.calculated_status,
+          isMe: q.user_id === currentUserId,
+        });
+      }
+    });
 
-  // 4. กรองประวัติทั้งหมดตาม Search & Status
+  const waitingMembers = Array.from(waitingGroupMap.values()).map((member, index) => ({
+    ...member,
+    order: index + 1,
+  }));
+
+  // 4. กรองประวัติทั้งหมดตาม Search, Item Filter & Status
   const filteredHistory = initialQueues.filter((q) => {
+    if (historyItemFilter !== "all" && q.item_name !== historyItemFilter) {
+      return false;
+    }
+
     const displayNameOfItem = getItemDisplayName(q.item_name);
     const matchesSearch =
       q.item_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -235,7 +283,7 @@ export default function HistoryClient({
   });
 
   return (
-    <div className="max-w-6xl w-full mx-auto space-y-4 flex flex-col flex-1 min-h-0">
+    <div className="max-w-6xl w-full mx-auto space-y-4 flex flex-col flex-1 min-h-0" suppressHydrationWarning>
       {/* ส่วนหัว */}
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -262,7 +310,7 @@ export default function HistoryClient({
                 <span className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100 block truncate">
                   {item.config.label}
                 </span>
-                <span className="text-[10px] text-slate-400 block truncate">
+                <span className="text-[10px] text-slate-400 block truncate" suppressHydrationWarning>
                   รอ {item.waitingUsersCount} คน • รับแล้ว {item.completedQty} ชิ้น
                 </span>
               </div>
@@ -277,7 +325,7 @@ export default function HistoryClient({
                   : item.myStatusType === 'completed'
                   ? 'text-green-600 dark:text-green-400'
                   : 'text-slate-400 dark:text-slate-500 font-normal'
-              }`}>
+              }`} suppressHydrationWarning>
                 {item.myStatusText}
               </div>
             </div>
@@ -364,8 +412,8 @@ export default function HistoryClient({
                             <span className="font-bold text-sm text-slate-900 dark:text-white block">
                               {itemInfo.label}
                             </span>
-                            <span className="text-[11px] text-slate-400 block">
-                              จองเมื่อ: {formatDate(item.queue_timestamp)}
+                            <span className="text-[11px] text-slate-400 block" suppressHydrationWarning>
+                              จองเมื่อ: {mounted ? formatDate(item.queue_timestamp) : "-"}
                             </span>
                           </div>
                         </div>
@@ -402,37 +450,29 @@ export default function HistoryClient({
         {/* ========================================================================= */}
         {mainTab === "guild_board" && (
           <div className="flex-1 flex flex-col min-h-0 space-y-3">
-            {/* Item Filter Subtabs */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setBoardItemTab("all")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  boardItemTab === "all"
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                }`}
-              >
-                ทั้งหมด
-              </button>
+            {/* Item Filter Tabs (4 Items Only) */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
               {ITEM_KEYS.map((k) => (
                 <button
                   key={`board-tab-${k}`}
                   type="button"
                   onClick={() => setBoardItemTab(k)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2 shrink-0 ${
                     boardItemTab === k
-                      ? "bg-blue-600 text-white shadow-xs"
+                      ? "bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/20"
                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                   }`}
                 >
+                  <div className="w-5 h-5 relative shrink-0">
+                    <Image src={ITEM_CONFIG[k].icon} alt={ITEM_CONFIG[k].label} fill className="object-contain" sizes="20px" />
+                  </div>
                   <span>{ITEM_CONFIG[k].label}</span>
                 </button>
               ))}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 overflow-y-auto pr-1 min-h-0">
-              {/* Column 1: สมาชิกที่กำลังรอรับคิว (Waiting Queue List) */}
+              {/* Column 1: สมาชิกที่กำลังรอรับคิว (Waiting Queue List - Summed per Member) */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
@@ -443,13 +483,13 @@ export default function HistoryClient({
 
                 {waitingMembers.length === 0 ? (
                   <div className="text-center py-10 bg-slate-50 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800 rounded-2xl text-slate-400 text-xs">
-                    ไม่มีสมาชิกรอคิวในขณะนี้
+                    ไม่มีสมาชิกรอคิวสำหรับไอเทมนี้ในขณะนี้
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {waitingMembers.map((member) => (
                       <div
-                        key={`waiting-${member.id}`}
+                        key={`waiting-${member.user_id}`}
                         className={`p-2.5 rounded-xl border transition flex items-center justify-between gap-2 text-xs ${
                           member.isMe
                             ? "bg-blue-50/80 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800 shadow-xs"
@@ -488,7 +528,7 @@ export default function HistoryClient({
                 )}
               </div>
 
-              {/* Column 2: สมาชิกที่ได้รับสำเร็จแล้ว (Completed Members) */}
+              {/* Column 2: สมาชิกที่ได้รับสำเร็จแล้ว (Completed Members - Summed per Member) */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
@@ -499,13 +539,13 @@ export default function HistoryClient({
 
                 {completedMembers.length === 0 ? (
                   <div className="text-center py-10 bg-slate-50 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800 rounded-2xl text-slate-400 text-xs">
-                    ยังไม่มีสมาชิกได้รับไอเทม
+                    ยังไม่มีสมาชิกได้รับไอเทมนี้
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {completedMembers.map((member) => (
                       <div
-                        key={`completed-${member.id}`}
+                        key={`completed-${member.user_id}`}
                         className={`p-2.5 rounded-xl border transition flex items-center justify-between gap-2 text-xs ${
                           member.isMe
                             ? "bg-green-50/80 dark:bg-green-950/40 border-green-300 dark:border-green-800 shadow-xs"
@@ -544,35 +584,52 @@ export default function HistoryClient({
         )}
 
         {/* ========================================================================= */}
-        {/* VIEW 3: ประวัติทั้งหมด (All History List / Search) */}
+        {/* VIEW 3: ประวัติทั้งหมด (All History List / Search / Dropdown Filter) */}
         {/* ========================================================================= */}
         {mainTab === "all_history" && (
           <div className="flex-1 flex flex-col min-h-0 space-y-3">
             {/* Search and Filters */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-1 p-1 bg-slate-100 dark:bg-slate-950 rounded-xl">
-                {(
-                  [
-                    { id: "all", label: "ทั้งหมด" },
-                    { id: "waiting", label: "กำลังรอคิว" },
-                    { id: "completed", label: "ได้รับแล้ว" },
-                    { id: "canceled", label: "ยกเลิกแล้ว" },
-                  ] as const
-                ).map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setHistoryStatusFilter(tab.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                      historyStatusFilter === tab.id
-                        ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Status Filter */}
+                <div className="flex flex-wrap gap-1 p-1 bg-slate-100 dark:bg-slate-950 rounded-xl">
+                  {(
+                    [
+                      { id: "all", label: "ทั้งหมด" },
+                      { id: "waiting", label: "กำลังรอคิว" },
+                      { id: "completed", label: "ได้รับแล้ว" },
+                      { id: "canceled", label: "ยกเลิกแล้ว" },
+                    ] as const
+                  ).map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setHistoryStatusFilter(tab.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        historyStatusFilter === tab.id
+                          ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Dropdown เลือกไอเทม */}
+                <select
+                  value={historyItemFilter}
+                  onChange={(e) => setHistoryItemFilter(e.target.value as any)}
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  <option value="all">📦 ทุกไอเทม</option>
+                  <option value="Album">📖 สมุดการ์ด</option>
+                  <option value="Puppet">🃏 เศษการ์ดบอส</option>
+                  <option value="White">🪶 ขนขาว</option>
+                  <option value="RedBlack">🪶 ขนดำแดง</option>
+                </select>
               </div>
 
+              {/* Search Box */}
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
@@ -607,8 +664,8 @@ export default function HistoryClient({
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-slate-400">
-                          {getItemDisplayName(item.item_name)} • {formatDate(item.queue_timestamp)}
+                        <div className="text-[11px] text-slate-400" suppressHydrationWarning>
+                          {getItemDisplayName(item.item_name)} • {mounted ? formatDate(item.queue_timestamp) : "-"}
                         </div>
                       </div>
                     </div>

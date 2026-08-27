@@ -1525,35 +1525,42 @@ export default function AuctionWindow({
           ) : viewMode === "rounds" ? (
             <div className="flex-1 flex flex-col justify-start">
               {/* Item Selector Sub-Tabs */}
-              <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1 scrollbar-none">
-                {(['Album', 'Puppet', 'White', 'RedBlack'] as const).map(type => {
-                  const cfg = ITEM_CONFIG[type];
-                  const isSelected = activeRoundItem === type;
-                  const roundObj = roundsOverview?.activeRounds?.find((r: any) => r.item_name === type);
-                  const roundNum = roundObj?.round_number || 1;
-                  const completedCount = roundObj?.completed_members_count || 0;
-                  const totalEligible = roundObj?.total_eligible_members || 0;
+              <div className="relative mb-4">
+                <div className="flex items-center justify-between gap-2 mb-1.5 sm:hidden px-1">
+                  <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                    👈 👉 เลื่อนเพื่อเลือกดูไอเทมอื่น
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none snap-x touch-pan-x">
+                  {(['Album', 'Puppet', 'White', 'RedBlack'] as const).map(type => {
+                    const cfg = ITEM_CONFIG[type];
+                    const isSelected = activeRoundItem === type;
+                    const roundObj = roundsOverview?.activeRounds?.find((r: any) => r.item_name === type);
+                    const roundNum = roundObj?.round_number || 1;
+                    const completedCount = roundObj?.completed_members_count || 0;
+                    const totalEligible = roundObj?.total_eligible_members || 0;
 
-                  return (
-                    <button
-                      key={`round-tab-${type}`}
-                      onClick={() => setActiveRoundItem(type)}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl border text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                        isSelected
-                          ? 'bg-white dark:bg-slate-800 border-blue-500 shadow-md ring-2 ring-blue-500/20 text-slate-900 dark:text-slate-100'
-                          : 'bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      <div className={`w-6 h-6 rounded-lg bg-linear-to-b ${cfg.color} flex items-center justify-center relative`}>
-                        <Image src={cfg.icon} alt={cfg.label} fill className="object-contain p-0.5" sizes="24px" />
-                      </div>
-                      <span>{cfg.label}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 font-mono">
-                        รอบ {roundNum} ({completedCount}/{totalEligible})
-                      </span>
-                    </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={`round-tab-${type}`}
+                        onClick={() => setActiveRoundItem(type)}
+                        className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl border text-xs font-bold transition-all cursor-pointer shrink-0 snap-start ${
+                          isSelected
+                            ? 'bg-white dark:bg-slate-800 border-blue-500 shadow-md ring-2 ring-blue-500/20 text-slate-900 dark:text-slate-100'
+                            : 'bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className={`w-6 h-6 rounded-lg bg-linear-to-b ${cfg.color} flex items-center justify-center relative shrink-0`}>
+                          <Image src={cfg.icon} alt={cfg.label} fill className="object-contain p-0.5" sizes="24px" />
+                        </div>
+                        <span className="whitespace-nowrap">{cfg.label}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 font-mono whitespace-nowrap">
+                          รอบ {roundNum} ({completedCount}/{totalEligible})
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Round Status Header & Member Tabs */}

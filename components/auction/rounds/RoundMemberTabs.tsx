@@ -248,17 +248,10 @@ export default function RoundMemberTabs({
                           key={member.id}
                           className="p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700 transition flex items-center justify-between gap-2 sm:gap-3 shadow-2xs"
                         >
-                          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
                             <span className="text-[10px] font-bold font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded shrink-0">
                               #{member.queue_order || index + 1}
                             </span>
-                            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-linear-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white font-black text-xs shrink-0 overflow-hidden relative">
-                              {profile.avatar_url ? (
-                                <Image src={profile.avatar_url} alt={profile.display_name} fill className="object-cover" />
-                              ) : (
-                                profile.display_name?.[0] || 'U'
-                              )}
-                            </div>
                             <div className="min-w-0 flex-1">
                               <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
                                 {profile.display_name || 'ไม่ระบุชื่อ'}
@@ -347,17 +340,10 @@ export default function RoundMemberTabs({
                           key={member.id}
                           className="p-2.5 sm:p-3 rounded-xl border border-green-200/60 dark:border-green-900/40 bg-green-50/30 dark:bg-green-950/10 flex items-center justify-between gap-2 sm:gap-3"
                         >
-                          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
                             <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/50 px-1.5 py-0.5 rounded shrink-0">
                               ✓
                             </span>
-                            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-linear-to-tr from-green-500 to-emerald-500 flex items-center justify-center text-white font-black text-xs shrink-0 overflow-hidden relative">
-                              {profile.avatar_url ? (
-                                <Image src={profile.avatar_url} alt={profile.display_name} fill className="object-cover" />
-                              ) : (
-                                profile.display_name?.[0] || 'U'
-                              )}
-                            </div>
                             <div className="min-w-0 flex-1">
                               <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
                                 {profile.display_name || 'ไม่ระบุชื่อ'}

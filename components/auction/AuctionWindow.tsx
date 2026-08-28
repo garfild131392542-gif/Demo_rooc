@@ -135,6 +135,28 @@ export default function AuctionWindow({
   );
   const viewMode = propsViewMode ?? internalViewMode;
   const setViewMode = propsSetViewMode ?? setInternalViewMode;
+
+  // 🌟 Master Mode State (โหมดรอบการประมูล vs โหมดสมาชิกจองเอง)
+  const [systemMode, setSystemMode] = useState<'rounds' | 'self_booking'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('rooc_auction_system_mode');
+      if (saved === 'rounds' || saved === 'self_booking') return saved;
+    }
+    return roundsOverview?.activeRounds && roundsOverview.activeRounds.length > 0 ? 'rounds' : 'self_booking';
+  });
+
+  const handleSwitchSystemMode = (mode: 'rounds' | 'self_booking') => {
+    setSystemMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('rooc_auction_system_mode', mode);
+    }
+    if (mode === 'rounds') {
+      setViewMode('rounds');
+    } else {
+      setViewMode('slots');
+    }
+  };
+
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
     {},
   );
@@ -883,66 +905,159 @@ export default function AuctionWindow({
 
   return (
     <div className="w-full bg-slate-50 dark:bg-[#0f172a] rounded-3xl p-2.5 shadow-xl relative overflow-hidden font-sans border-2 border-slate-200 dark:border-slate-700 transition-colors h-full flex flex-col">
-      <div className="flex justify-between items-center px-4 py-3 bg-blue-600 dark:bg-blue-900 rounded-t-[18px] border-b border-blue-700 dark:border-slate-700 shadow-sm text-white transition-colors gap-4 flex-wrap">
-        <div className="flex items-center gap-2 font-bold">
-          <span className="text-xl">⚖️</span>
-          <span>
-            Today&apos;s Queue & Slot Mapping{" "}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button
-            onClick={() => setViewMode("slots")}
-            className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${viewMode === "slots" ? "bg-white text-blue-600 shadow-md font-extrabold" : "bg-white/15 hover:bg-white/25 text-white"}`}
-          >
-            Guild Auction
-          </button>
-          <button
-            onClick={() => setViewMode("rounds")}
-            className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${viewMode === "rounds" ? "bg-white text-blue-600 shadow-md font-extrabold" : "bg-white/15 hover:bg-white/25 text-white"}`}
-          >
-            🏆 รอบการประมูล
-          </button>
-          <button
-            onClick={() => setViewMode("queue")}
-            className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${viewMode === "queue" ? "bg-white text-blue-600 shadow-md font-extrabold" : "bg-white/15 hover:bg-white/25 text-white"}`}
-          >
-            คิวประมูล
-          </button>
-          {isAdmin && (
+      {/* 🌟 Header Bar: Title, Master Mode Switcher & Sub-tabs */}
+      <div className="bg-linear-to-r from-blue-600 via-indigo-600 to-blue-700 dark:from-blue-950 dark:via-slate-900 dark:to-indigo-950 rounded-[20px] p-3 sm:p-4 shadow-md text-white border-b border-blue-700/50 dark:border-slate-700/60 flex flex-col gap-3">
+        
+        {/* Top Row: Title + Master Mode Switcher + Refresh */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 font-black text-sm sm:text-base tracking-wide">
+              <span className="text-xl">⚖️</span>
+              <span className="truncate">Today&apos;s Queue & Slot Mapping</span>
+            </div>
+            
+            {/* Mobile-only Refresh Button */}
             <button
-              onClick={() => setViewMode("proxy")}
-              className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${viewMode === "proxy" ? "bg-white text-blue-600 shadow-md font-extrabold" : "bg-white/15 hover:bg-white/25 text-white"}`}
+              onClick={onRefresh}
+              disabled={isSaving}
+              className="lg:hidden text-xs bg-white/15 hover:bg-white/25 active:scale-95 px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
             >
-              🎯 จองแทนสมาชิก
+              <span>🔄</span> รีเฟรช
             </button>
-          )}
-          {isAdmin && (
+          </div>
+
+          {/* 🌟 MASTER MODE SWITCHER (Segmented Pill) */}
+          <div className="flex items-center bg-black/25 dark:bg-black/40 p-1 rounded-2xl border border-white/10 w-full lg:w-auto shadow-inner">
             <button
-              onClick={() => setViewMode("summary")}
-              className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${viewMode === "summary" ? "bg-white text-blue-600 shadow-md font-extrabold" : "bg-white/15 hover:bg-white/25 text-white"}`}
+              type="button"
+              onClick={() => handleSwitchSystemMode('rounds')}
+              className={`flex-1 lg:flex-none cursor-pointer text-xs px-3 sm:px-4 py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 ${
+                systemMode === 'rounds'
+                  ? 'bg-white text-blue-700 dark:text-blue-900 shadow-md font-extrabold scale-[1.02]'
+                  : 'text-blue-100 hover:text-white hover:bg-white/10'
+              }`}
             >
-              สรุปจัดสรรคิว
+              <span>🏆</span>
+              <span>โหมดรอบการประมูล</span>
             </button>
-          )}
-          <button
-            onClick={() => {
-              setViewMode("history");
-              if (onRefresh) onRefresh();
-            }}
-            className={`cursor-pointer text-xs px-4 py-1.5 rounded-full font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${viewMode === "history" ? "bg-white text-blue-600 shadow-md font-extrabold" : "bg-white/15 hover:bg-white/25 text-white"}`}
-          >
-            ประวัติการประมูล
-          </button>
-        </div>
-        <div className="flex items-center gap-2 ml-auto">
+
+            <button
+              type="button"
+              onClick={() => handleSwitchSystemMode('self_booking')}
+              className={`flex-1 lg:flex-none cursor-pointer text-xs px-3 sm:px-4 py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 ${
+                systemMode === 'self_booking'
+                  ? 'bg-white text-blue-700 dark:text-blue-900 shadow-md font-extrabold scale-[1.02]'
+                  : 'text-blue-100 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <span>🙋</span>
+              <span>โหมดสมาชิกจองเอง</span>
+            </button>
+          </div>
+
+          {/* Desktop Refresh Button */}
           <button
             onClick={onRefresh}
             disabled={isSaving}
-            className="text-xs bg-black/20 hover:bg-black/30 px-3 py-1.5 rounded-full font-bold transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-1"
+            className="hidden lg:flex text-xs bg-white/15 hover:bg-white/25 active:scale-95 px-3.5 py-2 rounded-xl font-bold transition items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
           >
             <span>🔄</span> Refresh
           </button>
+        </div>
+
+        {/* Bottom Row: Sub Tabs (Filtered dynamically by systemMode) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2 border-t border-white/10 pb-0.5 scroll-smooth">
+          {systemMode === 'rounds' ? (
+            <>
+              <button
+                onClick={() => setViewMode('rounds')}
+                className={`cursor-pointer text-xs px-3.5 py-1.5 rounded-full font-bold transition-all whitespace-nowrap duration-150 ${
+                  viewMode === 'rounds' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
+                }`}
+              >
+                🏆 แดชบอร์ดรอบการประมูล
+              </button>
+              <button
+                onClick={() => setViewMode('slots')}
+                className={`cursor-pointer text-xs px-3.5 py-1.5 rounded-full font-bold transition-all whitespace-nowrap duration-150 ${
+                  viewMode === 'slots' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
+                }`}
+              >
+                📋 ผังสล็อตในเกม (Guild Auction)
+              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setViewMode('summary')}
+                  className={`cursor-pointer text-xs px-3.5 py-1.5 rounded-full font-bold transition-all whitespace-nowrap duration-150 ${
+                    viewMode === 'summary' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
+                  }`}
+                >
+                  📊 สรุปจัดสรรคิว
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setViewMode('history');
+                  if (onRefresh) onRefresh();
+                }}
+                className={`cursor-pointer text-xs px-3.5 py-1.5 rounded-full font-bold transition-all whitespace-nowrap duration-150 ${
+                  viewMode === 'history' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
+                }`}
+              >
+                📜 ประวัติ & Audit Log
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setViewMode('slots')}
+                className={`cursor-pointer text-xs px-3.5 py-1.5 rounded-full font-bold transition-all whitespace-nowrap duration-150 ${
+                  viewMode === 'slots' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
+                }`}
+              >
+                📋 ผังสล็อตในเกม (Guild Auction)
+              </button>
+              <button
+                onClick={() => setViewMode('queue')}
+                className={`cursor-pointer text-xs px-3.5 py-1.5 rounded-full font-bold transition-all whitespace-nowrap duration-150 ${
+                  viewMode === 'queue' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
+                }`}
+              >
+                📦 คิวประมูล
+              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setViewMode('proxy')}
+                  className={`cursor-pointer text-xs px-3.5 py-1.5 rounded-full font-bold transition-all whitespace-nowrap duration-150 ${
+                    viewMode === 'proxy' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
+                  }`}
+                >
+                  🎯 จองแทนสมาชิก
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  onClick={() => setViewMode('summary')}
+                  className={`cursor-pointer text-xs px-3.5 py-1.5 rounded-full font-bold transition-all whitespace-nowrap duration-150 ${
+                    viewMode === 'summary' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
+                  }`}
+                >
+                  📊 สรุปจัดสรรคิว
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setViewMode('history');
+                  if (onRefresh) onRefresh();
+                }}
+                className={`cursor-pointer text-xs px-3.5 py-1.5 rounded-full font-bold transition-all whitespace-nowrap duration-150 ${
+                  viewMode === 'history' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
+                }`}
+              >
+                📜 ประวัติการประมูล
+              </button>
+            </>
+          )}
         </div>
       </div>
 

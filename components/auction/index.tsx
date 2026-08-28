@@ -174,16 +174,15 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
         sortedMembers.forEach((member: any) => {
           const profile = member.profiles || {}
           const targetQuota = (member.base_quota || 0) + (member.transferred_in_quota || 0) - (member.transferred_out_quota || 0)
-          const remainingQuota = Math.max(0, targetQuota - (member.received_qty || 0))
+          const currentReceived = member.received_qty || 0
           
-          const slotsForUser = Math.min(
-            remainingQuota > 0 ? remainingQuota : 1, 
-            personalLimit || 2
-          )
+          // 🔒 ล็อคจำนวนสล็อตของสมาชิกคนนี้ให้คงที่ ไม่ขยับเลื่อนคิวเมื่อกดประมูลเสร็จทีละช่อง
+          const slotsForUser = Math.min(targetQuota, personalLimit || 2)
 
           for (let s = 1; s <= slotsForUser; s++) {
             const isWaitlisted = allocatedSlotCount >= totalQuantity
             const uniqueSlotQueueId = `round_${member.id}_${s}`
+            const isSlotCompleted = s <= currentReceived
 
             slots.push({
               id: `round-slot-${member.id}-${s}`,
@@ -195,11 +194,11 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
               queueId: uniqueSlotQueueId,
               roundMemberId: member.id,
               requestedQty: 1,
-              receivedQty: 0,
-              remainingQty: 1,
+              receivedQty: isSlotCompleted ? 1 : 0,
+              remainingQty: isSlotCompleted ? 0 : 1,
               accumulatedQuota: targetQuota,
-              accumulatedReceived: member.received_qty || 0,
-              status: member.status,
+              accumulatedReceived: currentReceived,
+              status: isSlotCompleted ? 'completed' : 'waiting',
               isEmpty: false,
               isMe: profile.uid_game === myProfile?.uid_game || member.user_id === myProfile?.id,
               slotIndex: s,

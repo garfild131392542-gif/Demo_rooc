@@ -832,67 +832,121 @@ export async function batchRevertAuctionQueues(ids: (string | number)[]) {
     const guildId = session.profile.guild_id;
     if (!guildId) return { success: false, error: 'ไม่พบข้อมูลกิลด์' };
 
-    const supabase = await createClient();
+    const supabase = (await createClient()) as any;
     const stringIds = ids.map(id => String(id));
 
-    // 1. ดึงข้อมูลคิวที่ตรงกับ IDs
-    const { data: queues, error: fetchErr } = await supabase
-      .from('auction_queues')
-      .select('id, user_id, guild_id, item_name, status, received_qty')
-      .in('id', stringIds)
-      .eq('guild_id', guildId);
+    const roundSlotIds = stringIds.filter(id => id.startsWith('round_'));
+    const standardQueueIds = stringIds.filter(id => !id.startsWith('round_'));
 
-    if (fetchErr) throw fetchErr;
-    if (!queues || queues.length === 0) {
-      return { success: false, error: 'ไม่พบรายการคิวที่ต้องการลบ' };
-    }
+    let totalReverted = 0;
 
-    // 2. ⚡ Auto-Link: ถ้ารายการไหนเคย completed ให้ย้อนคืนสิทธิ์ในรอบการประมูลทันที (Group by User & Item)
-    const userItemMap: Record<string, { userId: string; itemName: ItemType; count: number }> = {};
-    for (const q of queues) {
-      if (q.status === 'completed' && q.user_id) {
-        const key = `${q.user_id}_${q.item_name}`;
-        if (!userItemMap[key]) {
-          userItemMap[key] = { userId: q.user_id, itemName: q.item_name as ItemType, count: 0 };
+    // 🌟 1. ย้อนคืนผลการประมูลสำหรับ Round Slots
+    if (roundSlotIds.length > 0) {
+      const roundMemberCountMap: Record<string, number> = {};
+      roundSlotIds.forEach(id => {
+        const parts = id.split('_');
+        const roundMemberId = parts[1];
+        if (roundMemberId) {
+          roundMemberCountMap[roundMemberId] = (roundMemberCountMap[roundMemberId] || 0) + 1;
         }
-        userItemMap[key].count += 1;
+      });
+
+      for (const [roundMemberId, count] of Object.entries(roundMemberCountMap)) {
+        const { data: member } = await supabase
+          .from('auction_round_members')
+          .select('*')
+          .eq('id', roundMemberId)
+          .maybeSingle();
+
+        if (member) {
+          const newReceived = Math.max(0, (member.received_qty || 0) - count);
+          const targetQuota = (member.base_quota || 0) + (member.transferred_in_quota || 0) - (member.transferred_out_quota || 0);
+          const isComplete = newReceived >= targetQuota && targetQuota > 0;
+
+          await supabase
+            .from('auction_round_members')
+            .update({
+              received_qty: newReceived,
+              status: isComplete ? 'completed' : (newReceived > 0 ? 'in_progress' : 'pending'),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', member.id);
+
+          await supabase.from('auction_round_logs').insert({
+            guild_id: guildId,
+            round_id: member.round_id,
+            round_number: member.round_number,
+            item_name: member.item_name,
+            action_type: 'MANUAL_OVERRIDE',
+            target_user_id: member.user_id,
+            qty: -count,
+            performed_by: session.profile.id,
+            note: `ยกเลิกผลการประมูล จำนวน ${count} ชิ้น (คงเหลือสะสม ${newReceived}/${targetQuota})`,
+          });
+        }
       }
+
+      totalReverted += roundSlotIds.length;
     }
 
-    try {
-      const { revertRoundProgress } = await import('./auction-rounds');
-      for (const entry of Object.values(userItemMap)) {
-        await revertRoundProgress(
-          guildId,
-          entry.userId,
-          entry.itemName,
-          entry.count,
-          session.profile.id,
-          `ลบประวัติการประมูลแบบกลุ่ม ${entry.count} ชิ้น และย้อนคืนสิทธิ์`
-        );
+    // 🌟 2. ย้อนคืนผลการประมูลสำหรับคิวปกติ (auction_queues)
+    if (standardQueueIds.length > 0) {
+      const { data: queues, error: fetchErr } = await supabase
+        .from('auction_queues')
+        .select('id, user_id, guild_id, item_name, status, received_qty')
+        .in('id', standardQueueIds)
+        .eq('guild_id', guildId);
+
+      if (fetchErr) throw fetchErr;
+
+      if (queues && queues.length > 0) {
+        const userItemMap: Record<string, { userId: string; itemName: ItemType; count: number }> = {};
+        for (const q of queues) {
+          if (q.status === 'completed' && q.user_id) {
+            const key = `${q.user_id}_${q.item_name}`;
+            if (!userItemMap[key]) {
+              userItemMap[key] = { userId: q.user_id, itemName: q.item_name as ItemType, count: 0 };
+            }
+            userItemMap[key].count += 1;
+          }
+        }
+
+        try {
+          const { revertRoundProgress } = await import('./auction-rounds');
+          for (const entry of Object.values(userItemMap)) {
+            await revertRoundProgress(
+              guildId,
+              entry.userId,
+              entry.itemName,
+              entry.count,
+              session.profile.id,
+              `ลบประวัติการประมูลแบบกลุ่ม ${entry.count} ชิ้น และย้อนคืนสิทธิ์`
+            );
+          }
+        } catch (revertErr) {
+          console.error('Batch revertRoundProgress error (non-fatal):', revertErr);
+        }
+
+        const validIds = queues.map((q: any) => q.id);
+        const { error: updateErr } = await supabase
+          .from('auction_queues')
+          .update({
+            received_qty: 0,
+            status: 'waiting',
+            updated_at: new Date().toISOString(),
+          })
+          .in('id', validIds);
+
+        if (updateErr) throw updateErr;
+        totalReverted += validIds.length;
       }
-    } catch (revertErr) {
-      console.error('Batch revertRoundProgress error (non-fatal):', revertErr);
     }
-
-    // 3. 🔄 อัปเดตสถานะกลับเป็นรอรับของ (waiting)
-    const validIds = queues.map(q => q.id);
-    const { error: updateErr } = await supabase
-      .from('auction_queues')
-      .update({
-        received_qty: 0,
-        status: 'waiting',
-        updated_at: new Date().toISOString(),
-      })
-      .in('id', validIds);
-
-    if (updateErr) throw updateErr;
 
     revalidatePath('/');
     revalidatePath('/auction');
     revalidatePath('/profile');
 
-    return { success: true, count: validIds.length };
+    return { success: true, count: totalReverted };
   } catch (err: any) {
     console.error('batchRevertAuctionQueues error:', err);
     return { success: false, error: err.message || 'เกิดข้อผิดพลาดในการลบประวัติแบบกลุ่ม' };

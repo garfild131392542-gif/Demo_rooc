@@ -287,7 +287,7 @@ export async function getTodayAuctionDashboard() {
   }
 }
 
-// 4. ดึงข้อมูลประวัติเฉพาะแถวที่สถานะเป็น 'completed' กั้นสิทธิ์ตาม guild_id
+// 4. ดึงข้อมูลประวัติทั้งจากคิวปกติ (auction_queues) และประวัติรอบการประมูล (auction_round_logs)
 export async function getAuctionHistory() {
   try {
     const session = await getSession();
@@ -296,30 +296,51 @@ export async function getAuctionHistory() {
     }
 
     const myGuildId = session.profile.guild_id;
-    const supabase = await createClient();
+    const supabase = (await createClient()) as any;
 
-    const { data: history, error } = await supabase
-      .from('auction_queues')
-      .select(`
-        id,
-        item_name,
-        requested_qty,
-        received_qty,
-        status,
-        updated_at,
-        profiles!inner (
-          uid_game,
-          display_name,
-          guild_id
-        )
-      `)
-      .eq('status', 'completed') // ✨ ดึงเฉพาะที่ประมูลแจกเสร็จสิ้นแล้วเท่านั้น
-      .eq('profiles.guild_id', myGuildId) // 🔒 กั้นสิทธิ์ดูเฉพาะภายในกิลด์ตัวเอง
-      .order('updated_at', { ascending: false });
+    const [queuesRes, roundLogsRes] = await Promise.all([
+      supabase
+        .from('auction_queues')
+        .select(`
+          id,
+          item_name,
+          requested_qty,
+          received_qty,
+          status,
+          updated_at,
+          profiles!inner (
+            uid_game,
+            display_name,
+            guild_id
+          )
+        `)
+        .eq('status', 'completed')
+        .eq('profiles.guild_id', myGuildId)
+        .order('updated_at', { ascending: false }),
 
-    if (error) throw error;
+      supabase
+        .from('auction_round_logs')
+        .select(`
+          id,
+          round_id,
+          round_number,
+          item_name,
+          action_type,
+          qty,
+          note,
+          created_at,
+          profiles:target_user_id (
+            uid_game,
+            display_name,
+            guild_id
+          )
+        `)
+        .eq('guild_id', myGuildId)
+        .gt('qty', 0)
+        .order('created_at', { ascending: false }),
+    ]);
 
-    const formattedHistory = (history || []).map((row: any) => ({
+    const formattedQueueHistory = (queuesRes.data || []).map((row: any) => ({
       id: row.id,
       item_name: row.item_name,
       requested_qty: row.requested_qty,
@@ -328,9 +349,30 @@ export async function getAuctionHistory() {
       awarded_at: row.updated_at,
       display_name: row.profiles?.display_name || 'ไม่ระบุชื่อ',
       uid_game: row.profiles?.uid_game || '-',
+      note: 'ประมูลสำเร็จ (คิวปกติ)',
     }));
 
-    return { success: true, history: formattedHistory };
+    const formattedRoundHistory = (roundLogsRes.data || []).map((row: any) => ({
+      id: `roundlog_${row.id}`,
+      rawLogId: row.id,
+      item_name: row.item_name,
+      requested_qty: row.qty,
+      awarded_qty: row.qty,
+      status: 'completed',
+      awarded_at: row.created_at,
+      display_name: row.profiles?.display_name || 'สมาชิกในรอบ',
+      uid_game: row.profiles?.uid_game || '-',
+      note: row.note || `รอบที่ ${row.round_number}`,
+      roundNumber: row.round_number,
+    }));
+
+    const mergedHistory = [...formattedQueueHistory, ...formattedRoundHistory].sort((a, b) => {
+      const timeA = new Date(a.awarded_at).getTime() || 0;
+      const timeB = new Date(b.awarded_at).getTime() || 0;
+      return timeB - timeA;
+    });
+
+    return { success: true, history: mergedHistory };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
@@ -834,13 +876,57 @@ export async function batchRevertAuctionQueues(ids: (string | number)[]) {
 
     const supabase = (await createClient()) as any;
     const stringIds = ids.map(id => String(id));
-
+    const roundLogIds = stringIds.filter(id => id.startsWith('roundlog_'));
     const roundSlotIds = stringIds.filter(id => id.startsWith('round_'));
-    const standardQueueIds = stringIds.filter(id => !id.startsWith('round_'));
+    const standardQueueIds = stringIds.filter(id => !id.startsWith('round_') && !id.startsWith('roundlog_'));
 
     let totalReverted = 0;
 
-    // 🌟 1. ย้อนคืนผลการประมูลสำหรับ Round Slots
+    // 🌟 1. ย้อนคืนผลการประมูลจากประวัติ Log ของรอบ (roundlog_LOGID)
+    if (roundLogIds.length > 0) {
+      const rawLogIds = roundLogIds.map(id => id.replace('roundlog_', ''));
+      const { data: logs } = await supabase
+        .from('auction_round_logs')
+        .select('*')
+        .in('id', rawLogIds);
+
+      if (logs && logs.length > 0) {
+        for (const log of logs) {
+          if (log.target_user_id && log.round_id && log.qty > 0) {
+            const { data: member } = await supabase
+              .from('auction_round_members')
+              .select('*')
+              .eq('round_id', log.round_id)
+              .eq('user_id', log.target_user_id)
+              .maybeSingle();
+
+            if (member) {
+              const newReceived = Math.max(0, (member.received_qty || 0) - log.qty);
+              const targetQuota = (member.base_quota || 0) + (member.transferred_in_quota || 0) - (member.transferred_out_quota || 0);
+              const isComplete = newReceived >= targetQuota && targetQuota > 0;
+
+              await supabase
+                .from('auction_round_members')
+                .update({
+                  received_qty: newReceived,
+                  status: isComplete ? 'completed' : (newReceived > 0 ? 'in_progress' : 'pending'),
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', member.id);
+            }
+          }
+        }
+
+        await supabase
+          .from('auction_round_logs')
+          .delete()
+          .in('id', rawLogIds);
+
+        totalReverted += rawLogIds.length;
+      }
+    }
+
+    // 🌟 2. ย้อนคืนผลการประมูลสำหรับ Round Slots (round_MEMID_1)
     if (roundSlotIds.length > 0) {
       const roundMemberCountMap: Record<string, number> = {};
       roundSlotIds.forEach(id => {
@@ -889,7 +975,7 @@ export async function batchRevertAuctionQueues(ids: (string | number)[]) {
       totalReverted += roundSlotIds.length;
     }
 
-    // 🌟 2. ย้อนคืนผลการประมูลสำหรับคิวปกติ (auction_queues)
+    // 🌟 3. ย้อนคืนผลการประมูลสำหรับคิวปกติ (auction_queues)
     if (standardQueueIds.length > 0) {
       const { data: queues, error: fetchErr } = await supabase
         .from('auction_queues')

@@ -32,7 +32,7 @@ export async function getGuildRoundsOverview(selectedItem?: ItemType) {
       query = query.eq('item_name', selectedItem)
     }
 
-    const [roundsRes, myQuotaRes, profilesRes] = await Promise.all([
+    const [roundsRes, myQuotaRes, profilesRes, roundMembersRes] = await Promise.all([
       query,
       supabase
         .from('auction_round_members')
@@ -45,6 +45,12 @@ export async function getGuildRoundsOverview(selectedItem?: ItemType) {
         .select('id, display_name, uid_game, role, avatar_url')
         .eq('guild_id', guildId)
         .order('display_name', { ascending: true }),
+      supabase
+        .from('auction_round_members')
+        .select('*, profiles:user_id(id, display_name, uid_game, role, avatar_url, party_id, slot_index, party_id_guild_league, slot_index_guild_league, party_id_emperium_overrun, slot_index_emperium_overrun)')
+        .eq('guild_id', guildId)
+        .in('status', ['pending', 'in_progress', 'completed'])
+        .order('queue_order', { ascending: true }),
     ])
 
     if (roundsRes.error) throw roundsRes.error
@@ -56,6 +62,7 @@ export async function getGuildRoundsOverview(selectedItem?: ItemType) {
       activeRounds: roundsRes.data || [],
       myQuotas: myQuotaRes.data || [],
       guildMembers: profilesRes.data || [],
+      activeRoundMembers: roundMembersRes.data || [],
     }
   } catch (err: any) {
     console.error('getGuildRoundsOverview error:', err)
@@ -1282,7 +1289,7 @@ export async function rollbackOrDeleteCurrentRound(itemName: ItemType) {
       return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
     }
 
-    const supabase = await createClient()
+    const supabase = (await createClient()) as any
     const guildId = session.profile.guild_id
 
     // ค้นหารอบ active ปัจจุบัน
@@ -1350,7 +1357,7 @@ export async function resetAllGuildRounds() {
       return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
     }
 
-    const supabase = await createClient()
+    const supabase = (await createClient()) as any
     const guildId = session.profile.guild_id
 
     // ลบข้อมูลทุกตารางที่เกี่ยวข้องกับรอบของกิลด์นี้ทั้งหมด
@@ -1365,6 +1372,109 @@ export async function resetAllGuildRounds() {
     return { success: true }
   } catch (err: any) {
     console.error('resetAllGuildRounds error:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+// 🌟 แจกไอเทมในรอบการประมูลตามลำดับคิวโดยอัตโนมัติตามยอดวันนี้
+export async function distributeRoundSessionItems(itemName: ItemType, totalQty: number, personalLimit: number) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin' || !session.profile.guild_id) {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const supabase = (await createClient()) as any
+    const guildId = session.profile.guild_id
+
+    // ค้นหารอบ active
+    const { data: activeRound } = await supabase
+      .from('auction_rounds')
+      .select('*')
+      .eq('guild_id', guildId)
+      .eq('item_name', itemName)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (!activeRound) return { success: true, message: 'ไม่มีรอบ active' }
+
+    // ดึงสมาชิกในรอบที่ยังได้ของไม่ครบ เรียงตาม queue_order
+    const { data: members, error: memErr } = await supabase
+      .from('auction_round_members')
+      .select('*')
+      .eq('round_id', activeRound.id)
+      .in('status', ['pending', 'in_progress'])
+      .order('queue_order', { ascending: true })
+
+    if (memErr || !members || members.length === 0) return { success: true }
+
+    let remainingQty = totalQty
+    const updates: Promise<any>[] = []
+    const logs: any[] = []
+
+    for (const member of members) {
+      if (remainingQty <= 0) break
+
+      const targetQuota = (member.base_quota || 0) + (member.transferred_in_quota || 0) - (member.transferred_out_quota || 0)
+      const currentReceived = member.received_qty || 0
+      const needed = Math.max(0, targetQuota - currentReceived)
+      if (needed <= 0) continue
+
+      const giveQty = Math.min(needed, personalLimit || needed, remainingQty)
+      const newReceived = currentReceived + giveQty
+      const isComplete = newReceived >= targetQuota
+
+      updates.push(
+        supabase
+          .from('auction_round_members')
+          .update({
+            received_qty: newReceived,
+            status: isComplete ? 'completed' : 'in_progress',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', member.id)
+      )
+
+      logs.push({
+        guild_id: guildId,
+        round_id: activeRound.id,
+        round_number: activeRound.round_number,
+        item_name: itemName,
+        action_type: 'MANUAL_OVERRIDE',
+        target_user_id: member.user_id,
+        qty: giveQty,
+        performed_by: session.profile.id,
+        note: `คำนวณและแจกจากยอดประมูลประจำวัน จำนวน ${giveQty} ชิ้น (สะสม ${newReceived}/${targetQuota})`,
+      })
+
+      remainingQty -= giveQty
+    }
+
+    if (updates.length > 0) {
+      await Promise.all(updates)
+      if (logs.length > 0) {
+        await supabase.from('auction_round_logs').insert(logs)
+      }
+
+      // อัปเดต completed count
+      const { count: completedCount } = await supabase
+        .from('auction_round_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('round_id', activeRound.id)
+        .eq('status', 'completed')
+
+      await supabase
+        .from('auction_rounds')
+        .update({
+          completed_members_count: completedCount || 0,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', activeRound.id)
+    }
+
+    return { success: true }
+  } catch (err: any) {
+    console.error('distributeRoundSessionItems error:', err)
     return { success: false, error: err.message }
   }
 }

@@ -155,109 +155,172 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
       
       // Safe guard: skip if no session or config
       if (!itemConfig) return
-      
-      // ✨ Count total slots per user for this item type
-      const userTotalSlotsMap = new Map<string, number>()
-      ;(queuesByType[type] || []).forEach((q: any) => {
-        const key = q.user_id
-        userTotalSlotsMap.set(key, (userTotalSlotsMap.get(key) ?? 0) + 1)
-      })
-      
-      // ✨ Filter by personal_limit: only show slots if user's total doesn't exceed limit
-      let shownCountPerUser = new Map<string, number>() // Track how many we've shown per user
-      const qualifiedQueues = (queuesByType[type] || []).filter((q: any) => {
-        const totalSlots = userTotalSlotsMap.get(q.user_id) ?? 0
-        const alreadyShown = shownCountPerUser.get(q.user_id) ?? 0
-        const shouldShow = alreadyShown < personalLimit
-        
-        if (shouldShow) {
-          shownCountPerUser.set(q.user_id, alreadyShown + 1)
-        }
-        
-        return shouldShow
-      })
-      
-      // ✨ 1. Group queues by (user_id/uid_game + queue_timestamp) to keep each member's slots contiguous!
-      const userBookingGroups = new Map<string, any[]>()
-      qualifiedQueues.forEach((q: any) => {
-        const groupKey = `${q.user_id || q.uid_game || q.display_name}_${q.queue_timestamp || 'no-ts'}`
-        if (!userBookingGroups.has(groupKey)) {
-          userBookingGroups.set(groupKey, [])
-        }
-        userBookingGroups.get(groupKey)!.push(q)
-      })
 
-      // ✨ 2. Sort internal slots within each user group by slot_number (1, 2, 3...) then id deterministically
-      userBookingGroups.forEach((group) => {
-        group.sort((a, b) => {
-          if ((a.slot_number ?? 0) !== (b.slot_number ?? 0)) {
-            return (a.slot_number ?? 0) - (b.slot_number ?? 0)
+      // 🔍 ตรวจสอบ: ไอเทมนี้มี ACTIVE ROUND ใน roundsData หรือไม่?
+      const activeRound = roundsData?.activeRounds?.find((r: any) => r.item_name === type && r.status === 'active')
+      const roundMembers = activeRound 
+        ? (roundsData?.activeRoundMembers || []).filter((rm: any) => rm.round_id === activeRound.id)
+        : []
+
+      const isRoundActive = Boolean(activeRound && roundMembers.length > 0)
+
+      if (isRoundActive) {
+        // 🌟 โหมดรอบการประมูล (Round Mode): ดึงสมาชิกตามลำดับ queue_order ในรอบที่ 1-N มาแมปใส่สล็อตโดยตรง
+        const totalQuantity = Math.max(0, Number(session.total_quantity ?? 0))
+        let allocatedSlotCount = 0
+
+        const sortedMembers = [...roundMembers].sort((a: any, b: any) => (a.queue_order || 0) - (b.queue_order || 0))
+
+        sortedMembers.forEach((member: any) => {
+          const profile = member.profiles || {}
+          const targetQuota = (member.base_quota || 0) + (member.transferred_in_quota || 0) - (member.transferred_out_quota || 0)
+          const remainingQuota = Math.max(0, targetQuota - (member.received_qty || 0))
+          
+          const slotsForUser = Math.min(
+            remainingQuota > 0 ? remainingQuota : 1, 
+            personalLimit || 2
+          )
+
+          for (let s = 1; s <= slotsForUser; s++) {
+            const isWaitlisted = allocatedSlotCount >= totalQuantity
+
+            slots.push({
+              id: `round-slot-${member.id}-${s}`,
+              type,
+              ...itemConfig,
+              assignedTo: profile.display_name || `ตัวที่ ${member.queue_order}`,
+              uid: profile.uid_game || '',
+              userId: member.user_id,
+              queueId: member.id,
+              requestedQty: targetQuota,
+              receivedQty: member.received_qty || 0,
+              remainingQty: remainingQuota,
+              status: member.status,
+              isEmpty: false,
+              isMe: profile.uid_game === myProfile?.uid_game || member.user_id === myProfile?.id,
+              slotIndex: s,
+              bookingSessionSize: slotsForUser,
+              queueTimestamp: `round-${activeRound.round_number}`,
+              isFirstInSession: s === 1,
+              isWaitlist: isWaitlisted,
+              roundNumber: activeRound.round_number,
+              queueOrder: member.queue_order,
+            })
+
+            allocatedSlotCount++
           }
-          return String(a.id || '').localeCompare(String(b.id || ''))
         })
-      })
 
-      // ✨ 3. Sort user groups by the group's earliest queue_timestamp / id
-      const sortedUserGroups = Array.from(userBookingGroups.values()).sort((groupA, groupB) => {
-        const firstA = groupA[0]
-        const firstB = groupB[0]
-        const timeA = firstA.queue_timestamp || ''
-        const timeB = firstB.queue_timestamp || ''
-        if (timeA !== timeB) return timeA.localeCompare(timeB)
-        return (firstA.id || '').localeCompare(firstB.id || '')
-      })
-
-      const totalQuantity = Math.max(0, Number(session.total_quantity ?? 0))
-      let allocatedSlotCount = 0
-
-      // Add booked slots (grouped contiguously by user)
-      sortedUserGroups.forEach((sessionQueues) => {
-        const totalInSession = sessionQueues.length
-        const sessionKey = sessionQueues[0]?.queue_timestamp || 'no-timestamp'
-        
-        // Add ALL slots in the session with session metadata
-        sessionQueues.forEach((q, slotIndexInSession) => {
-          const isWaitlisted = allocatedSlotCount >= totalQuantity
-
+        // Add empty slots
+        const emptyCount = Math.max(totalQuantity - allocatedSlotCount, 0)
+        for (let i = 0; i < emptyCount; i++) {
           slots.push({
-            id: `slot-${q.id}`,  // ✨ Use actual queue id
+            id: `empty-${type}-${i}`,
             type,
             ...itemConfig,
-            assignedTo: q.display_name,
-            uid: q.uid_game,
-            userId: q.user_id,
-            queueId: q.id,
-            requestedQty: q.requested_qty,
-            receivedQty: q.received_qty,
-            remainingQty: Math.max(q.requested_qty - q.received_qty, 0),
-            status: q.status,
-            isEmpty: false,
-            isMe: q.uid_game === myProfile?.uid_game,
-            slotIndex: q.slot_number || 1,
-            // ✨ NEW: Booking session info
-            bookingSessionSize: totalInSession,
-            queueTimestamp: sessionKey,
-            isFirstInSession: slotIndexInSession === 0,  // Mark first slot for header display
-            isWaitlist: isWaitlisted
+            assignedTo: '--- สล็อตว่าง ---',
+            uid: '',
+            isMe: false,
+            isEmpty: true,
+            isWaitlist: false
           })
-
-          allocatedSlotCount++
+        }
+      } else {
+        // 🌟 โหมดสมาชิกจองเองปกติ (Self-Booking from auction_queues)
+        const userTotalSlotsMap = new Map<string, number>()
+        ;(queuesByType[type] || []).forEach((q: any) => {
+          const key = q.user_id
+          userTotalSlotsMap.set(key, (userTotalSlotsMap.get(key) ?? 0) + 1)
         })
-      })
-
-      // Add empty slots (only for absolute coordinate mapping, we will hide them from the board layout)
-      const emptyCount = Math.max(totalQuantity - allocatedSlotCount, 0)
-      for (let i = 0; i < emptyCount; i++) {
-        slots.push({
-          id: `empty-${type}-${i}`,
-          type,
-          ...itemConfig,
-          assignedTo: '--- ไม่มีใครจอง ---',
-          uid: '',
-          isMe: false,
-          isEmpty: true,
-          isWaitlist: false
+        
+        let shownCountPerUser = new Map<string, number>()
+        const qualifiedQueues = (queuesByType[type] || []).filter((q: any) => {
+          const totalSlots = userTotalSlotsMap.get(q.user_id) ?? 0
+          const alreadyShown = shownCountPerUser.get(q.user_id) ?? 0
+          const shouldShow = alreadyShown < personalLimit
+          
+          if (shouldShow) {
+            shownCountPerUser.set(q.user_id, alreadyShown + 1)
+          }
+          
+          return shouldShow
         })
+        
+        const userBookingGroups = new Map<string, any[]>()
+        qualifiedQueues.forEach((q: any) => {
+          const groupKey = `${q.user_id || q.uid_game || q.display_name}_${q.queue_timestamp || 'no-ts'}`
+          if (!userBookingGroups.has(groupKey)) {
+            userBookingGroups.set(groupKey, [])
+          }
+          userBookingGroups.get(groupKey)!.push(q)
+        })
+
+        userBookingGroups.forEach((group) => {
+          group.sort((a, b) => {
+            if ((a.slot_number ?? 0) !== (b.slot_number ?? 0)) {
+              return (a.slot_number ?? 0) - (b.slot_number ?? 0)
+            }
+            return String(a.id || '').localeCompare(String(b.id || ''))
+          })
+        })
+
+        const sortedUserGroups = Array.from(userBookingGroups.values()).sort((groupA, groupB) => {
+          const firstA = groupA[0]
+          const firstB = groupB[0]
+          const timeA = firstA.queue_timestamp || ''
+          const timeB = firstB.queue_timestamp || ''
+          if (timeA !== timeB) return timeA.localeCompare(timeB)
+          return (firstA.id || '').localeCompare(firstB.id || '')
+        })
+
+        const totalQuantity = Math.max(0, Number(session.total_quantity ?? 0))
+        let allocatedSlotCount = 0
+
+        sortedUserGroups.forEach((sessionQueues) => {
+          const totalInSession = sessionQueues.length
+          const sessionKey = sessionQueues[0]?.queue_timestamp || 'no-timestamp'
+          
+          sessionQueues.forEach((q, slotIndexInSession) => {
+            const isWaitlisted = allocatedSlotCount >= totalQuantity
+
+            slots.push({
+              id: `slot-${q.id}`,
+              type,
+              ...itemConfig,
+              assignedTo: q.display_name,
+              uid: q.uid_game,
+              userId: q.user_id,
+              queueId: q.id,
+              requestedQty: q.requested_qty,
+              receivedQty: q.received_qty,
+              remainingQty: Math.max(q.requested_qty - q.received_qty, 0),
+              status: q.status,
+              isEmpty: false,
+              isMe: q.uid_game === myProfile?.uid_game,
+              slotIndex: q.slot_number || 1,
+              bookingSessionSize: totalInSession,
+              queueTimestamp: sessionKey,
+              isFirstInSession: slotIndexInSession === 0,
+              isWaitlist: isWaitlisted
+            })
+
+            allocatedSlotCount++
+          })
+        })
+
+        const emptyCount = Math.max(totalQuantity - allocatedSlotCount, 0)
+        for (let i = 0; i < emptyCount; i++) {
+          slots.push({
+            id: `empty-${type}-${i}`,
+            type,
+            ...itemConfig,
+            assignedTo: '--- ไม่มีใครจอง ---',
+            uid: '',
+            isMe: false,
+            isEmpty: true,
+            isWaitlist: false
+          })
+        }
       }
     })
 
@@ -285,17 +348,8 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
       }
     }
 
-    if (DEBUG_AUCTION && typeof window !== 'undefined') {
-      console.debug('[AuctionBoard] Slots mapped with booking sessions', {
-        totalQueues: (memberQueues || []).length,
-        boardSlotsCount: boardSlots.length,
-        waitlistSlotsCount: waitlistSlots.length,
-        slots: rawSlots
-      })
-    }
-
     return { boardSlots, waitlistSlots, rawSlots }
-  }, [memberQueues, todayItems, activeSubTab, myProfile])
+  }, [memberQueues, todayItems, activeSubTab, myProfile, roundsData])
 
   const mappedSlots = boardSlots
   const slotsPerPage = 4

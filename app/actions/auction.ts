@@ -45,6 +45,14 @@ export async function saveAuctionSession(items: { item_type: ItemType; total_qua
     const { error } = await supabase.from('auction_sessions').insert(insertData as any)
     if (error) throw error
 
+    // 🌟 ถ้าไอเทมใดมี Active Round อยู่แล้ว ให้แจกไอเทมตามลำดับคิวในรอบโดยอัตโนมัติ (ไม่สร้างรอบปลอม)
+    const { distributeRoundSessionItems } = await import('./auction-rounds')
+    for (const item of items) {
+      if (item.total_quantity > 0) {
+        await distributeRoundSessionItems(item.item_type, item.total_quantity, item.personal_limit || 2)
+      }
+    }
+
     revalidatePath('/')
     revalidatePath('/auction')
     return { success: true }

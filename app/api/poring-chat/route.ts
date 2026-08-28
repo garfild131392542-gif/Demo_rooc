@@ -159,14 +159,18 @@ export async function POST(req: Request) {
       throw lastError || new Error("ไม่มี API Key ใดทำงานได้");
     }
 
-    return Response.json({ answer: answerText });
+    return Response.json({
+      answer: answerText,
+      reply: answerText,
+    });
 
   } catch (error: any) {
     console.error("Guild Assistant AI Error:", error);
 
     // ปรับ Error Message ให้เข้ากับบริบท NPC ที่ไม่เบียว
+    const errorMsg = "ขออภัยท่านนักผจญภัย ระบบจัดการคลังข้อมูลของกิลด์เกิดการขัดข้องชั่วคราว โปรดลองสอบถามข้าพเจ้าใหม่อีกครั้งในภายหลัง";
     return Response.json(
-      { answer: "ขออภัยท่านนักผจญภัย ระบบจัดการคลังข้อมูลของกิลด์เกิดการขัดข้องชั่วคราว โปรดลองสอบถามข้าพเจ้าใหม่อีกครั้งในภายหลัง" },
+      { answer: errorMsg, reply: errorMsg },
       { status: 500 }
     );
   }

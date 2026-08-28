@@ -93,7 +93,7 @@ export default function PoringAssistant() {
             ...prev,
             {
               role: 'assistant',
-              content: data.reply || 'ขออภัยครับ Poring ไม่สามารถตอบได้ในขณะนี้'
+              content: data.reply || data.answer || 'ขออภัยครับ Poring ไม่สามารถตอบได้ในขณะนี้'
             }
           ]);
           success = true;

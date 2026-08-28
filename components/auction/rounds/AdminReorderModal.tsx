@@ -114,6 +114,23 @@ export default function AdminReorderModal({
     }, 0)
   }, [items, initialOrderMap])
 
+  // ⚠️ filteredIndices MUST be here (before early return) to obey React Rules of Hooks
+  const filteredIndices = useMemo(() => {
+    if (!searchQuery.trim()) return null
+    const q = searchQuery.toLowerCase().trim()
+    const set = new Set<number>()
+    items.forEach((m, idx) => {
+      const prof = getProfile(m)
+      const name = (prof.display_name || '').toLowerCase()
+      const uid = (prof.uid_game || '').toLowerCase()
+      const party = String(prof.party_id || '')
+      if (name.includes(q) || uid.includes(q) || party === q) {
+        set.add(idx)
+      }
+    })
+    return set
+  }, [items, searchQuery])
+
   if (!isOpen) return null
 
   const itemInfo = (itemName && ITEM_CONFIG[itemName]) ? ITEM_CONFIG[itemName] : { label: 'ไอเทม', color: 'from-blue-500 to-indigo-600' }
@@ -275,21 +292,7 @@ export default function AdminReorderModal({
     }
   }
 
-  const filteredIndices = useMemo(() => {
-    if (!searchQuery.trim()) return null
-    const q = searchQuery.toLowerCase().trim()
-    const set = new Set<number>()
-    items.forEach((m, idx) => {
-      const prof = getProfile(m)
-      const name = (prof.display_name || '').toLowerCase()
-      const uid = (prof.uid_game || '').toLowerCase()
-      const party = String(prof.party_id || '')
-      if (name.includes(q) || uid.includes(q) || party === q) {
-        set.add(idx)
-      }
-    })
-    return set
-  }, [items, searchQuery])
+
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">

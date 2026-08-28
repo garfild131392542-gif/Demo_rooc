@@ -55,7 +55,7 @@ import RoundMemberTabs from "./rounds/RoundMemberTabs";
 import AdminTransferModal from "./rounds/AdminTransferModal";
 import AdminRoundSettingsModal from "./rounds/AdminRoundSettingsModal";
 import AdminSwapModal from "./rounds/AdminSwapModal";
-import { getRoundMembersList, getRoundAuditLogs, autoPopulateSlotsFromRound } from "@/app/actions/auction-rounds";
+import { getRoundMembersList, getRoundAuditLogs } from "@/app/actions/auction-rounds";
 import { captureAndDownload } from "@/lib/export-image";
 import { Pencil, Trash2, Clock, CheckCircle2, ShieldAlert, Sparkles, AlertCircle, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -1688,22 +1688,6 @@ export default function AuctionWindow({
                       onOpenAdvance={() => {
                         setSettingsMode('advance');
                         setIsSettingsModalOpen(true);
-                      }}
-                      onAutoPopulate={async () => {
-                        const sessionItem = todayItems?.find((s: any) => s.item_name === activeRoundItem);
-                        const availableQty = sessionItem?.total_quantity || 10;
-                        const personalLimit = sessionItem?.personal_limit || currentActiveRound?.base_quota_per_member || 2;
-                        
-                        if (!confirm(`จัดสรรสล็อตตามคิวรอบอัตโนมัติสำหรับ ${ITEM_CONFIG[activeRoundItem].label} (จำนวน ${availableQty} ชิ้น, ลิมิต ${personalLimit} ชิ้น/คน)?`)) return;
-
-                        const res = await autoPopulateSlotsFromRound(activeRoundItem, availableQty, personalLimit);
-                        if (res.success) {
-                          alert(`จัดสรรคิวอัตโนมัติสำเร็จ! สร้างสล็อตไปทั้งหมด ${res.allocatedSlotsCount} สล็อต`);
-                          onRefresh();
-                          fetchRoundDetails(activeRoundItem);
-                        } else {
-                          alert(`ไม่สามารถจัดคิวอัตโนมัติได้: ${res.error}`);
-                        }
                       }}
                       onRefresh={async () => {
                         roundCacheRef.current = {};

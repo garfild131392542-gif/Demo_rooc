@@ -1274,3 +1274,98 @@ export async function manualAwardRoundMember(roundMemberId: string, awardQty: nu
   }
 }
 
+// 🌟 ย้อนกลับรอบ / ลบรอบปัจจุบัน (Rollback or Delete Round)
+export async function rollbackOrDeleteCurrentRound(itemName: ItemType) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin' || !session.profile.guild_id) {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const supabase = await createClient()
+    const guildId = session.profile.guild_id
+
+    // ค้นหารอบ active ปัจจุบัน
+    const { data: currentRound, error: fetchErr } = await supabase
+      .from('auction_rounds')
+      .select('*')
+      .eq('guild_id', guildId)
+      .eq('item_name', itemName)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (fetchErr) throw fetchErr
+    if (!currentRound) {
+      return { success: false, error: 'ไม่พบรอบที่กำลังดำเนินการสำหรับไอเทมนี้' }
+    }
+
+    const currentRoundNum = currentRound.round_number || 1
+    const roundId = currentRound.id
+
+    // 1. ลบสมาชิกในรอบ, Logs, และ Transfers ที่ผูกกับรอบนี้
+    await Promise.all([
+      supabase.from('auction_round_members').delete().eq('round_id', roundId),
+      supabase.from('auction_round_logs').delete().eq('round_id', roundId),
+      supabase.from('auction_round_transfers').delete().eq('round_id', roundId),
+    ])
+
+    // 2. ลบรอบปัจจุบันออกจาก auction_rounds
+    await supabase.from('auction_rounds').delete().eq('id', roundId)
+
+    // 3. ถ้ารอบปัจจุบัน > 1 ให้ย้อนกลับไปเปิดรอบก่อนหน้า (round_number - 1) ให้กลับมา Active
+    if (currentRoundNum > 1) {
+      const { data: prevRound } = await supabase
+        .from('auction_rounds')
+        .select('*')
+        .eq('guild_id', guildId)
+        .eq('item_name', itemName)
+        .eq('round_number', currentRoundNum - 1)
+        .maybeSingle()
+
+      if (prevRound) {
+        await supabase
+          .from('auction_rounds')
+          .update({ status: 'active', updated_at: new Date().toISOString() })
+          .eq('id', prevRound.id)
+      }
+    }
+
+    revalidatePath('/auction')
+    return {
+      success: true,
+      deletedRoundNumber: currentRoundNum,
+      restoredPreviousRound: currentRoundNum > 1 ? currentRoundNum - 1 : null,
+    }
+  } catch (err: any) {
+    console.error('rollbackOrDeleteCurrentRound error:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+// 🌟 รีเซ็ตข้อมูลรอบการประมูลทั้งหมดของกิลด์ (Full Guild Rounds Reset)
+export async function resetAllGuildRounds() {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin' || !session.profile.guild_id) {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const supabase = await createClient()
+    const guildId = session.profile.guild_id
+
+    // ลบข้อมูลทุกตารางที่เกี่ยวข้องกับรอบของกิลด์นี้ทั้งหมด
+    await Promise.all([
+      supabase.from('auction_round_members').delete().eq('guild_id', guildId),
+      supabase.from('auction_round_logs').delete().eq('guild_id', guildId),
+      supabase.from('auction_round_transfers').delete().eq('guild_id', guildId),
+      supabase.from('auction_rounds').delete().eq('guild_id', guildId),
+    ])
+
+    revalidatePath('/auction')
+    return { success: true }
+  } catch (err: any) {
+    console.error('resetAllGuildRounds error:', err)
+    return { success: false, error: err.message }
+  }
+}
+

@@ -71,11 +71,11 @@ export async function getRoundMembersList(roundId: string) {
       return { success: false, error: 'ไม่พบข้อมูลกิลด์' }
     }
 
-    const supabase = await createClient()
+    const supabase = (await createClient()) as any
 
     const { data: members, error } = await supabase
       .from('auction_round_members')
-      .select('*, profiles:user_id(id, display_name, uid_game, role, avatar_url, party_id, slot_index, party_id_guild_league, party_id_emperium_overrun)')
+      .select('*, profiles:user_id(id, display_name, uid_game, role, avatar_url, party_id, slot_index, party_id_guild_league, slot_index_guild_league, party_id_emperium_overrun, slot_index_emperium_overrun)')
       .eq('round_id', roundId)
       .order('queue_order', { ascending: true })
 
@@ -98,19 +98,30 @@ export async function startOrConfigureRound(itemName: ItemType, baseQuota: numbe
       return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
     }
 
-    const supabase = await createClient()
+    const supabase = (await createClient()) as any
     const guildId = session.profile.guild_id
 
-    // ดึงสมาชิกทั้งหมดในกิลด์ เรียงตามปาร์ตี้และสล็อตเป็นค่าเริ่มต้น
-    const { data: profiles, error: profilesError } = await supabase
+    // ดึงสมาชิกทั้งหมดในกิลด์ เรียงตามปาร์ตี้และสล็อตตามผังจริง (Party Grid Order + Natural Sort)
+    const { data: rawProfiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('id, display_name, party_id, slot_index')
+      .select('id, display_name, party_id, slot_index, party_id_guild_league, slot_index_guild_league, party_id_emperium_overrun, slot_index_emperium_overrun')
       .eq('guild_id', guildId)
-      .order('party_id', { ascending: true, nullsFirst: false })
-      .order('slot_index', { ascending: true, nullsFirst: false })
-      .order('display_name', { ascending: true })
 
     if (profilesError) throw profilesError
+
+    const profiles = [...(rawProfiles || [])].sort((a: any, b: any) => {
+      const pA = a.party_id ?? 9999
+      const pB = b.party_id ?? 9999
+      if (pA !== pB) return pA - pB
+
+      const slotA = a.slot_index ?? 9999
+      const slotB = b.slot_index ?? 9999
+      if (slotA !== slotB) return slotA - slotB
+
+      const nameA = a.display_name || ''
+      const nameB = b.display_name || ''
+      return nameA.localeCompare(nameB, 'th', { numeric: true })
+    })
     const totalMembers = profiles?.length || 0
 
     // ตรวจสอบว่ามีรอบ active อยู่แล้วหรือไม่
@@ -179,7 +190,7 @@ export async function startOrConfigureRound(itemName: ItemType, baseQuota: numbe
         .select('*')
         .eq('round_id', roundId)
 
-      const existingMap = new Map((existingMembers || []).map(m => [m.user_id, m]))
+      const existingMap = new Map((existingMembers || []).map((m: any) => [m.user_id, m]))
 
       // 1. อัปเดต base_quota และ status ของสมาชิกเดิมทุกคนในรอบ
       if (existingMembers && existingMembers.length > 0) {
@@ -209,8 +220,8 @@ export async function startOrConfigureRound(itemName: ItemType, baseQuota: numbe
 
       // 2. ถ้ามีสมาชิกใหม่ที่ยังไม่มีในรอบนี้ ให้เพิ่มเข้าไป
       const newMembers = profiles
-        .filter(p => !existingMap.has(p.id))
-        .map((p, idx) => ({
+        .filter((p: any) => !existingMap.has(p.id))
+        .map((p: any, idx: number) => ({
           round_id: roundId,
           guild_id: guildId,
           user_id: p.id,

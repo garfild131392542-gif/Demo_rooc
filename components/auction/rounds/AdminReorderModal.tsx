@@ -167,7 +167,7 @@ export default function AdminReorderModal({
 
       const nameA = profA.display_name || ''
       const nameB = profB.display_name || ''
-      return nameA.localeCompare(nameB, 'th')
+      return nameA.localeCompare(nameB, 'th', { numeric: true })
     })
     setItems(sorted)
     setActiveSortMode('party_general')
@@ -188,7 +188,7 @@ export default function AdminReorderModal({
 
       const nameA = profA.display_name || ''
       const nameB = profB.display_name || ''
-      return nameA.localeCompare(nameB, 'th')
+      return nameA.localeCompare(nameB, 'th', { numeric: true })
     })
     setItems(sorted)
     setActiveSortMode('party_guild_league')
@@ -209,7 +209,7 @@ export default function AdminReorderModal({
 
       const nameA = profA.display_name || ''
       const nameB = profB.display_name || ''
-      return nameA.localeCompare(nameB, 'th')
+      return nameA.localeCompare(nameB, 'th', { numeric: true })
     })
     setItems(sorted)
     setActiveSortMode('party_emperium')
@@ -222,7 +222,7 @@ export default function AdminReorderModal({
       const profB = getProfile(b)
       const nameA = profA.display_name || ''
       const nameB = profB.display_name || ''
-      return nameA.localeCompare(nameB, 'th')
+      return nameA.localeCompare(nameB, 'th', { numeric: true })
     })
     setItems(sorted)
     setActiveSortMode('alphabetical')

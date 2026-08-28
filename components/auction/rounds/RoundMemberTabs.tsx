@@ -45,11 +45,6 @@ export default function RoundMemberTabs({
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<'all' | number>('all')
   const [logPage, setLogPage] = useState(1)
 
-  const getPartyDisplayId = (profile: any): number | null => {
-    if (!profile) return null
-    return profile.party_id ?? profile.party_id_guild_league ?? profile.party_id_emperium_overrun ?? null
-  }
-
   const itemInfo = ITEM_CONFIG[activeItem]
 
   // Filter members
@@ -302,11 +297,6 @@ export default function RoundMemberTabs({
                           <span className="truncate">{profile.display_name || 'ไม่ระบุชื่อ'}</span>
                           {profile.role === 'admin' && (
                             <ShieldCheck size={12} className="text-blue-500 shrink-0" />
-                          )}
-                          {getPartyDisplayId(profile) !== null && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 shrink-0">
-                              PT {getPartyDisplayId(profile)}
-                            </span>
                           )}
                         </div>
                       </div>

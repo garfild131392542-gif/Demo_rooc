@@ -277,7 +277,7 @@ export default function RoundMemberTabs({
               const pendingCol2 = filteredPending.slice(halfPending)
 
               const renderPendingCard = (member: any, index: number) => {
-                const profile = member.profiles || {}
+                const profile = Array.isArray(member.profiles) ? (member.profiles[0] || {}) : (member.profiles || {})
                 const target = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
                 const isSkipped = member.status === 'skipped'
                 const isTransferred = member.status === 'transferred' || target <= 0
@@ -391,7 +391,7 @@ export default function RoundMemberTabs({
               const completedCol2 = filteredCompleted.slice(halfCompleted)
 
               const renderCompletedCard = (member: any) => {
-                const profile = member.profiles || {}
+                const profile = Array.isArray(member.profiles) ? (member.profiles[0] || {}) : (member.profiles || {})
                 const target = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
 
                 return (

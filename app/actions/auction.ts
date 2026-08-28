@@ -444,62 +444,89 @@ export async function batchAwardAuctionQueues(queueIds: string[], note?: string)
     const guildId = session.profile.guild_id
     if (!guildId) return { success: false, error: 'ไม่พบข้อมูลกิลด์' }
 
-    const supabase = await createClient()
+    const supabase = (await createClient()) as any
+    const roundSlotIds = queueIds.filter(id => id.startsWith('round_'))
+    const standardQueueIds = queueIds.filter(id => !id.startsWith('round_'))
 
-    // 1. ดึงคิวทั้งหมดที่ถูกเลือก และต้องยังไม่ completed
-    const { data: targetQueues, error: fetchErr } = await supabase
-      .from('auction_queues')
-      .select('id, user_id, guild_id, item_name, status, requested_qty, received_qty')
-      .in('id', queueIds)
-      .eq('guild_id', guildId)
-      .neq('status', 'completed')
+    let totalAwarded = 0
+    const allAwardedIds: string[] = []
 
-    if (fetchErr) throw fetchErr
-    if (!targetQueues || targetQueues.length === 0) {
-      return { success: false, error: 'ไม่พบคิวที่พร้อมบันทึก หรือคิวทั้งหมดได้รับการประมูลไปแล้ว' }
-    }
-
-    const validIds = targetQueues.map(q => q.id)
-
-    // 2. อัปเดตตาราง auction_queues ให้เป็น completed ทั้งหมดในคำสั่งเดียว
-    const nowIso = new Date().toISOString()
-    const { error: updateErr } = await supabase
-      .from('auction_queues')
-      .update({
-        status: 'completed',
-        received_qty: 1,
-        updated_at: nowIso,
+    // 🌟 1. บันทึกผลสำหรับสล็อตของรอบการประมูล (Round Slots)
+    if (roundSlotIds.length > 0) {
+      const { manualAwardRoundMember } = await import('./auction-rounds')
+      // Group by roundMemberId (e.g. round_MEMID_1 -> MEMID)
+      const roundMemberCountMap: Record<string, number> = {}
+      roundSlotIds.forEach(id => {
+        const parts = id.split('_')
+        const roundMemberId = parts[1]
+        if (roundMemberId) {
+          roundMemberCountMap[roundMemberId] = (roundMemberCountMap[roundMemberId] || 0) + 1
+        }
       })
-      .in('id', validIds)
 
-    if (updateErr) throw updateErr
-
-    // 3. รวมยอดและตัดโควตารอบกิลด์ (Group by User & Item)
-    const userItemMap: Record<string, { userId: string; itemName: ItemType; count: number }> = {}
-    for (const q of targetQueues) {
-      if (!q.user_id) continue
-      const key = `${q.user_id}_${q.item_name}`
-      if (!userItemMap[key]) {
-        userItemMap[key] = { userId: q.user_id, itemName: q.item_name as ItemType, count: 0 }
+      for (const [roundMemberId, count] of Object.entries(roundMemberCountMap)) {
+        await manualAwardRoundMember(roundMemberId, count, note || `บันทึกการประมูลผ่านผังสล็อต ${count} ชิ้น`)
       }
-      userItemMap[key].count += 1
+
+      totalAwarded += roundSlotIds.length
+      allAwardedIds.push(...roundSlotIds)
     }
 
-    // 4. บันทึกผลสะสมในรอบของสมาชิกแต่ละคน
-    try {
-      const { awardRoundProgress } = await import('./auction-rounds')
-      for (const entry of Object.values(userItemMap)) {
-        await awardRoundProgress(
-          guildId,
-          entry.userId,
-          entry.itemName,
-          entry.count,
-          session.profile.id,
-          note || `บันทึกการประมูลแบบกลุ่ม ${entry.count} ชิ้น`
-        )
+    // 🌟 2. บันทึกผลสำหรับคิวปกติ (Classic On-Demand Queues)
+    if (standardQueueIds.length > 0) {
+      const { data: targetQueues, error: fetchErr } = await supabase
+        .from('auction_queues')
+        .select('id, user_id, guild_id, item_name, status, requested_qty, received_qty')
+        .in('id', standardQueueIds)
+        .eq('guild_id', guildId)
+        .neq('status', 'completed')
+
+      if (fetchErr) throw fetchErr
+
+      if (targetQueues && targetQueues.length > 0) {
+        const validIds = targetQueues.map((q: any) => q.id)
+        const nowIso = new Date().toISOString()
+        const { error: updateErr } = await supabase
+          .from('auction_queues')
+          .update({
+            status: 'completed',
+            received_qty: 1,
+            updated_at: nowIso,
+          })
+          .in('id', validIds)
+
+        if (updateErr) throw updateErr
+
+        // รวมยอดและตัดโควตารอบกิลด์ (Group by User & Item)
+        const userItemMap: Record<string, { userId: string; itemName: ItemType; count: number }> = {}
+        for (const q of targetQueues) {
+          if (!q.user_id) continue
+          const key = `${q.user_id}_${q.item_name}`
+          if (!userItemMap[key]) {
+            userItemMap[key] = { userId: q.user_id, itemName: q.item_name as ItemType, count: 0 }
+          }
+          userItemMap[key].count += 1
+        }
+
+        try {
+          const { awardRoundProgress } = await import('./auction-rounds')
+          for (const entry of Object.values(userItemMap)) {
+            await awardRoundProgress(
+              guildId,
+              entry.userId,
+              entry.itemName,
+              entry.count,
+              session.profile.id,
+              note || `บันทึกการประมูลแบบกลุ่ม ${entry.count} ชิ้น`
+            )
+          }
+        } catch (roundErr) {
+          console.error('Batch awardRoundProgress error:', roundErr)
+        }
+
+        totalAwarded += validIds.length
+        allAwardedIds.push(...validIds)
       }
-    } catch (roundErr) {
-      console.error('Batch awardRoundProgress error:', roundErr)
     }
 
     revalidatePath('/')
@@ -508,8 +535,8 @@ export async function batchAwardAuctionQueues(queueIds: string[], note?: string)
 
     return {
       success: true,
-      awardedCount: validIds.length,
-      awardedIds: validIds,
+      awardedCount: totalAwarded,
+      awardedIds: allAwardedIds,
     }
   } catch (err: any) {
     console.error('batchAwardAuctionQueues error:', err)

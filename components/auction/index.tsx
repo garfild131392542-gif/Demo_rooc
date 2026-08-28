@@ -183,6 +183,7 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
 
           for (let s = 1; s <= slotsForUser; s++) {
             const isWaitlisted = allocatedSlotCount >= totalQuantity
+            const uniqueSlotQueueId = `round_${member.id}_${s}`
 
             slots.push({
               id: `round-slot-${member.id}-${s}`,
@@ -191,10 +192,13 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
               assignedTo: profile.display_name || `ตัวที่ ${member.queue_order}`,
               uid: profile.uid_game || '',
               userId: member.user_id,
-              queueId: member.id,
-              requestedQty: targetQuota,
-              receivedQty: member.received_qty || 0,
-              remainingQty: remainingQuota,
+              queueId: uniqueSlotQueueId,
+              roundMemberId: member.id,
+              requestedQty: 1,
+              receivedQty: 0,
+              remainingQty: 1,
+              accumulatedQuota: targetQuota,
+              accumulatedReceived: member.received_qty || 0,
               status: member.status,
               isEmpty: false,
               isMe: profile.uid_game === myProfile?.uid_game || member.user_id === myProfile?.id,

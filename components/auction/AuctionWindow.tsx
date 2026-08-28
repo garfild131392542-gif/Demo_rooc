@@ -931,26 +931,24 @@ export default function AuctionWindow({
             <button
               type="button"
               onClick={() => handleSwitchSystemMode('rounds')}
-              className={`flex-1 lg:flex-none cursor-pointer text-xs px-3 sm:px-4 py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-1 lg:flex-none cursor-pointer text-xs px-3 sm:px-4 py-2 rounded-xl font-bold transition-all flex items-center justify-center ${
                 systemMode === 'rounds'
                   ? 'bg-white text-blue-700 dark:text-blue-900 shadow-md font-extrabold scale-[1.02]'
                   : 'text-blue-100 hover:text-white hover:bg-white/10'
               }`}
             >
-              <span>🏆</span>
               <span>โหมดรอบการประมูล</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleSwitchSystemMode('self_booking')}
-              className={`flex-1 lg:flex-none cursor-pointer text-xs px-3 sm:px-4 py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-1 lg:flex-none cursor-pointer text-xs px-3 sm:px-4 py-2 rounded-xl font-bold transition-all flex items-center justify-center ${
                 systemMode === 'self_booking'
                   ? 'bg-white text-blue-700 dark:text-blue-900 shadow-md font-extrabold scale-[1.02]'
                   : 'text-blue-100 hover:text-white hover:bg-white/10'
               }`}
             >
-              <span>🙋</span>
               <span>โหมดสมาชิกจองเอง</span>
             </button>
           </div>
@@ -975,7 +973,7 @@ export default function AuctionWindow({
                   viewMode === 'rounds' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
                 }`}
               >
-                🏆 แดชบอร์ดรอบการประมูล
+                ตั้งค่ารอบการประมูล
               </button>
               <button
                 onClick={() => setViewMode('slots')}
@@ -983,7 +981,7 @@ export default function AuctionWindow({
                   viewMode === 'slots' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
                 }`}
               >
-                📋 ผังสล็อตในเกม (Guild Auction)
+                ผังสล็อตในเกม (Guild Auction)
               </button>
               {isAdmin && (
                 <button
@@ -992,7 +990,7 @@ export default function AuctionWindow({
                     viewMode === 'summary' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
                   }`}
                 >
-                  📊 สรุปจัดสรรคิว
+                  สรุปจัดสรรคิว
                 </button>
               )}
               <button
@@ -1004,7 +1002,7 @@ export default function AuctionWindow({
                   viewMode === 'history' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
                 }`}
               >
-                📜 ประวัติ & Audit Log
+                ประวัติ & Audit Log
               </button>
             </>
           ) : (
@@ -1015,7 +1013,7 @@ export default function AuctionWindow({
                   viewMode === 'slots' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
                 }`}
               >
-                📋 ผังสล็อตในเกม (Guild Auction)
+                ผังสล็อตในเกม (Guild Auction)
               </button>
               <button
                 onClick={() => setViewMode('queue')}
@@ -1023,7 +1021,7 @@ export default function AuctionWindow({
                   viewMode === 'queue' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
                 }`}
               >
-                📦 คิวประมูล
+                คิวประมูล
               </button>
               {isAdmin && (
                 <button
@@ -1032,7 +1030,7 @@ export default function AuctionWindow({
                     viewMode === 'proxy' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
                   }`}
                 >
-                  🎯 จองแทนสมาชิก
+                  จองแทนสมาชิก
                 </button>
               )}
               {isAdmin && (
@@ -1042,7 +1040,7 @@ export default function AuctionWindow({
                     viewMode === 'summary' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
                   }`}
                 >
-                  📊 สรุปจัดสรรคิว
+                  สรุปจัดสรรคิว
                 </button>
               )}
               <button
@@ -1054,7 +1052,7 @@ export default function AuctionWindow({
                   viewMode === 'history' ? 'bg-white text-blue-700 shadow-md font-extrabold' : 'bg-white/15 hover:bg-white/25 text-white'
                 }`}
               >
-                📜 ประวัติการประมูล
+                ประวัติการประมูล
               </button>
             </>
           )}

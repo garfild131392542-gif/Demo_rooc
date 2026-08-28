@@ -210,23 +210,53 @@ export default function AuctionWindow({
   const activeRoundId = currentActiveRoundObj?.id;
   const activeRoundUpdated = currentActiveRoundObj?.updated_at;
 
-  // ดึงข้อมูลสมาชิกและ Logs ของรอบเมื่อเปลี่ยนไอเทมหรือเปิดแท็บรอบ (Ultra-Fast SWR Pattern)
-  const fetchRoundDetails = async (itemName: AuctionItemType, forceShowLoading: boolean = false) => {
-    const activeRound = roundsOverview?.activeRounds?.find((r: any) => r.item_name === itemName);
-    if (!activeRound) {
+  // 🛡️ Track current active fetch target to prevent race conditions when rapidly switching tabs
+  const currentFetchItemRef = useRef<AuctionItemType>(activeRoundItem);
+
+  // 🌟 Tab Switch Handler: สลับข้อมูลไอเทมทันที 0ms ป้องกันการแสดงผลข้อมูลเก่าค้างหรือกระพริบ
+  const handleSelectRoundItem = (type: AuctionItemType) => {
+    setActiveRoundItem(type);
+    currentFetchItemRef.current = type;
+    const cached = roundCacheRef.current[type];
+    if (cached && Array.isArray(cached.members) && cached.members.length > 0) {
+      setRoundMembers(cached.members);
+      setRoundLogs(cached.logs || []);
+      setIsLoadingRoundData(false);
+      // โหลดข้อมูลล่าสุดเงียบๆ ในเบื้องหลัง (Background Revalidation)
+      fetchRoundDetails(type, false);
+    } else {
+      // ถ้ายังไม่มี Cache ให้เคลียร์ข้อมูลเก่าออกทันที และเปิด Skeleton รอจนกว่าข้อมูลใหม่จะมาถึง
       setRoundMembers([]);
       setRoundLogs([]);
+      setIsLoadingRoundData(true);
+      fetchRoundDetails(type, true);
+    }
+  };
+
+  // ดึงข้อมูลสมาชิกและ Logs ของรอบเมื่อเปลี่ยนไอเทมหรือเปิดแท็บรอบ (Ultra-Fast SWR Pattern)
+  const fetchRoundDetails = async (itemName: AuctionItemType, forceShowLoading: boolean = false) => {
+    currentFetchItemRef.current = itemName;
+    const activeRound = roundsOverview?.activeRounds?.find((r: any) => r.item_name === itemName);
+    if (!activeRound) {
+      if (currentFetchItemRef.current === itemName) {
+        setRoundMembers([]);
+        setRoundLogs([]);
+        setIsLoadingRoundData(false);
+      }
       return;
     }
 
     const cached = roundCacheRef.current[itemName];
     const hasCache = cached && Array.isArray(cached.members) && cached.members.length > 0;
 
-    if (forceShowLoading) {
+    if (forceShowLoading || !hasCache) {
       setIsLoadingRoundData(true);
+      setRoundMembers([]);
+      setRoundLogs([]);
     } else if (hasCache) {
       setRoundMembers(cached.members);
       setRoundLogs(cached.logs);
+      setIsLoadingRoundData(false);
     }
 
     try {
@@ -245,12 +275,17 @@ export default function AuctionWindow({
         fetchedAt: Date.now(),
       };
 
-      setRoundMembers(newMembers);
-      setRoundLogs(newLogs);
+      // 🛡️ ป้องกัน Race Condition: อัปเดตเฉพาะเมื่อผู้ใช้ยังคงอยู่ที่แท็บไอเทมนี้เท่านั้น
+      if (currentFetchItemRef.current === itemName) {
+        setRoundMembers(newMembers);
+        setRoundLogs(newLogs);
+        setIsLoadingRoundData(false);
+      }
     } catch (e) {
       console.error('fetchRoundDetails error:', e);
-    } finally {
-      setIsLoadingRoundData(false);
+      if (currentFetchItemRef.current === itemName) {
+        setIsLoadingRoundData(false);
+      }
     }
   };
 
@@ -260,6 +295,34 @@ export default function AuctionWindow({
       fetchRoundDetails(activeRoundItem, !cached || cached.members.length === 0);
     }
   }, [viewMode, activeRoundItem, activeRoundId, activeRoundUpdated]);
+
+  // ⚡ Background Preload: โหลดข้อมูลคิวของทุกไอเทมล่วงหน้าในพื้นหลังทันทีที่เข้าหน้าเว็บ
+  useEffect(() => {
+    if (roundsOverview?.activeRounds && Array.isArray(roundsOverview.activeRounds)) {
+      roundsOverview.activeRounds.forEach((round: any) => {
+        const item = round.item_name as AuctionItemType;
+        if (!roundCacheRef.current[item] && round.id) {
+          Promise.all([
+            getRoundMembersList(round.id),
+            getRoundAuditLogs(item),
+          ]).then(([membersRes, logsRes]) => {
+            if (membersRes.success) {
+              roundCacheRef.current[item] = {
+                members: membersRes.members || [],
+                logs: logsRes.success ? (logsRes.logs || []) : [],
+                fetchedAt: Date.now(),
+              };
+              if (currentFetchItemRef.current === item && (!roundMembers || roundMembers.length === 0)) {
+                setRoundMembers(membersRes.members || []);
+                setRoundLogs(logsRes.success ? (logsRes.logs || []) : []);
+                setIsLoadingRoundData(false);
+              }
+            }
+          }).catch(console.error);
+        }
+      });
+    }
+  }, [roundsOverview?.activeRounds]);
 
   const editingQueue = editQueueId
     ? memberQueues.find((q) => q.id === editQueueId)
@@ -1648,7 +1711,7 @@ export default function AuctionWindow({
                     return (
                       <button
                         key={`round-tab-${type}`}
-                        onClick={() => setActiveRoundItem(type)}
+                        onClick={() => handleSelectRoundItem(type)}
                         className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl border text-xs font-bold transition-all cursor-pointer shrink-0 snap-start ${
                           isSelected
                             ? 'bg-white dark:bg-slate-800 border-blue-500 shadow-md ring-2 ring-blue-500/20 text-slate-900 dark:text-slate-100'

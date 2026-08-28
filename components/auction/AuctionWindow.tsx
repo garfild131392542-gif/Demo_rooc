@@ -55,6 +55,7 @@ import RoundMemberTabs from "./rounds/RoundMemberTabs";
 import AdminTransferModal from "./rounds/AdminTransferModal";
 import AdminRoundSettingsModal from "./rounds/AdminRoundSettingsModal";
 import AdminSwapModal from "./rounds/AdminSwapModal";
+import AdminReorderModal from "./rounds/AdminReorderModal";
 import { getRoundMembersList, getRoundAuditLogs } from "@/app/actions/auction-rounds";
 import { captureAndDownload } from "@/lib/export-image";
 import { Pencil, Trash2, Clock, CheckCircle2, ShieldAlert, Sparkles, AlertCircle, Search, ChevronLeft, ChevronRight } from "lucide-react";
@@ -191,6 +192,7 @@ export default function AuctionWindow({
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsMode, setSettingsMode] = useState<'settings' | 'advance'>('settings');
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+  const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
   const [selectedMemberForAction, setSelectedMemberForAction] = useState<any>(null);
   // ⚡ In-Memory Cache for Instant 0ms Tab Switching between items
   const roundCacheRef = useRef<Record<string, { members: any[]; logs: any[]; fetchedAt: number }>>({});
@@ -1689,6 +1691,9 @@ export default function AuctionWindow({
                         setSettingsMode('advance');
                         setIsSettingsModalOpen(true);
                       }}
+                      onOpenReorder={() => {
+                        setIsReorderModalOpen(true);
+                      }}
                       onRefresh={async () => {
                         roundCacheRef.current = {};
                         try {
@@ -1711,6 +1716,9 @@ export default function AuctionWindow({
                       onSwapOrder={(member) => {
                         setSelectedMemberForAction(member);
                         setIsSwapModalOpen(true);
+                      }}
+                      onOpenReorder={() => {
+                        setIsReorderModalOpen(true);
                       }}
                       onSkipMember={async (member) => {
                         const reason = prompt(`ระบุเหตุผลในการข้ามคิวของ "${member.profiles?.display_name || 'สมาชิก'}":`, 'สละสิทธิ์รอบนี้');
@@ -1880,6 +1888,18 @@ export default function AuctionWindow({
         onOptimisticSwap={handleOptimisticSwap}
         targetMember={selectedMemberForAction}
         pendingMembers={roundMembers.filter(m => m.status !== 'completed')}
+      />
+
+      <AdminReorderModal
+        isOpen={isReorderModalOpen}
+        onClose={() => setIsReorderModalOpen(false)}
+        onSuccess={async () => {
+          await handleFullRoundRefresh(true);
+        }}
+        roundId={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)?.id}
+        itemName={activeRoundItem}
+        roundNumber={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)?.round_number || 1}
+        members={roundMembers}
       />
     </div>
   );

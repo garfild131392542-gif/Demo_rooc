@@ -75,7 +75,7 @@ export async function getRoundMembersList(roundId: string) {
 
     const { data: members, error } = await supabase
       .from('auction_round_members')
-      .select('*, profiles:user_id(id, display_name, uid_game, role, avatar_url)')
+      .select('*, profiles:user_id(id, display_name, uid_game, role, avatar_url, party_id, slot_index, party_id_guild_league, party_id_emperium_overrun)')
       .eq('round_id', roundId)
       .order('queue_order', { ascending: true })
 
@@ -101,11 +101,14 @@ export async function startOrConfigureRound(itemName: ItemType, baseQuota: numbe
     const supabase = await createClient()
     const guildId = session.profile.guild_id
 
-    // ดึงสมาชิกทั้งหมดในกิลด์
+    // ดึงสมาชิกทั้งหมดในกิลด์ เรียงตามปาร์ตี้และสล็อตเป็นค่าเริ่มต้น
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('id')
+      .select('id, display_name, party_id, slot_index')
       .eq('guild_id', guildId)
+      .order('party_id', { ascending: true, nullsFirst: false })
+      .order('slot_index', { ascending: true, nullsFirst: false })
+      .order('display_name', { ascending: true })
 
     if (profilesError) throw profilesError
     const totalMembers = profiles?.length || 0
@@ -536,6 +539,64 @@ export async function swapRoundQueueOrder(memberId1: string, memberId2: string, 
     revalidatePath('/auction')
     return { success: true }
   } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+
+// 5.1 จัดเรียงลำดับคิวทั้งชุด (Bulk Reorder Queue / Party Sorting)
+export async function bulkReorderRoundQueue(roundId: string, orderedMemberIds: string[], note?: string) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin') {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const supabase = await createClient()
+
+    const { data: round } = await supabase
+      .from('auction_rounds')
+      .select('*')
+      .eq('id', roundId)
+      .single()
+
+    if (!round) {
+      return { success: false, error: 'ไม่พบข้อมูลรอบการประมูล' }
+    }
+
+    const now = new Date().toISOString()
+    const updates = orderedMemberIds.map((id, idx) =>
+      supabase
+        .from('auction_round_members')
+        .update({ queue_order: idx + 1, updated_at: now })
+        .eq('id', id)
+        .eq('round_id', roundId)
+    )
+
+    const results = await Promise.all(updates)
+    const hasError = results.find(r => r.error)
+    if (hasError?.error) {
+      throw hasError.error
+    }
+
+    await supabase
+      .from('auction_rounds')
+      .update({ updated_at: now })
+      .eq('id', roundId)
+
+    await supabase.from('auction_round_logs').insert({
+      guild_id: round.guild_id,
+      round_id: roundId,
+      round_number: round.round_number,
+      item_name: round.item_name,
+      action_type: 'REORDER_QUEUE',
+      performed_by: session.profile.id,
+      note: note || `จัดเรียงลำดับคิวใหม่ทั้งชุด (${orderedMemberIds.length} สมาชิก)`,
+    })
+
+    revalidatePath('/auction')
+    return { success: true }
+  } catch (err: any) {
+    console.error('bulkReorderRoundQueue error:', err)
     return { success: false, error: err.message }
   }
 }
@@ -1007,8 +1068,11 @@ export async function advanceToNextRound(itemName: ItemType, nextBaseQuota: numb
     const nextRoundNum = currentRound.round_number + 1
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id')
+      .select('id, display_name, party_id, slot_index')
       .eq('guild_id', guildId)
+      .order('party_id', { ascending: true, nullsFirst: false })
+      .order('slot_index', { ascending: true, nullsFirst: false })
+      .order('display_name', { ascending: true })
 
     const totalMembers = profiles?.length || 0
 

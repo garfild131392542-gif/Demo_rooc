@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { ItemType } from '@/app/actions/auction'
 import { ITEM_CONFIG } from '../constants'
 import { manualAwardRoundMember } from '@/app/actions/auction-rounds'
-import { CheckCircle2, Clock, ArrowRightLeft, UserX, ArrowUpDown, History, ShieldCheck, Search, Award, Plus, X, AlertCircle } from 'lucide-react'
+import { CheckCircle2, Clock, ArrowRightLeft, UserX, ArrowUpDown, History, ShieldCheck, Search, Award, Plus, X, AlertCircle, Layers, Users } from 'lucide-react'
 
 type RoundMemberTabsProps = {
   members: any[]
@@ -16,6 +16,7 @@ type RoundMemberTabsProps = {
   onSwapOrder: (member: any) => void
   onSkipMember: (member: any) => void
   onTransferForMember: (member: any) => void
+  onOpenReorder?: () => void
   onRefreshData?: () => void
   isLoading?: boolean
 }
@@ -29,6 +30,7 @@ export default function RoundMemberTabs({
   onSwapOrder,
   onSkipMember,
   onTransferForMember,
+  onOpenReorder,
   onRefreshData,
   isLoading,
 }: RoundMemberTabsProps) {
@@ -183,17 +185,28 @@ export default function RoundMemberTabs({
           </button>
         </div>
 
-        {/* Right Tools: Search */}
+        {/* Right Tools: Search & Reorder */}
         {activeTab !== 'logs' && (
-          <div className="relative w-full lg:w-64">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="ค้นหาชื่อหรือ UID..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 transition"
-            />
+          <div className="flex items-center gap-2 w-full lg:w-auto">
+            {activeTab === 'pending' && isAdmin && onOpenReorder && (
+              <button
+                onClick={onOpenReorder}
+                className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
+                title="จัดลำดับคิวประมูล / เรียงตามปาร์ตี้"
+              >
+                <Layers size={13} /> จัดลำดับคิว
+              </button>
+            )}
+            <div className="relative flex-1 sm:w-60">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="ค้นหาชื่อหรือ UID..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-blue-500 transition"
+              />
+            </div>
           </div>
         )}
       </div>
@@ -280,10 +293,15 @@ export default function RoundMemberTabs({
                         #{member.queue_order || index + 1}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
-                          {profile.display_name || 'ไม่ระบุชื่อ'}
+                        <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5 flex-wrap">
+                          <span className="truncate">{profile.display_name || 'ไม่ระบุชื่อ'}</span>
                           {profile.role === 'admin' && (
                             <ShieldCheck size={12} className="text-blue-500 shrink-0" />
+                          )}
+                          {profile.party_id && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 shrink-0">
+                              PT {profile.party_id}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -511,6 +529,8 @@ export default function RoundMemberTabs({
                                 return { text: '🔁 โอนสิทธิ์', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' }
                               case 'SWAP':
                                 return { text: '🔀 สลับคิว', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' }
+                              case 'REORDER_QUEUE':
+                                return { text: '📑 จัดลำดับคิวใหม่', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' }
                               case 'SKIP':
                                 return { text: '⏭️ ข้ามสิทธิ์', color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' }
                               case 'ROUND_START':

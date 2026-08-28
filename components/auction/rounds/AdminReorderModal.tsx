@@ -74,6 +74,8 @@ export default function AdminReorderModal({
   const [activeSortMode, setActiveSortMode] = useState<string>('custom')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Which party column to display as badge — changes with sort preset
+  const [partySource, setPartySource] = useState<'general' | 'guild_league' | 'emperium_overrun'>('general')
   
   // Drag and Drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
@@ -91,8 +93,10 @@ export default function AdminReorderModal({
       setActiveSortMode('custom')
       setError(null)
       setSearchQuery('')
+      setPartySource('general')
     }
   }, [isOpen, members])
+
 
   const initialOrderMap = useMemo(() => {
     const map = new Map<string, number>()
@@ -135,6 +139,19 @@ export default function AdminReorderModal({
 
   const itemInfo = (itemName && ITEM_CONFIG[itemName]) ? ITEM_CONFIG[itemName] : { label: 'ไอเทม', color: 'from-blue-500 to-indigo-600' }
 
+  // --- Helper: resolve party info based on active source ---
+  const getActivePartyId = (profile: any): number | null => {
+    if (partySource === 'guild_league') return profile.party_id_guild_league ?? null
+    if (partySource === 'emperium_overrun') return profile.party_id_emperium_overrun ?? null
+    return profile.party_id ?? null
+  }
+
+  const getActiveSlotIndex = (profile: any): number | null => {
+    if (partySource === 'guild_league') return profile.slot_index_guild_league ?? null
+    if (partySource === 'emperium_overrun') return profile.slot_index_emperium_overrun ?? null
+    return profile.slot_index ?? null
+  }
+
   // --- Sort Helper Presets ---
   const handleSortByPartyGeneral = () => {
     const sorted = [...items].sort((a, b) => {
@@ -154,6 +171,7 @@ export default function AdminReorderModal({
     })
     setItems(sorted)
     setActiveSortMode('party_general')
+    setPartySource('general')
   }
 
   const handleSortByGuildLeague = () => {
@@ -174,6 +192,7 @@ export default function AdminReorderModal({
     })
     setItems(sorted)
     setActiveSortMode('party_guild_league')
+    setPartySource('guild_league')
   }
 
   const handleSortByEmperium = () => {
@@ -194,6 +213,7 @@ export default function AdminReorderModal({
     })
     setItems(sorted)
     setActiveSortMode('party_emperium')
+    setPartySource('emperium_overrun')
   }
 
   const handleSortAlphabetical = () => {
@@ -441,8 +461,8 @@ export default function AdminReorderModal({
             items.map((member, index) => {
               if (!member) return null
               const profile = getProfile(member)
-              const partyId = profile.party_id
-              const slotIdx = profile.slot_index
+              const partyId = getActivePartyId(profile)
+              const slotIdx = getActiveSlotIndex(profile)
               const partyColor = getPartyColor(partyId)
               const isMatch = filteredIndices ? filteredIndices.has(index) : true
               const isDragging = draggedIndex === index

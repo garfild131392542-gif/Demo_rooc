@@ -44,6 +44,15 @@ export default function RoundMemberTabs({
   const [awardError, setAwardError] = useState<string | null>(null)
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<'all' | number>('all')
   const [logPage, setLogPage] = useState(1)
+  // Party badge activity source selector
+  const [partySource, setPartySource] = useState<'general' | 'guild_league' | 'emperium_overrun'>('general')
+
+  const getPartyDisplayId = (profile: any): number | null => {
+    if (!profile) return null
+    if (partySource === 'guild_league') return profile.party_id_guild_league ?? null
+    if (partySource === 'emperium_overrun') return profile.party_id_emperium_overrun ?? null
+    return profile.party_id ?? null
+  }
 
   const itemInfo = ITEM_CONFIG[activeItem]
 
@@ -197,6 +206,25 @@ export default function RoundMemberTabs({
                 <Layers size={13} /> จัดลำดับคิว
               </button>
             )}
+            {activeTab === 'pending' && (
+              <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700 shrink-0" title="แสดง Badge ปาร์ตี้ตาม Activity">
+                <button
+                  onClick={() => setPartySource('general')}
+                  className={`px-2 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${partySource === 'general' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+                  title="แสดงปาร์ตี้ทั่วไป"
+                >ทั่วไป</button>
+                <button
+                  onClick={() => setPartySource('guild_league')}
+                  className={`px-2 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${partySource === 'guild_league' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-300 shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+                  title="แสดงปาร์ตี้ Guild League"
+                >GL</button>
+                <button
+                  onClick={() => setPartySource('emperium_overrun')}
+                  className={`px-2 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${partySource === 'emperium_overrun' ? 'bg-white dark:bg-slate-600 text-amber-600 dark:text-amber-300 shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+                  title="แสดงปาร์ตี้ Emperium Overrun"
+                >EO</button>
+              </div>
+            )}
             <div className="relative flex-1 sm:w-60">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -298,9 +326,9 @@ export default function RoundMemberTabs({
                           {profile.role === 'admin' && (
                             <ShieldCheck size={12} className="text-blue-500 shrink-0" />
                           )}
-                          {profile.party_id && (
+                          {getPartyDisplayId(profile) !== null && (
                             <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 shrink-0">
-                              PT {profile.party_id}
+                              PT {getPartyDisplayId(profile)}
                             </span>
                           )}
                         </div>

@@ -212,25 +212,24 @@ export default function AuctionWindow({
 
   // 🛡️ Track current active fetch target to prevent race conditions when rapidly switching tabs
   const currentFetchItemRef = useRef<AuctionItemType>(activeRoundItem);
+  const isFetchingRef = useRef<Record<string, boolean>>({});
 
   // 🌟 Tab Switch Handler: สลับข้อมูลไอเทมทันที 0ms ป้องกันการแสดงผลข้อมูลเก่าค้างหรือกระพริบ
   const handleSelectRoundItem = (type: AuctionItemType) => {
-    setActiveRoundItem(type);
+    if (type === activeRoundItem) return;
     currentFetchItemRef.current = type;
     const cached = roundCacheRef.current[type];
     if (cached && Array.isArray(cached.members) && cached.members.length > 0) {
       setRoundMembers(cached.members);
       setRoundLogs(cached.logs || []);
       setIsLoadingRoundData(false);
-      // โหลดข้อมูลล่าสุดเงียบๆ ในเบื้องหลัง (Background Revalidation)
-      fetchRoundDetails(type, false);
     } else {
-      // ถ้ายังไม่มี Cache ให้เคลียร์ข้อมูลเก่าออกทันที และเปิด Skeleton รอจนกว่าข้อมูลใหม่จะมาถึง
+      // ถ้ายังไม่มี Cache ให้เคลียร์ข้อมูลเก่าออกทันที และเปิด Skeleton รอ
       setRoundMembers([]);
       setRoundLogs([]);
       setIsLoadingRoundData(true);
-      fetchRoundDetails(type, true);
     }
+    setActiveRoundItem(type);
   };
 
   // ดึงข้อมูลสมาชิกและ Logs ของรอบเมื่อเปลี่ยนไอเทมหรือเปิดแท็บรอบ (Ultra-Fast SWR Pattern)
@@ -246,6 +245,10 @@ export default function AuctionWindow({
       return;
     }
 
+    if (isFetchingRef.current[itemName]) {
+      return; // ป้องกันการยิง Request ซ้ำซ้อนพร้อมกันที่ทำให้หน้าจอกระพริบ
+    }
+
     const cached = roundCacheRef.current[itemName];
     const hasCache = cached && Array.isArray(cached.members) && cached.members.length > 0;
 
@@ -258,6 +261,8 @@ export default function AuctionWindow({
       setRoundLogs(cached.logs);
       setIsLoadingRoundData(false);
     }
+
+    isFetchingRef.current[itemName] = true;
 
     try {
       const [membersRes, logsRes] = await Promise.all([
@@ -286,6 +291,8 @@ export default function AuctionWindow({
       if (currentFetchItemRef.current === itemName) {
         setIsLoadingRoundData(false);
       }
+    } finally {
+      isFetchingRef.current[itemName] = false;
     }
   };
 

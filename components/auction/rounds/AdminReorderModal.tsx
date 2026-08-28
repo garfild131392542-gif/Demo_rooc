@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { bulkReorderRoundQueue } from '@/app/actions/auction-rounds'
 import { ItemType } from '@/app/actions/auction'
 import { ITEM_CONFIG } from '../constants'
@@ -72,6 +73,11 @@ export default function AdminReorderModal({
   roundNumber = 1,
   members = [],
 }: AdminReorderModalProps) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const [items, setItems] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSortMode, setActiveSortMode] = useState<string>('custom')
@@ -149,7 +155,7 @@ export default function AdminReorderModal({
     return set
   }, [items, searchQuery])
 
-  if (!isOpen) return null
+  if (!isOpen || !mounted) return null
 
   const itemInfo = (itemName && ITEM_CONFIG[itemName]) ? ITEM_CONFIG[itemName] : { label: 'ไอเทม', color: 'from-blue-500 to-indigo-600' }
 
@@ -326,8 +332,8 @@ export default function AdminReorderModal({
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150">
+  const modalContent = (
+    <div className="fixed inset-0 z-[99999] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150">
       <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 rounded-3xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
         
         {/* Header */}
@@ -484,8 +490,9 @@ export default function AdminReorderModal({
         {/* Member Reorder List */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-1.5 min-h-[250px]">
           {items.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">
-              ยังไม่มีรายชื่อสมาชิกในรอบนี้
+            <div className="py-12 text-center text-slate-400">
+              <Users size={32} className="mx-auto mb-2 opacity-50" />
+              <p className="text-sm font-bold">ไม่พบสมาชิกในรอบนี้</p>
             </div>
           ) : (
             items.map((member, index) => {
@@ -570,42 +577,42 @@ export default function AdminReorderModal({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
                       <button
                         type="button"
                         onClick={() => moveItem(index, 0)}
                         disabled={index === 0}
-                        className="p-1 text-slate-500 hover:text-purple-600 disabled:opacity-20 disabled:hover:text-slate-500 transition cursor-pointer"
-                        title="ขึ้นบนสุด"
+                        className="p-1 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-20 transition rounded"
+                        title="ย้ายไปบนสุด"
                       >
-                        <ChevronsUp size={13} />
+                        <ChevronsUp size={14} />
                       </button>
                       <button
                         type="button"
                         onClick={() => moveItem(index, index - 1)}
                         disabled={index === 0}
-                        className="p-1 text-slate-500 hover:text-purple-600 disabled:opacity-20 disabled:hover:text-slate-500 transition cursor-pointer"
+                        className="p-1 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-20 transition rounded"
                         title="เลื่อนขึ้น 1 ตำแหน่ง"
                       >
-                        <ChevronUp size={13} />
+                        <ChevronUp size={14} />
                       </button>
                       <button
                         type="button"
                         onClick={() => moveItem(index, index + 1)}
                         disabled={index === items.length - 1}
-                        className="p-1 text-slate-500 hover:text-purple-600 disabled:opacity-20 disabled:hover:text-slate-500 transition cursor-pointer"
+                        className="p-1 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-20 transition rounded"
                         title="เลื่อนลง 1 ตำแหน่ง"
                       >
-                        <ChevronDown size={13} />
+                        <ChevronDown size={14} />
                       </button>
                       <button
                         type="button"
                         onClick={() => moveItem(index, items.length - 1)}
                         disabled={index === items.length - 1}
-                        className="p-1 text-slate-500 hover:text-purple-600 disabled:opacity-20 disabled:hover:text-slate-500 transition cursor-pointer"
-                        title="ลงล่างสุด"
+                        className="p-1 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-20 transition rounded"
+                        title="ย้ายไปล่างสุด"
                       >
-                        <ChevronsDown size={13} />
+                        <ChevronsDown size={14} />
                       </button>
                     </div>
                   </div>
@@ -658,4 +665,6 @@ export default function AdminReorderModal({
       </div>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }

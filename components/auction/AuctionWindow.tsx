@@ -350,16 +350,51 @@ export default function AuctionWindow({
     });
   };
 
-  // ⚡ Optimistic UI: ปรับลำดับคิวทั้งชุดใน State ทันที 0ms (Bulk Reorder Instant Update)
-  const handleOptimisticReorder = (orderedMemberIds: string[]) => {
-    setRoundMembers((prev) => {
-      const orderMap = new Map(orderedMemberIds.map((id, idx) => [id, idx + 1]));
-      const updated = prev.map((m) => {
-        const newOrder = orderMap.get(m.id);
-        return newOrder !== undefined ? { ...m, queue_order: newOrder } : m;
-      });
-      return [...updated].sort((a, b) => (a.queue_order || 0) - (b.queue_order || 0));
+  // ⚡ Reorder Action: ผูก Action กับการกดบันทึกลำดับคิว แสดง Skeleton และอัปเดต Cache + State ให้ซิงค์ 100%
+  const handleOptimisticReorder = async (orderedMemberIds: string[]) => {
+    // 1. เปิด Skeleton แสดงผลการโหลดทันทีตามที่ผู้ใช้ต้องการ
+    setIsLoadingRoundData(true);
+
+    // 2. จัดเรียงลำดับใหม่ใน State และอัปเดต Cache ของไอเทมนี้ทันที
+    const orderMap = new Map(orderedMemberIds.map((id, idx) => [id, idx + 1]));
+    const updated = roundMembers.map((m) => {
+      const newOrder = orderMap.get(m.id);
+      return newOrder !== undefined ? { ...m, queue_order: newOrder } : m;
     });
+    const sortedUpdated = [...updated].sort((a, b) => (a.queue_order || 0) - (b.queue_order || 0));
+
+    // อัปเดต Cache เพื่อให้ตอนสลับแท็บไปมาเห็นข้อมูลที่จัดลำดับแล้วทันที
+    roundCacheRef.current[activeRoundItem] = {
+      members: sortedUpdated,
+      logs: roundCacheRef.current[activeRoundItem]?.logs || [],
+      fetchedAt: Date.now(),
+    };
+    setRoundMembers(sortedUpdated);
+
+    // 3. ดึงข้อมูลยืนยันจากฐานข้อมูลเพื่อให้ข้อมูลสมบูรณ์ที่สุด
+    try {
+      if (activeRoundId) {
+        const [membersRes, logsRes] = await Promise.all([
+          getRoundMembersList(activeRoundId),
+          getRoundAuditLogs(activeRoundItem),
+        ]);
+        if (membersRes.success && membersRes.members) {
+          roundCacheRef.current[activeRoundItem] = {
+            members: membersRes.members,
+            logs: logsRes.success ? (logsRes.logs || []) : [],
+            fetchedAt: Date.now(),
+          };
+          if (currentFetchItemRef.current === activeRoundItem) {
+            setRoundMembers(membersRes.members);
+            setRoundLogs(logsRes.success ? (logsRes.logs || []) : []);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('handleOptimisticReorder refresh error:', err);
+    } finally {
+      setIsLoadingRoundData(false);
+    }
   };
 
   // ⚡ Optimistic UI: สละสิทธิ์ใน State ทันที 0ms

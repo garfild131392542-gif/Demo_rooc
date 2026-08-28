@@ -1,14 +1,20 @@
 import { getAuctionHistory, getTodayAuctionDashboard } from '@/app/actions/auction'
+import { getGuildRoundsOverview } from '@/app/actions/auction-rounds'
 import { revalidatePath } from 'next/cache'
 
 import AuctionBoard from '@/components/auction' // ดึงจากโฟลเดอร์มาเลย
 
 export default async function AuctionPage() {
-  const result = await getTodayAuctionDashboard()
-  const historyResult = await getAuctionHistory()
+  const [result, historyResult, roundsResult] = await Promise.all([
+    getTodayAuctionDashboard(),
+    getAuctionHistory(),
+    getGuildRoundsOverview(),
+  ])
+
   const auctionData = {
     ...result,
-    history: historyResult.success ? historyResult.history : []
+    history: historyResult.success ? historyResult.history : [],
+    roundsData: roundsResult.success ? roundsResult : null,
   }
   
   // Server Action ที่จริงๆ revalidate cache เพื่อให้ข้อมูลใหม่

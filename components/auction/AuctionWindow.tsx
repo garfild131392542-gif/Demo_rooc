@@ -287,6 +287,18 @@ export default function AuctionWindow({
     });
   };
 
+  // ⚡ Optimistic UI: ปรับลำดับคิวทั้งชุดใน State ทันที 0ms (Bulk Reorder Instant Update)
+  const handleOptimisticReorder = (orderedMemberIds: string[]) => {
+    setRoundMembers((prev) => {
+      const orderMap = new Map(orderedMemberIds.map((id, idx) => [id, idx + 1]));
+      const updated = prev.map((m) => {
+        const newOrder = orderMap.get(m.id);
+        return newOrder !== undefined ? { ...m, queue_order: newOrder } : m;
+      });
+      return [...updated].sort((a, b) => (a.queue_order || 0) - (b.queue_order || 0));
+    });
+  };
+
   // ⚡ Optimistic UI: สละสิทธิ์ใน State ทันที 0ms
   const handleOptimisticSkip = (memberId: string) => {
     setRoundMembers((prev) => {
@@ -1896,6 +1908,7 @@ export default function AuctionWindow({
         onSuccess={async () => {
           await handleFullRoundRefresh(true);
         }}
+        onOptimisticReorder={handleOptimisticReorder}
         roundId={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)?.id}
         itemName={activeRoundItem}
         roundNumber={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)?.round_number || 1}

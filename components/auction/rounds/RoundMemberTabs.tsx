@@ -185,18 +185,9 @@ export default function RoundMemberTabs({
           </button>
         </div>
 
-        {/* Right Tools: Search & Reorder */}
+        {/* Right Tools: Search */}
         {activeTab !== 'logs' && (
           <div className="flex items-center gap-2 w-full lg:w-auto">
-            {activeTab === 'pending' && isAdmin && onOpenReorder && (
-              <button
-                onClick={onOpenReorder}
-                className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
-                title="จัดลำดับคิวประมูล / เรียงตามปาร์ตี้"
-              >
-                <Layers size={13} /> จัดลำดับคิว
-              </button>
-            )}
             <div className="relative flex-1 sm:w-60">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input

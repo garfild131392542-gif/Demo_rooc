@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { bulkReorderRoundQueue } from '@/app/actions/auction-rounds'
 import { ItemType } from '@/app/actions/auction'
 import { ITEM_CONFIG } from '../constants'
@@ -22,13 +22,15 @@ import {
   Castle,
   ArrowDownAZ,
   RotateCcw,
-  AlertCircle
+  AlertCircle,
+  Check
 } from 'lucide-react'
 
 type AdminReorderModalProps = {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
+  onOptimisticReorder?: (orderedIds: string[]) => void
   roundId?: string
   itemName?: ItemType
   roundNumber?: number
@@ -64,6 +66,7 @@ export default function AdminReorderModal({
   isOpen,
   onClose,
   onSuccess,
+  onOptimisticReorder,
   roundId,
   itemName,
   roundNumber = 1,
@@ -81,9 +84,11 @@ export default function AdminReorderModal({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
-  // Initialize items when modal opens or members change
+  // 🛡️ Track open state to only initialize ONCE on open, preventing background SWR refreshes from wiping user's unsaved sort changes
+  const prevIsOpenRef = useRef(false)
+
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpenRef.current) {
       if (Array.isArray(members) && members.length > 0) {
         const sorted = [...members].sort((a, b) => (a?.queue_order || 0) - (b?.queue_order || 0))
         setItems(sorted)
@@ -95,7 +100,16 @@ export default function AdminReorderModal({
       setSearchQuery('')
       setPartySource('general')
     }
+    prevIsOpenRef.current = isOpen
   }, [isOpen, members])
+
+  // Fallback: If modal opened while members was still loading, initialize when members arrives
+  useEffect(() => {
+    if (isOpen && items.length === 0 && Array.isArray(members) && members.length > 0) {
+      const sorted = [...members].sort((a, b) => (a?.queue_order || 0) - (b?.queue_order || 0))
+      setItems(sorted)
+    }
+  }, [isOpen, members, items.length])
 
 
   const initialOrderMap = useMemo(() => {
@@ -286,42 +300,40 @@ export default function AdminReorderModal({
       return
     }
 
-    setIsSaving(true)
-    setError(null)
+    const orderedIds = items.map(m => m?.id).filter(Boolean)
+    
+    // ⚡ Instant Optimistic Update (0ms): ปรับ state ที่หน้าหลักทันทีและปิด Modal ทันใจ
+    onOptimisticReorder?.(orderedIds)
+    onClose()
 
+    let sortLabel = 'จัดเรียงตำแหน่งใหม่'
+    if (activeSortMode === 'party_general') sortLabel = 'จัดเรียงตามปาร์ตี้ทั่วไป'
+    else if (activeSortMode === 'party_guild_league') sortLabel = 'จัดเรียงตามปาร์ตี้ Guild League'
+    else if (activeSortMode === 'party_emperium') sortLabel = 'จัดเรียงตามปาร์ตี้ Emperium Overrun'
+    else if (activeSortMode === 'alphabetical') sortLabel = 'จัดเรียงตามตัวอักษร'
+
+    // บันทึกลงฐานข้อมูลแบบ Background
     try {
-      let sortLabel = 'จัดเรียงตำแหน่งใหม่'
-      if (activeSortMode === 'party_general') sortLabel = 'จัดเรียงตามปาร์ตี้ทั่วไป'
-      else if (activeSortMode === 'party_guild_league') sortLabel = 'จัดเรียงตามปาร์ตี้ Guild League'
-      else if (activeSortMode === 'party_emperium') sortLabel = 'จัดเรียงตามปาร์ตี้ Emperium Overrun'
-      else if (activeSortMode === 'alphabetical') sortLabel = 'จัดเรียงตามตัวอักษร'
-
-      const orderedIds = items.map(m => m?.id).filter(Boolean)
       const res = await bulkReorderRoundQueue(roundId, orderedIds, `${sortLabel} (เปลี่ยน ${changedCount} ตำแหน่ง)`)
-
       if (res.success) {
         onSuccess()
-        onClose()
       } else {
-        setError(res.error || 'เกิดข้อผิดพลาดในการบันทึกลำดับคิว')
+        alert('เกิดข้อผิดพลาดในการบันทึกลำดับคิว: ' + (res.error || 'Unknown error'))
       }
     } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ')
-    } finally {
-      setIsSaving(false)
+      console.error('bulkReorderRoundQueue error:', err)
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + (err.message || 'Network error'))
     }
   }
 
-
-
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-150">
         
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 flex items-center justify-between shrink-0">
+        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-800/60 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0 shadow-xs">
               <Layers size={20} />
             </div>
             <div>
@@ -358,60 +370,60 @@ export default function AdminReorderModal({
             <button
               type="button"
               onClick={handleSortByPartyGeneral}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer border ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
                 activeSortMode === 'party_general'
-                  ? 'bg-blue-500 text-white border-blue-600 shadow-xs'
+                  ? 'bg-blue-600 text-white border-blue-700 shadow-sm ring-2 ring-blue-400/40'
                   : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
-              title="จัดเรียงกลุ่มสมาชิกตามปาร์ตี้ทั่วไป (Party 1, 2, ...)"
+              title="จัดเรียงกลุ่มสมาชิกตามปาร์ตี้ทั่วไป (ทีมหลัก)"
             >
-              <Users size={13} /> ตามปาร์ตี้ทั่วไป
+              <Users size={13} /> {activeSortMode === 'party_general' && <Check size={12} className="stroke-[3]" />} ตามปาร์ตี้ทั่วไป
             </button>
 
             <button
               type="button"
               onClick={handleSortByGuildLeague}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer border ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
                 activeSortMode === 'party_guild_league'
-                  ? 'bg-indigo-500 text-white border-indigo-600 shadow-xs'
+                  ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm ring-2 ring-indigo-400/40'
                   : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
               title="จัดเรียงกลุ่มสมาชิกตามปาร์ตี้ Guild League"
             >
-              <Sword size={13} /> Guild League
+              <Sword size={13} /> {activeSortMode === 'party_guild_league' && <Check size={12} className="stroke-[3]" />} Guild League
             </button>
 
             <button
               type="button"
               onClick={handleSortByEmperium}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer border ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
                 activeSortMode === 'party_emperium'
-                  ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                  ? 'bg-amber-600 text-white border-amber-700 shadow-sm ring-2 ring-amber-400/40'
                   : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
               title="จัดเรียงกลุ่มสมาชิกตามปาร์ตี้ Emperium Overrun"
             >
-              <Castle size={13} /> Emperium
+              <Castle size={13} /> {activeSortMode === 'party_emperium' && <Check size={12} className="stroke-[3]" />} Emperium
             </button>
 
             <button
               type="button"
               onClick={handleSortAlphabetical}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer border ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
                 activeSortMode === 'alphabetical'
-                  ? 'bg-slate-700 text-white border-slate-800 shadow-xs'
+                  ? 'bg-slate-700 text-white border-slate-800 shadow-sm ring-2 ring-slate-400/40'
                   : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
-              title="จัดเรียงตามตัวอักษร A-Z"
+              title="จัดเรียงตามตัวอักษร ก-ฮ / A-Z"
             >
-              <ArrowDownAZ size={13} /> ตัวอักษร
+              <ArrowDownAZ size={13} /> {activeSortMode === 'alphabetical' && <Check size={12} className="stroke-[3]" />} ตัวอักษร
             </button>
 
             <button
               type="button"
               onClick={handleReset}
-              className="px-2 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg text-xs font-medium transition flex items-center gap-1 cursor-pointer"
-              title="คืนค่าเป็นลำดับเดิม"
+              className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg text-xs font-medium transition flex items-center gap-1 cursor-pointer"
+              title="คืนค่าเป็นลำดับเดิมจากฐานข้อมูล"
             >
               <RotateCcw size={12} /> รีเซ็ต
             </button>
@@ -431,14 +443,32 @@ export default function AdminReorderModal({
         </div>
 
         {/* Tip & Status Banner */}
-        <div className="px-4 py-2 bg-blue-50/70 dark:bg-blue-950/30 border-b border-blue-100 dark:border-blue-900/50 flex items-center justify-between text-[11px] text-blue-700 dark:text-blue-300">
-          <div className="flex items-center gap-1.5">
-            <GripVertical size={13} className="shrink-0 text-blue-500" />
-            <span>สามารถคลิกลากที่ไอคอน <span className="font-bold">⋮⋮</span> เพื่อสลับตำแหน่ง หรือกดปุ่มลูกศรขึ้น-ลง ได้เลย</span>
+        <div className="px-4 py-2 bg-slate-50/90 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400 font-medium">แหล่งข้อมูลปาร์ตี้ที่แสดง:</span>
+            {partySource === 'guild_league' && (
+              <span className="font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
+                <Sword size={11} /> ปาร์ตี้ Guild League
+              </span>
+            )}
+            {partySource === 'emperium_overrun' && (
+              <span className="font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800 flex items-center gap-1">
+                <Castle size={11} /> ปาร์ตี้ Emperium Overrun
+              </span>
+            )}
+            {partySource === 'general' && (
+              <span className="font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800 flex items-center gap-1">
+                <Users size={11} /> ปาร์ตี้ทั่วไป (ทีมหลัก)
+              </span>
+            )}
           </div>
-          {changedCount > 0 && (
-            <span className="font-bold font-mono bg-blue-100 dark:bg-blue-900 px-2 py-0.5 rounded-full text-[10px]">
-              มีการปรับ {changedCount} ตำแหน่ง
+          {changedCount > 0 ? (
+            <span className="font-bold font-mono bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full text-[10px]">
+              มีการปรับ {changedCount} ตำแหน่ง (ยังไม่บันทึก)
+            </span>
+          ) : (
+            <span className="text-[10px] text-slate-400 font-mono">
+              ✓ ลำดับตรงกับฐานข้อมูลปัจจุบัน
             </span>
           )}
         </div>

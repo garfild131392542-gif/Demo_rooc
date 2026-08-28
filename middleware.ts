@@ -63,7 +63,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // 2. If authenticated, check profile and guild registration states
-  // REFACTORED: Changed path bypass from '/admin' to '/guild-admin' to match folder structure
+  // REFACTORED: Combined profile + guild trial check into a single fast JOIN query
   if (user && !pathname.startsWith('/guild-admin')) {
     try {
       const adminKey =
@@ -85,10 +85,10 @@ export async function middleware(request: NextRequest) {
         },
       )
 
-      // Fetch profile to verify guild association
+      // Single fast JOIN query instead of 2 separate sequential DB roundtrips
       const { data: profile, error: profileError } = await (supabaseAdmin as any)
         .from('profiles')
-        .select('guild_id')
+        .select('guild_id, guilds:guild_id(trial_ends_at)')
         .eq('id', user.id)
         .maybeSingle()
 
@@ -111,27 +111,20 @@ export async function middleware(request: NextRequest) {
 
       // 3. Verify SaaS trial validity period if active guild is present
       if (hasGuild && !isPublicRoute && !pathname.startsWith('/onboarding')) {
-        try {
-          const { data: guild } = await (supabaseAdmin as any)
-            .from('guilds')
-            .select('trial_ends_at')
-            .eq('id', (profile as any)?.guild_id)
-            .maybeSingle()
+        const guildData = (profile as any)?.guilds
+        const trialEndsAtStr = Array.isArray(guildData) ? guildData[0]?.trial_ends_at : guildData?.trial_ends_at
 
-          if (guild?.trial_ends_at) {
-            const trialEndsAt = new Date(guild.trial_ends_at)
-            const now = new Date()
+        if (trialEndsAtStr) {
+          const trialEndsAt = new Date(trialEndsAtStr)
+          const now = new Date()
 
-            if (now > trialEndsAt) {
-              // จำกัดการเข้าใช้งานเฉพาะในส่วนการประมูลเมื่อหมดอายุ
-              const isAuctionRoute = pathname.startsWith('/auction') || pathname.startsWith('/profile/history')
-              if (isAuctionRoute) {
-                return NextResponse.redirect(new URL('/billing', request.url))
-              }
+          if (now > trialEndsAt) {
+            // จำกัดการเข้าใช้งานเฉพาะในส่วนการประมูลเมื่อหมดอายุ
+            const isAuctionRoute = pathname.startsWith('/auction') || pathname.startsWith('/profile/history')
+            if (isAuctionRoute) {
+              return NextResponse.redirect(new URL('/billing', request.url))
             }
           }
-        } catch (trialError) {
-          console.error('Trial check error:', trialError)
         }
       }
     } catch (err) {

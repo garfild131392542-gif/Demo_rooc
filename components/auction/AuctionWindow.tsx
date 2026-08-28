@@ -214,14 +214,6 @@ export default function AuctionWindow({
   const currentFetchItemRef = useRef<AuctionItemType>(activeRoundItem);
   const isFetchingRef = useRef<Record<string, boolean>>({});
 
-  // 🔍 Expose cache to window for DevTools Inspection
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      (window as any).roocCache = roundCacheRef.current;
-      (window as any).roocActiveMembers = roundMembers;
-    }
-  }, [roundMembers]);
-
   // 🌟 Tab Switch Handler: สลับข้อมูลไอเทมทันที 0ms ป้องกันการแสดงผลข้อมูลเก่าค้างหรือกระพริบ
   const handleSelectRoundItem = (type: AuctionItemType) => {
     if (type === activeRoundItem) return;

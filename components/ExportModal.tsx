@@ -35,6 +35,7 @@ const cellBase: React.CSSProperties = {
 export default function ExportModal({ profiles, onClose, activity, customGroups, planTitle, planSubtitle }: Props) {
   const gridRef = useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = useState(false)
+  const [showSidebar, setShowSidebar] = useState(false) // Hidden by default to maximize table preview
 
   // Config states
   const [bannerTitle, setBannerTitle] = useState(planTitle || 'แผนจัดทีม Emperium Overrun')
@@ -231,7 +232,18 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setShowSidebar(!showSidebar)}
+              className={`cursor-pointer flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl transition-all border ${
+                showSidebar
+                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-xs'
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100 shadow-xs'
+              }`}
+            >
+              <span>{showSidebar ? '◀ ซ่อนแถบตั้งค่า' : '⚙️ ปรับแต่งข้อความ'}</span>
+            </button>
             <button
               onClick={handleDownload}
               disabled={exporting}
@@ -250,102 +262,124 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
         {/* Modal Body */}
         <div className="flex flex-col lg:flex-row overflow-hidden flex-grow relative bg-gray-100">
           
-          {/* LEFT SIDE: Customization Controls */}
-          <div className="w-full lg:w-80 bg-white border-r border-gray-200 p-5 overflow-y-auto shrink-0 space-y-5">
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                🎯 เลือกรูปแบบ (Preset)
-              </label>
-              <div className="grid grid-cols-1 gap-1.5">
+          {/* LEFT SIDE: Customization Controls (Collapsible) */}
+          {showSidebar && (
+            <div className="w-full lg:w-80 bg-white border-r border-gray-200 p-5 overflow-y-auto shrink-0 space-y-5 transition-all">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                <span className="text-xs font-bold text-gray-700">⚙️ แถบปรับแต่งข้อความ</span>
                 <button
                   type="button"
-                  onClick={() => handlePresetChange('emperium_overrun')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold text-left transition-all cursor-pointer ${
-                    activePreset === 'emperium_overrun' || activePreset === 'custom'
-                      ? 'bg-orange-50 text-orange-700 border border-orange-200 shadow-xs'
-                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-transparent'
-                  }`}
+                  onClick={() => setShowSidebar(false)}
+                  className="text-gray-400 hover:text-gray-600 text-xs font-semibold px-2 py-1 rounded-md hover:bg-gray-100 transition-colors"
                 >
-                  🏰 แผนกำหนดเอง / Emperium Overrun
+                  ✕ ซ่อน
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handlePresetChange('league')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold text-left transition-all cursor-pointer ${
-                    activePreset === 'league'
-                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-xs'
-                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-transparent'
-                  }`}
-                >
-                  🏆 Guild League (40v40)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePresetChange('gvg')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold text-left transition-all cursor-pointer ${
-                    activePreset === 'gvg'
-                      ? 'bg-rose-50 text-rose-700 border border-rose-200 shadow-xs'
-                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-transparent'
-                  }`}
-                >
-                  ⚔️ Guild War (GvG ทั่วไป)
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-3 pt-3 border-t border-gray-200">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  หัวข้อรูปภาพ (Banner Title)
-                </label>
-                <input
-                  type="text"
-                  value={bannerTitle}
-                  onChange={(e) => setBannerTitle(e.target.value)}
-                  placeholder="ชื่อหัวข้อแผนจัดทัพ"
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-900 focus:outline-none focus:border-indigo-500"
-                />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  คำบรรยาย (Subtitle)
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  🎯 เลือกรูปแบบ (Preset)
                 </label>
-                <input
-                  type="text"
-                  value={bannerSubtitle}
-                  onChange={(e) => setBannerSubtitle(e.target.value)}
-                  placeholder="คำบรรยายหรือหมายเหตุ"
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-900 focus:outline-none focus:border-indigo-500"
-                />
+                <div className="grid grid-cols-1 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handlePresetChange('emperium_overrun')}
+                    className={`px-3 py-2 rounded-lg text-xs font-bold text-left transition-all cursor-pointer ${
+                      activePreset === 'emperium_overrun' || activePreset === 'custom'
+                        ? 'bg-orange-50 text-orange-700 border border-orange-200 shadow-xs'
+                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-transparent'
+                    }`}
+                  >
+                    🏰 แผนกำหนดเอง / Emperium Overrun
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePresetChange('league')}
+                    className={`px-3 py-2 rounded-lg text-xs font-bold text-left transition-all cursor-pointer ${
+                      activePreset === 'league'
+                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-xs'
+                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-transparent'
+                    }`}
+                  >
+                    🏆 Guild League (40v40)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePresetChange('gvg')}
+                    className={`px-3 py-2 rounded-lg text-xs font-bold text-left transition-all cursor-pointer ${
+                      activePreset === 'gvg'
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200 shadow-xs'
+                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-transparent'
+                    }`}
+                  >
+                    ⚔️ Guild War (GvG ทั่วไป)
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-3 pt-3 border-t border-gray-200">
-              <label className="block text-xs font-bold text-gray-700">
-                👥 ชื่อกลุ่มทีมในรูปภาพ
-              </label>
-              {localCustomGroups.map((group, idx) => (
-                <div key={group.id || idx} className="space-y-1">
-                  <span className="text-[11px] font-bold text-gray-700 flex items-center gap-1.5">
-                    <span className="text-base">{group.icon || '🚩'}</span>
-                    <span>กลุ่มที่ {idx + 1}</span>
-                    <span className="text-gray-400 font-normal text-[10px]">({group.partyIds?.length || 0} ปาร์ตี้)</span>
-                  </span>
+              <div className="space-y-3 pt-3 border-t border-gray-200">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    หัวข้อรูปภาพ (Banner Title)
+                  </label>
                   <input
                     type="text"
-                    value={group.name || ''}
-                    onChange={(e) => handleGroupNameChange(idx, e.target.value)}
-                    placeholder={`ชื่อทีมกลุ่มที่ ${idx + 1}`}
+                    value={bannerTitle}
+                    onChange={(e) => setBannerTitle(e.target.value)}
+                    placeholder="ชื่อหัวข้อแผนจัดทัพ"
                     className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
-              ))}
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    คำบรรยาย (Subtitle)
+                  </label>
+                  <input
+                    type="text"
+                    value={bannerSubtitle}
+                    onChange={(e) => setBannerSubtitle(e.target.value)}
+                    placeholder="คำบรรยายหรือหมายเหตุ"
+                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-900 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-3 border-t border-gray-200">
+                <label className="block text-xs font-bold text-gray-700">
+                  👥 ชื่อกลุ่มทีมในรูปภาพ
+                </label>
+                {localCustomGroups.map((group, idx) => (
+                  <div key={group.id || idx} className="space-y-1">
+                    <span className="text-[11px] font-bold text-gray-700 flex items-center gap-1.5">
+                      <span className="text-base">{group.icon || '🚩'}</span>
+                      <span>กลุ่มที่ {idx + 1}</span>
+                      <span className="text-gray-400 font-normal text-[10px]">({group.partyIds?.length || 0} ปาร์ตี้)</span>
+                    </span>
+                    <input
+                      type="text"
+                      value={group.name || ''}
+                      onChange={(e) => handleGroupNameChange(idx, e.target.value)}
+                      placeholder={`ชื่อทีมกลุ่มที่ ${idx + 1}`}
+                      className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-900 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* RIGHT SIDE: Live Image Preview */}
-          <div className="flex-grow overflow-auto p-6 bg-gray-200/70 flex items-start justify-center">
+          <div className="flex-grow overflow-auto p-6 bg-gray-200/70 flex items-start justify-center relative">
+            {!showSidebar && (
+              <button
+                type="button"
+                onClick={() => setShowSidebar(true)}
+                className="absolute top-4 left-4 z-10 cursor-pointer bg-white hover:bg-gray-50 text-gray-800 shadow-md border border-gray-200 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all"
+              >
+                <span>⚙️</span> ปรับแต่งข้อความ
+              </button>
+            )}
             
             {/* ─── CAPTURED ELEMENT ─── */}
             <div

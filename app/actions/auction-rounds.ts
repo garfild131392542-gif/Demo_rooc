@@ -32,7 +32,11 @@ export async function getGuildRoundsOverview(selectedItem?: ItemType) {
       query = query.eq('item_name', selectedItem)
     }
 
-    const [roundsRes, myQuotaRes, profilesRes, roundMembersRes] = await Promise.all([
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const todayStartIso = todayStart.toISOString()
+
+    const [roundsRes, myQuotaRes, profilesRes, roundMembersRes, todayLogsRes] = await Promise.all([
       query,
       supabase
         .from('auction_round_members')
@@ -51,6 +55,11 @@ export async function getGuildRoundsOverview(selectedItem?: ItemType) {
         .eq('guild_id', guildId)
         .in('status', ['pending', 'in_progress', 'completed'])
         .order('queue_order', { ascending: true }),
+      supabase
+        .from('auction_round_logs')
+        .select('round_member_id, target_user_id, item_name, qty, created_at')
+        .eq('guild_id', guildId)
+        .gte('created_at', todayStartIso),
     ])
 
     if (roundsRes.error) throw roundsRes.error
@@ -63,6 +72,7 @@ export async function getGuildRoundsOverview(selectedItem?: ItemType) {
       myQuotas: myQuotaRes.data || [],
       guildMembers: profilesRes.data || [],
       activeRoundMembers: roundMembersRes.data || [],
+      todayLogs: todayLogsRes?.data || [],
     }
   } catch (err: any) {
     console.error('getGuildRoundsOverview error:', err)

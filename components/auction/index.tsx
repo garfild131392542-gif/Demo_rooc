@@ -166,24 +166,58 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
       const isRoundActive = Boolean(activeRound && roundMembers.length > 0)
 
       if (isRoundActive) {
-        // 🌟 โหมดรอบการประมูล (Round Mode): ดึงสมาชิกตามลำดับ queue_order ในรอบที่ 1-N มาแมปใส่สล็อตโดยตรง
+        // 🌟 โหมดรอบการประมูล (Round Mode): จัดคิวตามลำดับสมาชิกที่ยังคงเหลือโควตาสำหรับวันนี้
         const totalQuantity = Math.max(0, Number(session.total_quantity ?? 0))
         let allocatedSlotCount = 0
+
+        // รวบรวมยอดที่ได้รับ "เฉพาะในวันนี้" เพื่อให้ค้างสถานะ 'completed' บนผังของวันนี้
+        const todayIsoDate = new Date().toISOString().split('T')[0]
+        const todayLogs = roundsData?.todayLogs || []
+        const todayReceivedMap: Record<string, number> = {}
+        
+        todayLogs.forEach((log: any) => {
+          if (log.round_member_id && log.item_name === type) {
+            todayReceivedMap[log.round_member_id] = (todayReceivedMap[log.round_member_id] || 0) + (log.qty || 1)
+          }
+        })
+
+        // เสริมความแม่นยำจาก history ด้วย (กรณีมี log ในวันเดียวกัน)
+        ;(data?.history || []).forEach((h: any) => {
+          const hDate = h.awarded_at ? h.awarded_at.split('T')[0] : (h.created_at ? h.created_at.split('T')[0] : '')
+          if (hDate === todayIsoDate && h.item_name === type && h.round_member_id) {
+            if (!todayReceivedMap[h.round_member_id]) {
+              todayReceivedMap[h.round_member_id] = (todayReceivedMap[h.round_member_id] || 0) + (h.awarded_qty || h.qty || 1)
+            }
+          }
+        })
 
         const sortedMembers = [...roundMembers].sort((a: any, b: any) => (a.queue_order || 0) - (b.queue_order || 0))
 
         sortedMembers.forEach((member: any) => {
           const profile = member.profiles || {}
           const targetQuota = (member.base_quota || 0) + (member.transferred_in_quota || 0) - (member.transferred_out_quota || 0)
-          const currentReceived = member.received_qty || 0
+          const totalReceivedSoFar = member.received_qty || 0
+          const receivedToday = todayReceivedMap[member.id] || 0
           
-          // 🔒 ล็อคจำนวนสล็อตของสมาชิกคนนี้ให้คงที่ ไม่ขยับเลื่อนคิวเมื่อกดประมูลเสร็จทีละช่อง
-          const slotsForUser = Math.min(targetQuota, personalLimit || 2)
+          // จำนวนที่ได้รับไปแล้วก่อนหน้าวันนี้
+          const receivedBeforeToday = Math.max(0, totalReceivedSoFar - receivedToday)
+          
+          // โควตาที่ยังคงเหลือสำหรับวันนี้และอนาคต
+          const remainingForTodayAndFuture = Math.max(0, targetQuota - receivedBeforeToday)
+
+          // 🛑 ถ้าสมาชิกคนนี้ได้ครบตามโควตาไปแล้วในวันก่อนหน้า (remaining <= 0) ให้ข้ามไป ไม่ต้องสร้างสล็อตในวันนี้
+          if (remainingForTodayAndFuture <= 0) {
+            return
+          }
+
+          // สมาชิกคนนี้จะได้จัดสล็อตในวันนี้กี่ช่อง (ไม่เกินโควตาที่เหลือ และไม่เกิน personalLimit ของวันนี้)
+          const slotsForUser = Math.min(remainingForTodayAndFuture, personalLimit || 2)
 
           for (let s = 1; s <= slotsForUser; s++) {
             const isWaitlisted = allocatedSlotCount >= totalQuantity
             const uniqueSlotQueueId = `round_${member.id}_${s}`
-            const isSlotCompleted = s <= currentReceived
+            // ช่องนี้ได้รับการประมูลไปแล้วในวันนี้หรือไม่ (ถ้า s <= receivedToday แปลว่ากดประมูลสำเร็จไปแล้วในวันนี้)
+            const isSlotCompleted = s <= receivedToday
 
             slots.push({
               id: `round-slot-${member.id}-${s}`,
@@ -198,7 +232,7 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
               receivedQty: isSlotCompleted ? 1 : 0,
               remainingQty: isSlotCompleted ? 0 : 1,
               accumulatedQuota: targetQuota,
-              accumulatedReceived: currentReceived,
+              accumulatedReceived: totalReceivedSoFar,
               status: isSlotCompleted ? 'completed' : 'waiting',
               isEmpty: false,
               isMe: profile.uid_game === myProfile?.uid_game || member.user_id === myProfile?.id,

@@ -370,16 +370,7 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
           )}
 
           {/* RIGHT SIDE: Live Image Preview */}
-          <div className="flex-grow overflow-auto p-6 bg-gray-200/70 flex items-start justify-center relative">
-            {!showSidebar && (
-              <button
-                type="button"
-                onClick={() => setShowSidebar(true)}
-                className="absolute top-4 left-4 z-10 cursor-pointer bg-white hover:bg-gray-50 text-gray-800 shadow-md border border-gray-200 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all"
-              >
-                <span>⚙️</span> ปรับแต่งข้อความ
-              </button>
-            )}
+          <div className="flex-grow overflow-auto p-6 bg-gray-200/70 flex items-start justify-center">
             
             {/* ─── CAPTURED ELEMENT ─── */}
             <div

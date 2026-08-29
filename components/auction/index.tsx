@@ -174,19 +174,28 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
         const todayIsoDate = new Date().toISOString().split('T')[0]
         const todayLogs = roundsData?.todayLogs || []
         const todayReceivedMap: Record<string, number> = {}
+        const todayUserReceivedMap: Record<string, number> = {}
         
         todayLogs.forEach((log: any) => {
-          if (log.round_member_id && log.item_name === type) {
-            todayReceivedMap[log.round_member_id] = (todayReceivedMap[log.round_member_id] || 0) + (log.qty || 1)
+          if (log.item_name === type) {
+            if (log.round_member_id) {
+              todayReceivedMap[log.round_member_id] = (todayReceivedMap[log.round_member_id] || 0) + (log.qty || 1)
+            }
+            if (log.target_user_id) {
+              todayUserReceivedMap[log.target_user_id] = (todayUserReceivedMap[log.target_user_id] || 0) + (log.qty || 1)
+            }
           }
         })
 
         // เสริมความแม่นยำจาก history ด้วย (กรณีมี log ในวันเดียวกัน)
         ;(data?.history || []).forEach((h: any) => {
           const hDate = h.awarded_at ? h.awarded_at.split('T')[0] : (h.created_at ? h.created_at.split('T')[0] : '')
-          if (hDate === todayIsoDate && h.item_name === type && h.round_member_id) {
-            if (!todayReceivedMap[h.round_member_id]) {
+          if (hDate === todayIsoDate && h.item_name === type) {
+            if (h.round_member_id && !todayReceivedMap[h.round_member_id]) {
               todayReceivedMap[h.round_member_id] = (todayReceivedMap[h.round_member_id] || 0) + (h.awarded_qty || h.qty || 1)
+            }
+            if (h.user_id && !todayUserReceivedMap[h.user_id]) {
+              todayUserReceivedMap[h.user_id] = (todayUserReceivedMap[h.user_id] || 0) + (h.awarded_qty || h.qty || 1)
             }
           }
         })
@@ -197,7 +206,7 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
           const profile = member.profiles || {}
           const targetQuota = (member.base_quota || 0) + (member.transferred_in_quota || 0) - (member.transferred_out_quota || 0)
           const totalReceivedSoFar = member.received_qty || 0
-          const receivedToday = todayReceivedMap[member.id] || 0
+          const receivedToday = todayReceivedMap[member.id] ?? todayUserReceivedMap[member.user_id] ?? 0
           
           // จำนวนที่ได้รับไปแล้วก่อนหน้าวันนี้
           const receivedBeforeToday = Math.max(0, totalReceivedSoFar - receivedToday)

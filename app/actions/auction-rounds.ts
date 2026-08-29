@@ -57,7 +57,7 @@ export async function getGuildRoundsOverview(selectedItem?: ItemType) {
         .order('queue_order', { ascending: true }),
       supabase
         .from('auction_round_logs')
-        .select('round_member_id, target_user_id, item_name, qty, created_at')
+        .select('target_user_id, item_name, qty, created_at, details')
         .eq('guild_id', guildId)
         .gte('created_at', todayStartIso),
     ])
@@ -1277,6 +1277,8 @@ export async function manualAwardRoundMember(roundMemberId: string, awardQty: nu
       qty: actualQty,
       performed_by: session.profile.id,
       note: note || `หัวกิลด์มอบรางวัลโดยตรง จำนวน ${actualQty} ชิ้น (สะสม ${newReceived}/${targetQuota})`,
+      details: { round_member_id: member.id },
+      created_at: new Date().toISOString(),
     })
 
     // อัปเดตยอด completed count
@@ -1294,28 +1296,112 @@ export async function manualAwardRoundMember(roundMemberId: string, awardQty: nu
       })
       .eq('id', member.round_id)
 
-    // ⚡ Auto Re-allocate สล็อตของวันนี้ทันที (ถ้ามี session เปิดใช้งานอยู่)
-    const today = new Date().toISOString().split('T')[0]
-    const { data: todaySession } = await supabase
-      .from('auction_sessions')
-      .select('*')
-      .eq('guild_id', member.guild_id)
-      .eq('item_name', member.item_name)
-      .eq('session_date', today)
-      .maybeSingle()
-
-    if (todaySession && Number(todaySession.total_quantity) > 0) {
-      await autoPopulateSlotsFromRound(
-        member.item_name as ItemType,
-        Number(todaySession.total_quantity),
-        Number(todaySession.personal_limit) || 2
-      )
-    }
-
     revalidatePath('/auction')
     return { success: true, isComplete, newReceived, targetQuota }
   } catch (err: any) {
     console.error('manualAwardRoundMember error:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+// 🌟 10.1 แจกของรางวัลรอบการประมูลแบบกลุ่มความเร็วสูง (High-Speed Batch Award for Round Members)
+export async function manualBatchAwardRoundMembers(
+  memberAwardMap: Record<string, number>,
+  note?: string
+) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin' || !session.profile.guild_id) {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const memberIds = Object.keys(memberAwardMap)
+    if (memberIds.length === 0) return { success: true, awardedCount: 0 }
+
+    const supabase = await createClient()
+
+    // 1. ดึงสมาชิกทั้งหมดที่ถูกเลือกในคำสั่งเดียว (Single Query)
+    const { data: members, error: memErr } = await supabase
+      .from('auction_round_members')
+      .select('*')
+      .in('id', memberIds)
+
+    if (memErr || !members || members.length === 0) {
+      return { success: false, error: 'ไม่พบข้อมูลสมาชิกในรอบ' }
+    }
+
+    const nowIso = new Date().toISOString()
+    const logsToInsert: any[] = []
+    const roundIdsToUpdate = new Set<string>()
+
+    // 2. ประมวลผลและอัปเดตสมาชิกพร้อมกัน (Parallel Execution)
+    const updatePromises = members.map(async (member: any) => {
+      const awardQty = memberAwardMap[member.id] || 1
+      const targetQuota = member.base_quota + member.transferred_in_quota - member.transferred_out_quota
+      const remaining = Math.max(0, targetQuota - member.received_qty)
+      if (remaining <= 0) return
+
+      const actualQty = Math.min(awardQty, remaining)
+      const newReceived = member.received_qty + actualQty
+      const isComplete = newReceived >= targetQuota
+      const newStatus: RoundMemberStatus = isComplete ? 'completed' : 'in_progress'
+
+      roundIdsToUpdate.add(member.round_id)
+
+      logsToInsert.push({
+        guild_id: member.guild_id,
+        round_id: member.round_id,
+        round_number: member.round_number,
+        item_name: member.item_name,
+        action_type: 'MANUAL_OVERRIDE',
+        target_user_id: member.user_id,
+        qty: actualQty,
+        performed_by: session.profile.id,
+        note: note || `หัวกิลด์มอบรางวัลโดยตรง จำนวน ${actualQty} ชิ้น (สะสม ${newReceived}/${targetQuota})`,
+        details: { round_member_id: member.id },
+        created_at: nowIso,
+      })
+
+      return supabase
+        .from('auction_round_members')
+        .update({
+          received_qty: newReceived,
+          status: newStatus,
+          updated_at: nowIso,
+        })
+        .eq('id', member.id)
+    })
+
+    await Promise.all(updatePromises)
+
+    // 3. Batch Insert logs ทั้งหมดในคำสั่งเดียว (Single SQL Insert)
+    if (logsToInsert.length > 0) {
+      await supabase.from('auction_round_logs').insert(logsToInsert)
+    }
+
+    // 4. อัปเดตยอด completed count ของแต่ละรอบ
+    const roundCountPromises = Array.from(roundIdsToUpdate).map(async (roundId) => {
+      const { count: completedCount } = await supabase
+        .from('auction_round_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('round_id', roundId)
+        .eq('status', 'completed')
+
+      return supabase
+        .from('auction_rounds')
+        .update({
+          completed_members_count: completedCount || 0,
+          updated_at: nowIso,
+        })
+        .eq('id', roundId)
+    })
+
+    await Promise.all(roundCountPromises)
+
+    revalidatePath('/auction')
+    return { success: true, awardedCount: logsToInsert.length }
+  } catch (err: any) {
+    console.error('manualBatchAwardRoundMembers error:', err)
     return { success: false, error: err.message }
   }
 }

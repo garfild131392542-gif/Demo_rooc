@@ -502,9 +502,9 @@ export async function batchAwardAuctionQueues(queueIds: string[], note?: string)
     let totalAwarded = 0
     const allAwardedIds: string[] = []
 
-    // 🌟 1. บันทึกผลสำหรับสล็อตของรอบการประมูล (Round Slots)
+    // 🌟 1. บันทึกผลสำหรับสล็อตของรอบการประมูล (Round Slots - Batch Execution)
     if (roundSlotIds.length > 0) {
-      const { manualAwardRoundMember } = await import('./auction-rounds')
+      const { manualBatchAwardRoundMembers } = await import('./auction-rounds')
       // Group by roundMemberId (e.g. round_MEMID_1 -> MEMID)
       const roundMemberCountMap: Record<string, number> = {}
       roundSlotIds.forEach(id => {
@@ -515,12 +515,15 @@ export async function batchAwardAuctionQueues(queueIds: string[], note?: string)
         }
       })
 
-      for (const [roundMemberId, count] of Object.entries(roundMemberCountMap)) {
-        await manualAwardRoundMember(roundMemberId, count, note || `บันทึกการประมูลผ่านผังสล็อต ${count} ชิ้น`)
-      }
+      const batchRes = await manualBatchAwardRoundMembers(
+        roundMemberCountMap,
+        note || `บันทึกการประมูลผ่านผังสล็อต ${roundSlotIds.length} ชิ้น`
+      )
 
-      totalAwarded += roundSlotIds.length
-      allAwardedIds.push(...roundSlotIds)
+      if (batchRes.success) {
+        totalAwarded += roundSlotIds.length
+        allAwardedIds.push(...roundSlotIds)
+      }
     }
 
     // 🌟 2. บันทึกผลสำหรับคิวปกติ (Classic On-Demand Queues)

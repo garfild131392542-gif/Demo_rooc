@@ -15,11 +15,13 @@ import {
 import { updateProfileParty, swapPartyMembers } from "@/app/actions/dashboard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import PartyBlock from "./PartyBlock";
+import PartyBlock, { TEAM_COLOR_MAP } from "./PartyBlock";
 import WaitlistBlock from "./WaitlistBlock";
 import LeaveListBlock from "./LeaveListBlock";
 import MemberCard, { MemberCardOverlay } from "./MemberCard";
 import ExportModal from "./ExportModal";
+import CustomTeamModal, { DEFAULT_CUSTOM_GROUPS } from "./CustomTeamModal";
+import { CustomTeamGroup } from "@/types/database";
 
 export type Profile = {
   id: string;
@@ -143,17 +145,13 @@ export default function Dashboard({
   const [isPending, startTransition] = useTransition();
   const [isEditMode, setIsEditMode] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showCustomTeamModal, setShowCustomTeamModal] = useState(false);
+
   // Guild Activity and Party Team assignment states
   const [activity, setActivity] = useState<'general' | 'guild_league' | 'emperium_overrun'>('general');
-  const [partyTeams, setPartyTeams] = useState<Record<number, 'defense' | 'offense' | 'runner'>>(() => {
-    const defaults: Record<number, 'defense' | 'offense' | 'runner'> = {}
-    for (let i = 1; i <= 16; i++) {
-      if (i <= 6) defaults[i] = 'defense';
-      else if (i <= 12) defaults[i] = 'offense';
-      else defaults[i] = 'runner';
-    }
-    return defaults;
-  });
+  const [planTitle, setPlanTitle] = useState<string>('แผนจัดทีม Emperium Overrun');
+  const [planSubtitle, setPlanSubtitle] = useState<string>('แผนจัดทัพกำลังพลกิลด์ประจำกิจกรรม');
+  const [customGroups, setCustomGroups] = useState<CustomTeamGroup[]>(DEFAULT_CUSTOM_GROUPS);
 
   const mappedProfiles = useMemo(() => {
     return profiles.map((p) => {
@@ -175,59 +173,24 @@ export default function Dashboard({
     });
   }, [profiles, activity]);
 
-  const [defenseInput, setDefenseInput] = useState<string>('')
-  const [offenseInput, setOffenseInput] = useState<string>('')
-
-  useEffect(() => {
-    const defenseCount = Object.values(partyTeams).filter(v => v === 'defense').length
-    const offenseCount = Object.values(partyTeams).filter(v => v === 'offense').length
-    setDefenseInput(defenseCount.toString())
-    setOffenseInput(offenseCount.toString())
-  }, [partyTeams])
-
-  const handleDefenseInputChange = (val: string) => {
-    setDefenseInput(val)
-    if (val !== '') {
-      const num = Number(val)
-      if (!isNaN(num)) {
-        handleResizeTeams('defense', num)
-      }
-    }
-  }
-
-  const handleOffenseInputChange = (val: string) => {
-    setOffenseInput(val)
-    if (val !== '') {
-      const num = Number(val)
-      if (!isNaN(num)) {
-        handleResizeTeams('offense', num)
-      }
-    }
-  }
-
-  const handleInputBlur = (teamType: 'defense' | 'offense') => {
-    const currentVal = teamType === 'defense' ? defenseInput : offenseInput;
-    if (currentVal === '') {
-      const count = Object.values(partyTeams).filter(v => v === teamType).length;
-      if (teamType === 'defense') {
-        setDefenseInput(count.toString());
-      } else {
-        setOffenseInput(count.toString());
-      }
-    }
-  };
-
   useEffect(() => {
     const savedActivity = localStorage.getItem('rooc_active_activity');
     if (savedActivity) {
       setActivity(savedActivity as any);
     }
-    const savedTeams = localStorage.getItem('rooc_party_teams');
-    if (savedTeams) {
+    const savedCustomGroups = localStorage.getItem('rooc_custom_groups');
+    if (savedCustomGroups) {
       try {
-        setPartyTeams(JSON.parse(savedTeams));
+        const parsed = JSON.parse(savedCustomGroups);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCustomGroups(parsed);
+        }
       } catch (e) { }
     }
+    const savedTitle = localStorage.getItem('rooc_custom_plan_title');
+    if (savedTitle) setPlanTitle(savedTitle);
+    const savedSubtitle = localStorage.getItem('rooc_custom_plan_subtitle');
+    if (savedSubtitle) setPlanSubtitle(savedSubtitle);
   }, []);
 
   const handleActivityChange = (act: 'general' | 'guild_league' | 'emperium_overrun') => {
@@ -235,42 +198,34 @@ export default function Dashboard({
     localStorage.setItem('rooc_active_activity', act);
   };
 
-  const handlePartyTeamChange = (partyId: number, team: 'defense' | 'offense' | 'runner') => {
-    setPartyTeams(prev => {
-      const updated = { ...prev, [partyId]: team };
-      localStorage.setItem('rooc_party_teams', JSON.stringify(updated));
-      return updated;
-    });
+  const handleSaveCustomGroups = (newGroups: CustomTeamGroup[]) => {
+    setCustomGroups(newGroups);
+    localStorage.setItem('rooc_custom_groups', JSON.stringify(newGroups));
   };
 
-  const handleResizeTeams = (teamType: 'defense' | 'offense', count: number) => {
-    const safeCount = Math.max(0, Math.min(16, count));
-    setPartyTeams(prev => {
-      const updated = { ...prev };
-      let defenseCount = teamType === 'defense' ? safeCount : Object.values(prev).filter(v => v === 'defense').length;
-      let offenseCount = teamType === 'offense' ? safeCount : Object.values(prev).filter(v => v === 'offense').length;
+  const handleSavePlanTitle = (title: string) => {
+    setPlanTitle(title);
+    localStorage.setItem('rooc_custom_plan_title', title);
+  };
 
-      // Ensure sum of defense and offense doesn't exceed 16
-      if (defenseCount + offenseCount > 16) {
-        if (teamType === 'defense') {
-          offenseCount = 16 - defenseCount;
+  const handleSavePlanSubtitle = (sub: string) => {
+    setPlanSubtitle(sub);
+    localStorage.setItem('rooc_custom_plan_subtitle', sub);
+  };
+
+  const handlePartyTeamChange = (partyId: number, targetTeamId: string) => {
+    setCustomGroups(prev => {
+      const updated = prev.map(group => {
+        if (group.id === targetTeamId) {
+          if (!group.partyIds.includes(partyId)) {
+            return { ...group, partyIds: [...group.partyIds, partyId].sort((a, b) => a - b) };
+          }
+          return group;
         } else {
-          defenseCount = 16 - offenseCount;
+          return { ...group, partyIds: group.partyIds.filter(id => id !== partyId) };
         }
-      }
-
-      // Reassign contiguously
-      for (let i = 1; i <= 16; i++) {
-        if (i <= defenseCount) {
-          updated[i] = 'defense';
-        } else if (i <= defenseCount + offenseCount) {
-          updated[i] = 'offense';
-        } else {
-          updated[i] = 'runner';
-        }
-      }
-
-      localStorage.setItem('rooc_party_teams', JSON.stringify(updated));
+      });
+      localStorage.setItem('rooc_custom_groups', JSON.stringify(updated));
       return updated;
     });
   };
@@ -648,56 +603,36 @@ export default function Dashboard({
               : 'text-gray-500 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400'
               }`}
           >
-            🏰 Emperium Overrun
+            🏰 Emperium Overrun / Custom
           </button>
         </div>
 
-        {(activity === 'emperium_overrun') && isAdmin && isEditMode && (
-          <div className="mb-6 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/60 p-4 rounded-2xl flex flex-col md:flex-row gap-4 items-center justify-between transition-all">
+        {/* Custom Team Management Banner */}
+        {activity === 'emperium_overrun' && (
+          <div className="mb-6 bg-gradient-to-r from-orange-50 via-amber-50 to-indigo-50 dark:from-orange-950/30 dark:via-amber-950/20 dark:to-indigo-950/30 border border-orange-200/80 dark:border-orange-900/60 p-4 rounded-2xl flex flex-col md:flex-row gap-4 items-start md:items-center justify-between shadow-xs">
             <div className="flex flex-col gap-1">
-              <h3 className="text-sm font-bold text-orange-900 dark:text-orange-200 flex items-center gap-1.5">
-                🏰 ปรับแต่งจำนวนปาร์ตี้แต่ละทีม ({activity === 'emperium_overrun' ? 'Emperium Overrun' : 'ทั่วไป'})
-              </h3>
-              <p className="text-[10px] text-orange-700 dark:text-orange-400">
-                ระบุจำนวนปาร์ตี้สำหรับแต่ละทีม ระบบจะคำนวณและแบ่งกลุ่มปาร์ตี้ให้อัตโนมัติ (รวมทั้งหมด 16 ปาร์ตี้)
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-extrabold text-orange-950 dark:text-orange-200 flex items-center gap-1.5">
+                  <span>🏰</span> {planTitle}
+                </h3>
+                <span className="text-[10px] bg-orange-200/60 dark:bg-orange-900/60 text-orange-800 dark:text-orange-300 font-bold px-2 py-0.5 rounded-full border border-orange-300/40">
+                  {customGroups.length} กลุ่มทีม
+                </span>
+              </div>
+              <p className="text-xs text-orange-800/80 dark:text-orange-400/90 font-medium">
+                {planSubtitle}
               </p>
             </div>
 
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-blue-900 dark:text-blue-200">กันบ้าน:</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="16"
-                  value={defenseInput}
-                  onChange={(e) => handleDefenseInputChange(e.target.value)}
-                  onBlur={() => handleInputBlur('defense')}
-                  className="w-14 bg-white dark:bg-gray-800 border border-orange-200 dark:border-orange-900 rounded-lg px-2 py-1 text-xs font-bold text-center focus:outline-none focus:border-orange-550 text-slate-800 dark:text-white"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-rose-900 dark:text-rose-200">ทีมบุก:</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="16"
-                  value={offenseInput}
-                  onChange={(e) => handleOffenseInputChange(e.target.value)}
-                  onBlur={() => handleInputBlur('offense')}
-                  className="w-14 bg-white dark:bg-gray-800 border border-orange-200 dark:border-orange-900 rounded-lg px-2 py-1 text-xs font-bold text-center focus:outline-none focus:border-orange-550 text-slate-800 dark:text-white"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">วิ่งบ้าน:</span>
-                <input
-                  type="number"
-                  value={Object.values(partyTeams).filter(v => v === 'runner').length}
-                  className="w-14 bg-gray-100 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-800 rounded-lg px-2 py-1 text-xs font-bold text-center text-gray-500 cursor-not-allowed font-mono"
-                  disabled
-                />
-              </div>
-            </div>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setShowCustomTeamModal(true)}
+                className="cursor-pointer px-4 py-2 rounded-xl text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 shadow-sm transition-all flex items-center gap-1.5 shrink-0"
+              >
+                <span>⚙️</span> ปรับแต่งกลุ่มทีม & แผน
+              </button>
+            )}
           </div>
         )}
 
@@ -817,116 +752,52 @@ export default function Dashboard({
 
             {activity === 'emperium_overrun' && (
               <div className="space-y-8">
-                {/* ทีมป้องกันบ้าน */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 border-b border-blue-100 dark:border-blue-900 pb-2">
-                    <span className="text-xl">🏰</span>
-                    <h2 className="text-base font-extrabold text-blue-900 dark:text-blue-200">
-                      ทีมป้องกันบ้าน (Defense Team)
-                    </h2>
-                    <span className="text-[10px] bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-bold border border-blue-200/40 dark:border-blue-900/40">
-                      {parties.filter(pid => partyTeams[pid] === 'defense').length} ปาร์ตี้
-                    </span>
-                  </div>
-                  {parties.filter(pid => partyTeams[pid] === 'defense').length === 0 ? (
-                    <div className="text-center py-10 text-xs font-semibold text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl bg-gray-50/50 dark:bg-gray-900/10">
-                      ยังไม่มีปาร์ตี้ในทีมนี้ (เปลี่ยนทีมของปาร์ตี้ผ่านตัวเลือกขวาบนของการ์ดในโหมดแก้ไข)
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {parties.filter(pid => partyTeams[pid] === 'defense').map((partyId) => (
-                        <PartyBlock
-                          key={partyId}
-                          partyId={partyId}
-                          profiles={mappedProfiles.filter((p) => p.party_id === partyId)}
-                          isAdmin={isAdmin}
-                          isEditMode={isEditMode}
-                          onEmptySlotClick={(partyId, slotIndex) =>
-                            setActiveSlot({ partyId, slotIndex })
-                          }
-                          onMemberClear={handleClearMember}
-                          activity={activity}
-                          currentTeam={partyTeams[partyId]}
-                          onTeamChange={(team) => handlePartyTeamChange(partyId, team)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
+                {customGroups.map((group) => {
+                  const groupParties = parties.filter(pid => group.partyIds?.includes(pid))
+                  const colorMeta = TEAM_COLOR_MAP[group.colorTheme || 'blue'] || TEAM_COLOR_MAP.blue
 
-                {/* ทีมบุก */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 border-b border-rose-100 dark:border-rose-900 pb-2">
-                    <span className="text-xl">🔥</span>
-                    <h2 className="text-base font-extrabold text-rose-900 dark:text-rose-200">
-                      ทีมบุก (Offense Team)
-                    </h2>
-                    <span className="text-[10px] bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-full font-bold border border-rose-200/40 dark:border-rose-900/40">
-                      {parties.filter(pid => partyTeams[pid] === 'offense').length} ปาร์ตี้
-                    </span>
-                  </div>
-                  {parties.filter(pid => partyTeams[pid] === 'offense').length === 0 ? (
-                    <div className="text-center py-10 text-xs font-semibold text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl bg-gray-50/50 dark:bg-gray-900/10">
-                      ยังไม่มีปาร์ตี้ในทีมนี้ (เปลี่ยนทีมของปาร์ตี้ผ่านตัวเลือกขวาบนของการ์ดในโหมดแก้ไข)
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {parties.filter(pid => partyTeams[pid] === 'offense').map((partyId) => (
-                        <PartyBlock
-                          key={partyId}
-                          partyId={partyId}
-                          profiles={mappedProfiles.filter((p) => p.party_id === partyId)}
-                          isAdmin={isAdmin}
-                          isEditMode={isEditMode}
-                          onEmptySlotClick={(partyId, slotIndex) =>
-                            setActiveSlot({ partyId, slotIndex })
-                          }
-                          onMemberClear={handleClearMember}
-                          activity={activity}
-                          currentTeam={partyTeams[partyId]}
-                          onTeamChange={(team) => handlePartyTeamChange(partyId, team)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
+                  return (
+                    <div key={group.id} className="space-y-4">
+                      <div className={`flex items-center justify-between border-b ${colorMeta.headerBorder} pb-2`}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{group.icon}</span>
+                          <h2 className={`text-base font-extrabold ${colorMeta.titleColor}`}>
+                            {group.name}
+                          </h2>
+                          <span className={`text-[10px] ${colorMeta.bgBadge} ${colorMeta.text} ${colorMeta.darkText} px-2 py-0.5 rounded-full font-bold border ${colorMeta.borderBadge}`}>
+                            {groupParties.length} ปาร์ตี้
+                          </span>
+                        </div>
+                      </div>
 
-                {/* ทีมวิ่งบ้าน */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 border-b border-amber-100 dark:border-amber-900 pb-2">
-                    <span className="text-xl">⚡</span>
-                    <h2 className="text-base font-extrabold text-amber-900 dark:text-amber-200">
-                      ทีมวิ่งบ้าน (Runner Team)
-                    </h2>
-                    <span className="text-[10px] bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-bold border border-amber-200/40 dark:border-amber-900/40">
-                      {parties.filter(pid => partyTeams[pid] === 'runner').length} ปาร์ตี้
-                    </span>
-                  </div>
-                  {parties.filter(pid => partyTeams[pid] === 'runner').length === 0 ? (
-                    <div className="text-center py-10 text-xs font-semibold text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl bg-gray-50/50 dark:bg-gray-900/10">
-                      ยังไม่มีปาร์ตี้ในทีมนี้ (เปลี่ยนทีมของปาร์ตี้ผ่านตัวเลือกขวาบนของการ์ดในโหมดแก้ไข)
+                      {groupParties.length === 0 ? (
+                        <div className="text-center py-8 text-xs font-semibold text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl bg-gray-50/50 dark:bg-gray-900/10">
+                          ยังไม่มีปาร์ตี้ในทีมนี้ (ย้ายปาร์ตี้ผ่านตัวเลือกขวาบนของการ์ดในโหมดแก้ไข หรือผ่านเมนู "ปรับแต่งกลุ่มทีม & แผน")
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {groupParties.map((partyId) => (
+                            <PartyBlock
+                              key={partyId}
+                              partyId={partyId}
+                              profiles={mappedProfiles.filter((p) => p.party_id === partyId)}
+                              isAdmin={isAdmin}
+                              isEditMode={isEditMode}
+                              onEmptySlotClick={(partyId, slotIndex) =>
+                                setActiveSlot({ partyId, slotIndex })
+                              }
+                              onMemberClear={handleClearMember}
+                              activity={activity}
+                              customGroups={customGroups}
+                              currentTeamId={group.id}
+                              onTeamChange={(newTeamId) => handlePartyTeamChange(partyId, newTeamId)}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {parties.filter(pid => partyTeams[pid] === 'runner').map((partyId) => (
-                        <PartyBlock
-                          key={partyId}
-                          partyId={partyId}
-                          profiles={mappedProfiles.filter((p) => p.party_id === partyId)}
-                          isAdmin={isAdmin}
-                          isEditMode={isEditMode}
-                          onEmptySlotClick={(partyId, slotIndex) =>
-                            setActiveSlot({ partyId, slotIndex })
-                          }
-                          onMemberClear={handleClearMember}
-                          activity={activity}
-                          currentTeam={partyTeams[partyId]}
-                          onTeamChange={(team) => handlePartyTeamChange(partyId, team)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -978,13 +849,28 @@ export default function Dashboard({
           </div>
         </div>
       )}
+
+      {/* Custom Team Modal */}
+      <CustomTeamModal
+        isOpen={showCustomTeamModal}
+        onClose={() => setShowCustomTeamModal(false)}
+        customGroups={customGroups}
+        onSaveGroups={handleSaveCustomGroups}
+        planTitle={planTitle}
+        onSavePlanTitle={handleSavePlanTitle}
+        planSubtitle={planSubtitle}
+        onSavePlanSubtitle={handleSavePlanSubtitle}
+      />
+
       {/* Export Modal */}
       {showExportModal && (
         <ExportModal
           profiles={mappedProfiles}
           onClose={() => setShowExportModal(false)}
           activity={activity}
-          partyTeams={partyTeams}
+          customGroups={customGroups}
+          planTitle={planTitle}
+          planSubtitle={planSubtitle}
         />
       )}
     </DndContext>

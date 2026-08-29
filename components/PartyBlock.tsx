@@ -3,6 +3,108 @@
 import { useDroppable } from '@dnd-kit/core'
 import { Profile } from './Dashboard'
 import MemberCard from './MemberCard'
+import { CustomTeamGroup, TeamColorTheme } from '@/types/database'
+
+export const TEAM_COLOR_MAP: Record<TeamColorTheme, {
+  text: string
+  darkText: string
+  bgBadge: string
+  borderBadge: string
+  headerBorder: string
+  titleColor: string
+  hexBg: string
+  hexBorder: string
+  hexText: string
+}> = {
+  blue: {
+    text: 'text-blue-600',
+    darkText: 'dark:text-blue-400',
+    bgBadge: 'bg-blue-50 dark:bg-blue-950/60',
+    borderBadge: 'border-blue-200/40 dark:border-blue-900/40',
+    headerBorder: 'border-blue-100 dark:border-blue-900',
+    titleColor: 'text-blue-900 dark:text-blue-200',
+    hexBg: '#dbeafe',
+    hexBorder: '#93c5fd',
+    hexText: '#1e40af',
+  },
+  rose: {
+    text: 'text-rose-600',
+    darkText: 'dark:text-rose-400',
+    bgBadge: 'bg-rose-50 dark:bg-rose-950/60',
+    borderBadge: 'border-rose-200/40 dark:border-rose-900/40',
+    headerBorder: 'border-rose-100 dark:border-rose-900',
+    titleColor: 'text-rose-900 dark:text-rose-200',
+    hexBg: '#ffe4e6',
+    hexBorder: '#fda4af',
+    hexText: '#9f1239',
+  },
+  amber: {
+    text: 'text-amber-600',
+    darkText: 'dark:text-amber-400',
+    bgBadge: 'bg-amber-50 dark:bg-amber-950/60',
+    borderBadge: 'border-amber-200/40 dark:border-amber-900/40',
+    headerBorder: 'border-amber-100 dark:border-amber-900',
+    titleColor: 'text-amber-900 dark:text-amber-200',
+    hexBg: '#fef3c7',
+    hexBorder: '#fcd34d',
+    hexText: '#92400e',
+  },
+  emerald: {
+    text: 'text-emerald-600',
+    darkText: 'dark:text-emerald-400',
+    bgBadge: 'bg-emerald-50 dark:bg-emerald-950/60',
+    borderBadge: 'border-emerald-200/40 dark:border-emerald-900/40',
+    headerBorder: 'border-emerald-100 dark:border-emerald-900',
+    titleColor: 'text-emerald-900 dark:text-emerald-200',
+    hexBg: '#d1fae5',
+    hexBorder: '#6ee7b7',
+    hexText: '#065f46',
+  },
+  purple: {
+    text: 'text-purple-600',
+    darkText: 'dark:text-purple-400',
+    bgBadge: 'bg-purple-50 dark:bg-purple-950/60',
+    borderBadge: 'border-purple-200/40 dark:border-purple-900/40',
+    headerBorder: 'border-purple-100 dark:border-purple-900',
+    titleColor: 'text-purple-900 dark:text-purple-200',
+    hexBg: '#f3e8ff',
+    hexBorder: '#d8b4fe',
+    hexText: '#6b21a8',
+  },
+  indigo: {
+    text: 'text-indigo-600',
+    darkText: 'dark:text-indigo-400',
+    bgBadge: 'bg-indigo-50 dark:bg-indigo-950/60',
+    borderBadge: 'border-indigo-200/40 dark:border-indigo-900/40',
+    headerBorder: 'border-indigo-100 dark:border-indigo-900',
+    titleColor: 'text-indigo-900 dark:text-indigo-200',
+    hexBg: '#e0e7ff',
+    hexBorder: '#a5b4fc',
+    hexText: '#3730a3',
+  },
+  cyan: {
+    text: 'text-cyan-600',
+    darkText: 'dark:text-cyan-400',
+    bgBadge: 'bg-cyan-50 dark:bg-cyan-950/60',
+    borderBadge: 'border-cyan-200/40 dark:border-cyan-900/40',
+    headerBorder: 'border-cyan-100 dark:border-cyan-900',
+    titleColor: 'text-cyan-900 dark:text-cyan-200',
+    hexBg: '#cffafe',
+    hexBorder: '#67e8f9',
+    hexText: '#155e75',
+  },
+  slate: {
+    text: 'text-slate-600',
+    darkText: 'dark:text-slate-400',
+    bgBadge: 'bg-slate-50 dark:bg-slate-900/60',
+    borderBadge: 'border-slate-200/40 dark:border-slate-800/40',
+    headerBorder: 'border-slate-100 dark:border-slate-800',
+    titleColor: 'text-slate-900 dark:text-slate-200',
+    hexBg: '#f1f5f9',
+    hexBorder: '#cbd5e1',
+    hexText: '#334155',
+  },
+}
 
 function PartySlot({
   partyId,
@@ -69,7 +171,8 @@ export default function PartyBlock({
   onEmptySlotClick,
   onMemberClear,
   activity = 'general',
-  currentTeam = 'defense',
+  customGroups,
+  currentTeamId,
   onTeamChange,
 }: {
   partyId: number
@@ -79,10 +182,15 @@ export default function PartyBlock({
   onEmptySlotClick?: (partyId: number, slotIndex: number) => void
   onMemberClear?: (memberId: string) => void
   activity?: 'general' | 'guild_league' | 'emperium_overrun'
-  currentTeam?: 'defense' | 'offense' | 'runner'
-  onTeamChange?: (team: 'defense' | 'offense' | 'runner') => void
+  customGroups?: CustomTeamGroup[]
+  currentTeamId?: string
+  onTeamChange?: (teamId: string) => void
 }) {
   const slots = Array.from({ length: 5 }, (_, i) => i)
+
+  // Find assigned group for this party if customGroups is provided
+  const matchedGroup = customGroups?.find(g => g.id === currentTeamId || g.partyIds?.includes(partyId))
+  const colorStyle = matchedGroup ? TEAM_COLOR_MAP[matchedGroup.colorTheme || 'blue'] : TEAM_COLOR_MAP.blue
 
   return (
     <div className="bg-white dark:bg-gray-850 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden glass-panel">
@@ -94,28 +202,24 @@ export default function PartyBlock({
               {partyId <= 8 ? '🛡️ ทีมหลัก (40 คน)' : '⚔️ ทีมรอง (40 คน)'}
             </span>
           )}
-          {activity === 'emperium_overrun' && (
-            <span className={`text-[10px] font-semibold ${
-              currentTeam === 'defense' ? 'text-blue-600 dark:text-blue-400' :
-              currentTeam === 'offense' ? 'text-rose-600 dark:text-rose-400' :
-              'text-amber-600 dark:text-amber-400'
-            }`}>
-              {currentTeam === 'defense' ? '🏰 ทีมป้องกันบ้าน' :
-               currentTeam === 'offense' ? '🔥 ทีมบุก' :
-               '⚡ ทีมวิ่งบ้าน'}
+          {activity === 'emperium_overrun' && matchedGroup && (
+            <span className={`text-[10px] font-semibold truncate ${colorStyle.text} ${colorStyle.darkText}`}>
+              {matchedGroup.icon} {matchedGroup.name}
             </span>
           )}
         </div>
 
-        {activity === 'emperium_overrun' && isAdmin && isEditMode && onTeamChange && (
+        {activity === 'emperium_overrun' && isAdmin && isEditMode && onTeamChange && customGroups && customGroups.length > 0 && (
           <select
-            value={currentTeam}
-            onChange={(e) => onTeamChange(e.target.value as any)}
-            className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-[10px] font-bold px-1.5 py-0.5 text-gray-700 dark:text-gray-350 focus:outline-none cursor-pointer"
+            value={matchedGroup?.id ?? customGroups[0].id}
+            onChange={(e) => onTeamChange(e.target.value)}
+            className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-[10px] font-bold px-1.5 py-0.5 text-gray-700 dark:text-gray-300 focus:outline-none cursor-pointer max-w-[110px] truncate"
           >
-            <option value="defense">🏰 กันบ้าน</option>
-            <option value="offense">🔥 ทีมบุก</option>
-            <option value="runner">⚡ วิ่งบ้าน</option>
+            {customGroups.map(g => (
+              <option key={g.id} value={g.id}>
+                {g.icon} {g.name}
+              </option>
+            ))}
           </select>
         )}
       </div>

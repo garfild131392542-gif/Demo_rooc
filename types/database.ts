@@ -162,3 +162,14 @@ export type LeaderboardProfile = {
   p_def: number;
   m_def: number;
 };
+
+export type TeamColorTheme = 'blue' | 'rose' | 'amber' | 'emerald' | 'purple' | 'indigo' | 'cyan' | 'slate';
+
+export interface CustomTeamGroup {
+  id: string;
+  name: string;
+  icon: string;
+  colorTheme: TeamColorTheme;
+  partyIds: number[];
+}
+

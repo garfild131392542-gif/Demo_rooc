@@ -8,7 +8,9 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
     defaultOptions: {
       queries: {
         refetchOnWindowFocus: false, // Turn off automatic refetch on window focus
-        staleTime: 5000,             // Cache data for 5 seconds
+        refetchOnReconnect: true,   // Refetch when internet reconnects
+        staleTime: 1000 * 60 * 2,    // ⚡ Cache data in memory for 2 minutes (instant 0ms page navigation)
+        gcTime: 1000 * 60 * 10,      // Keep unused cache in memory for 10 minutes
       },
     },
   }))

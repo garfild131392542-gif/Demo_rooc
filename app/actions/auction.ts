@@ -370,7 +370,7 @@ export async function getAuctionHistory() {
   }
 }
 
-// 5. แอดมินกดแจกของรางวัล (อัปเดตตารางเดียว ไม่ยิงเข้า history แล้ว)
+// 5. แอดมินกดแจกของรางวัล (Atomic Transaction ผ่าน RPC พร้อม Fallback)
 export async function awardAuctionQueue(queueId: string | number, awardQty: number, note?: string) {
   try {
     const session = await getSession()
@@ -379,6 +379,30 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
     }
 
     const supabase = await createClient()
+
+    // ⚡ 1. ลองเรียกผ่าน Atomic RPC Function ก่อน
+    try {
+      const { data: rpcRes, error: rpcErr } = await (supabase as any).rpc('process_award_auction_slot', {
+        p_queue_id: String(queueId),
+        p_admin_id: session.profile.id,
+        p_guild_id: session.profile.guild_id,
+        p_note: note || null,
+      })
+
+      if (!rpcErr && rpcRes) {
+        if (rpcRes.success === false) {
+          return { success: false, error: rpcRes.error || 'ไม่สามารถแจกรางวัลได้' }
+        }
+        revalidatePath('/')
+        revalidatePath('/auction')
+        revalidatePath('/profile')
+        return { success: true }
+      }
+    } catch (rpcCallErr) {
+      console.warn('RPC process_award_auction_slot failed, falling back to standard execution:', rpcCallErr)
+    }
+
+    // 🛡️ 2. Fallback Logic: ในกรณีที่ยังไม่ได้รัน Migration RPC บน Database
     const { data: queue, error: fetchError } = await supabase
       .from('auction_queues')
       .select('*, profiles:user_id(display_name, uid_game)')
@@ -388,18 +412,16 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
     if (fetchError) throw fetchError
     if (!queue) return { success: false, error: 'ไม่พบรายการคิว' }
 
-    // 🛑 Idempotency Protection: ถ้าสล็อตนี้ completed ไปแล้ว ห้ามกดแจกซ้ำเด็ดขาด!
+    // 🛑 Idempotency Protection
     if (queue.status === 'completed') {
       return { success: false, error: 'สล็อตนี้ได้รับการประมูลและมอบรางวัลไปเรียบร้อยแล้ว' }
     }
 
-    // ดึงค่าลิมิตส่วนบุคคลของไอเทมชิ้นนี้ในเซสชันวันนี้
     const personalLimit = await getAuctionSessionPersonalLimit(supabase, session.profile.guild_id, queue.item_name as ItemType)
     if (personalLimit === null) {
       return { success: false, error: 'ไม่พบรายการประมูลสำหรับไอเท็มนี้ในวันนี้' }
     }
 
-    // ดึงคิวประมูลทั้งหมดของยูสเซอร์คนนี้
     const { data: userQueues } = await supabase
       .from('auction_queues')
       .select('id, received_qty, status, updated_at, queue_timestamp')
@@ -409,22 +431,18 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
 
     const today = new Date().toISOString().split('T')[0]
 
-    // 🌟 คำนวณยอดที่เคยได้รับไปแล้วสำเร็จ "เฉพาะของวันนี้เท่านั้น" (กรองด้วยเวลาปัจจุบัน)
     const receivedTodayBefore = userQueues
       ?.filter(q => q.id !== queue.id && q.status === 'completed')
       .filter(q => {
-        // ยึดวันที่อัปเดตล่าสุดเป็นหลัก ถ้าไม่มีให้ถอยไปเช็คเวลาสร้างคิว
         const targetDate = q.updated_at ? q.updated_at.split('T')[0] : (q.queue_timestamp ? q.queue_timestamp.split('T')[0] : '');
         return targetDate === today;
       })
       .reduce((sum, q) => sum + (q.received_qty || 0), 0) || 0
 
-    // เซฟตี้ด่าน 1: ถ้าวันนี้เขารับไปจนครบโควตาก่อนหน้านี้แล้ว
     if (receivedTodayBefore >= personalLimit) {
-        return { success: false, error: `วันนี้สมาชิกได้รับครบโควตา ${personalLimit} ชิ้นแล้วครับ` }
+      return { success: false, error: `วันนี้สมาชิกได้รับครบโควตา ${personalLimit} ชิ้นแล้วครับ` }
     }
 
-    // อัปเดตคิวปัจจุบันแสตมป์สถานะสำเร็จ
     const { error: updateError } = await supabase
       .from('auction_queues')
       .update({ 
@@ -436,7 +454,6 @@ export async function awardAuctionQueue(queueId: string | number, awardQty: numb
 
     if (updateError) throw updateError
 
-    // 🌟 Auto-Link: อัปเดตสะสมยอดในรอบการประมูล (Round Quota)
     try {
       const { awardRoundProgress } = await import('./auction-rounds')
       await awardRoundProgress(
@@ -508,58 +525,80 @@ export async function batchAwardAuctionQueues(queueIds: string[], note?: string)
 
     // 🌟 2. บันทึกผลสำหรับคิวปกติ (Classic On-Demand Queues)
     if (standardQueueIds.length > 0) {
-      const { data: targetQueues, error: fetchErr } = await supabase
-        .from('auction_queues')
-        .select('id, user_id, guild_id, item_name, status, requested_qty, received_qty')
-        .in('id', standardQueueIds)
-        .eq('guild_id', guildId)
-        .neq('status', 'completed')
+      let rpcHandled = false
+      try {
+        const { data: rpcRes, error: rpcErr } = await (supabase as any).rpc('batch_award_auction_slots', {
+          p_queue_ids: standardQueueIds,
+          p_admin_id: session.profile.id,
+          p_guild_id: guildId,
+          p_note: note || null,
+        })
 
-      if (fetchErr) throw fetchErr
+        if (!rpcErr && rpcRes && rpcRes.success) {
+          totalAwarded += Number(rpcRes.awarded_count) || 0
+          if (Array.isArray(rpcRes.awarded_ids)) {
+            allAwardedIds.push(...rpcRes.awarded_ids)
+          }
+          rpcHandled = true
+        }
+      } catch (rpcErr) {
+        console.warn('RPC batch_award_auction_slots failed, falling back:', rpcErr)
+      }
 
-      if (targetQueues && targetQueues.length > 0) {
-        const validIds = targetQueues.map((q: any) => q.id)
-        const nowIso = new Date().toISOString()
-        const { error: updateErr } = await supabase
+      if (!rpcHandled) {
+        const { data: targetQueues, error: fetchErr } = await supabase
           .from('auction_queues')
-          .update({
-            status: 'completed',
-            received_qty: 1,
-            updated_at: nowIso,
-          })
-          .in('id', validIds)
+          .select('id, user_id, guild_id, item_name, status, requested_qty, received_qty')
+          .in('id', standardQueueIds)
+          .eq('guild_id', guildId)
+          .neq('status', 'completed')
 
-        if (updateErr) throw updateErr
+        if (fetchErr) throw fetchErr
 
-        // รวมยอดและตัดโควตารอบกิลด์ (Group by User & Item)
-        const userItemMap: Record<string, { userId: string; itemName: ItemType; count: number }> = {}
-        for (const q of targetQueues) {
-          if (!q.user_id) continue
-          const key = `${q.user_id}_${q.item_name}`
-          if (!userItemMap[key]) {
-            userItemMap[key] = { userId: q.user_id, itemName: q.item_name as ItemType, count: 0 }
+        if (targetQueues && targetQueues.length > 0) {
+          const validIds = targetQueues.map((q: any) => q.id)
+          const nowIso = new Date().toISOString()
+          const { error: updateErr } = await supabase
+            .from('auction_queues')
+            .update({
+              status: 'completed',
+              received_qty: 1,
+              updated_at: nowIso,
+            })
+            .in('id', validIds)
+
+          if (updateErr) throw updateErr
+
+          // รวมยอดและตัดโควตารอบกิลด์ (Group by User & Item)
+          const userItemMap: Record<string, { userId: string; itemName: ItemType; count: number }> = {}
+          for (const q of targetQueues) {
+            if (!q.user_id) continue
+            const key = `${q.user_id}_${q.item_name}`
+            if (!userItemMap[key]) {
+              userItemMap[key] = { userId: q.user_id, itemName: q.item_name as ItemType, count: 0 }
+            }
+            userItemMap[key].count += 1
           }
-          userItemMap[key].count += 1
-        }
 
-        try {
-          const { awardRoundProgress } = await import('./auction-rounds')
-          for (const entry of Object.values(userItemMap)) {
-            await awardRoundProgress(
-              guildId,
-              entry.userId,
-              entry.itemName,
-              entry.count,
-              session.profile.id,
-              note || `บันทึกการประมูลแบบกลุ่ม ${entry.count} ชิ้น`
-            )
+          try {
+            const { awardRoundProgress } = await import('./auction-rounds')
+            for (const entry of Object.values(userItemMap)) {
+              await awardRoundProgress(
+                guildId,
+                entry.userId,
+                entry.itemName,
+                entry.count,
+                session.profile.id,
+                note || `บันทึกการประมูลแบบกลุ่ม ${entry.count} ชิ้น`
+              )
+            }
+          } catch (roundErr) {
+            console.error('Batch awardRoundProgress error:', roundErr)
           }
-        } catch (roundErr) {
-          console.error('Batch awardRoundProgress error:', roundErr)
-        }
 
-        totalAwarded += validIds.length
-        allAwardedIds.push(...validIds)
+          totalAwarded += validIds.length
+          allAwardedIds.push(...validIds)
+        }
       }
     }
 

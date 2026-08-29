@@ -117,6 +117,7 @@ export default async function HomePage() {
       <Dashboard
         initialProfiles={profiles}
         isAdmin={isAdmin}
+        guildId={sessionAny?.profile?.guild_id || null}
       />
     </div>
   )

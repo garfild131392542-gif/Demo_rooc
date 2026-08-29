@@ -33,7 +33,8 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
     },
     initialData,
     refetchInterval: false, // ⚡ Disable polling loop since Supabase Realtime WebSocket handles updates instantly!
-    staleTime: 0,
+    staleTime: 1000 * 60 * 3, // ⚡ 3 minutes in-memory cache for instant 0ms tab switching
+    gcTime: 1000 * 60 * 10,
   })
   
   const { isAdmin, todayItems, memberQueues, myProfile, history = [], guildMembers = [], roundsData = null } = data

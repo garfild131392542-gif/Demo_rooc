@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useMemo } from "react";
+import { useState, useTransition, useEffect, useMemo, useRef } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -12,7 +12,9 @@ import {
   PointerSensor,
   TouchSensor,
 } from "@dnd-kit/core";
-import { updateProfileParty } from "@/app/actions/dashboard";
+import { updateProfileParty, swapPartyMembers } from "@/app/actions/dashboard";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
 import PartyBlock from "./PartyBlock";
 import WaitlistBlock from "./WaitlistBlock";
 import LeaveListBlock from "./LeaveListBlock";
@@ -64,11 +66,75 @@ export type Profile = {
 export default function Dashboard({
   initialProfiles,
   isAdmin,
+  guildId,
 }: {
   initialProfiles: Profile[];
   isAdmin: boolean;
+  guildId?: string | null;
 }) {
+  const queryClient = useQueryClient();
+
+  // ⚡ TanStack Query: Cache guild profiles in memory with instant retrieval
+  const { data: queryProfiles, refetch } = useQuery<Profile[]>({
+    queryKey: ['guildProfiles', guildId],
+    queryFn: async () => {
+      if (!guildId) return initialProfiles;
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('guild_id', guildId)
+        .order('id', { ascending: true });
+      if (error) throw error;
+      return (data as Profile[]) || [];
+    },
+    initialData: initialProfiles,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 10,
+  });
+
   const [profiles, setProfiles] = useState<Profile[]>(initialProfiles);
+
+  // Sync state when queryProfiles updates (e.g. from background refetch or realtime)
+  useEffect(() => {
+    if (queryProfiles) {
+      setProfiles(queryProfiles);
+    }
+  }, [queryProfiles]);
+
+  // ⚡ Supabase Realtime: Sync party positions live across all connected users (Debounced 200ms)
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (!guildId) return;
+
+    const supabase = createClient();
+    const debouncedRefetch = () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        refetch();
+      }, 200);
+    };
+
+    const channel = supabase
+      .channel(`dashboard_party_sync_${guildId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `guild_id=eq.${guildId}`,
+        },
+        debouncedRefetch
+      )
+      .subscribe();
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      supabase.removeChannel(channel);
+    };
+  }, [guildId, refetch]);
+
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<{
     partyId: number;
@@ -328,7 +394,10 @@ export default function Dashboard({
           })
         : null;
 
-    // Optimistic Update
+    // Snapshot for rollback in case of server failure
+    const previousProfiles = [...profiles];
+
+    // Optimistic Update (Immediate 0ms UI update)
     setProfiles((prev) =>
       prev.map((p) => {
         if (p.id === profileId) {
@@ -373,12 +442,19 @@ export default function Dashboard({
       })
     );
 
-    // Sync to server
-    startTransition(() => {
-      if (occupant) {
-        updateProfileParty(occupant.id, null, null, activity);
+    // Sync to server in 1 single request with auto-rollback
+    startTransition(async () => {
+      const res = await swapPartyMembers(
+        profileId,
+        occupant ? occupant.id : null,
+        targetPartyId,
+        targetSlotIndex,
+        activity
+      );
+      if (!res.success) {
+        setProfiles(previousProfiles);
+        alert(`ไม่สามารถบันทึกตำแหน่งปาร์ตี้ได้: ${res.error || 'Unknown error'}`);
       }
-      updateProfileParty(profileId, targetPartyId, targetSlotIndex, activity);
     });
   };
 

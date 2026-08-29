@@ -296,6 +296,35 @@ export async function batchConfigureAllRoundQuotas(quotas: Partial<Record<ItemTy
       return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
     }
 
+    const guildId = session.profile.guild_id
+    if (!guildId) return { success: false, error: 'ไม่พบข้อมูลกิลด์' }
+
+    const supabase = await createClient()
+
+    const albumQ = Math.max(1, Number(quotas.Album) || 1)
+    const puppetQ = Math.max(1, Number(quotas.Puppet) || 1)
+    const whiteQ = Math.max(1, Number(quotas.White) || 1)
+    const redblackQ = Math.max(1, Number(quotas.RedBlack) || 1)
+
+    // ⚡ 1. ลองเรียกผ่าน Batch RPC ก่อน (คำสั่งเดียวรันจบใน DB ภายใน 20ms)
+    try {
+      const { data: rpcRes, error: rpcErr } = await (supabase as any).rpc('batch_configure_guild_round_quotas', {
+        p_guild_id: guildId,
+        p_album_quota: albumQ,
+        p_puppet_quota: puppetQ,
+        p_white_quota: whiteQ,
+        p_redblack_quota: redblackQ,
+      })
+
+      if (!rpcErr && rpcRes && rpcRes.success) {
+        revalidatePath('/auction')
+        return { success: true }
+      }
+    } catch (rpcErr) {
+      console.warn('RPC batch_configure_guild_round_quotas fallback:', rpcErr)
+    }
+
+    // 🛡️ 2. Fallback execution
     const items: ItemType[] = ['Album', 'Puppet', 'White', 'RedBlack']
     for (const item of items) {
       const q = Math.max(1, Number(quotas[item]) || 1)

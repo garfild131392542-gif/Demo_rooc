@@ -92,23 +92,25 @@ BEGIN
         INSERT INTO auction_round_logs (
             guild_id, 
             round_id, 
-            round_member_id, 
+            round_number, 
             target_user_id, 
-            admin_user_id, 
+            performed_by, 
             item_name, 
             qty, 
             action_type, 
+            details,
             note, 
             created_at
         ) VALUES (
             p_guild_id, 
             v_round_member.round_id, 
-            v_round_member.id, 
+            v_round_member.round_number, 
             v_queue.user_id, 
             p_admin_id, 
             v_queue.item_name, 
             1, 
-            'manual_award', 
+            'MANUAL_OVERRIDE', 
+            jsonb_build_object('round_member_id', v_round_member.id),
             COALESCE(p_note, 'บันทึกการประมูลผ่านผังสล็อต'), 
             NOW()
         );

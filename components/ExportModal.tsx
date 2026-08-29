@@ -4,8 +4,9 @@ import { useRef, useState, useEffect } from 'react'
 import { Profile } from './Dashboard'
 import { getJobIconUrl } from '@/components/helpers'
 import { captureAndDownload } from '@/lib/export-image'
-import { CustomTeamGroup } from '@/types/database'
+import { CustomTeamGroup, TeamColorTheme } from '@/types/database'
 import { TEAM_COLOR_MAP } from './PartyBlock'
+import { DEFAULT_CUSTOM_GROUPS, formatPartyRange, sanitizeCustomGroups } from './CustomTeamModal'
 
 interface Props {
   profiles: Profile[]
@@ -16,14 +17,6 @@ interface Props {
   planSubtitle?: string
   partyTeams?: Record<number, 'defense' | 'offense' | 'runner'>
 }
-
-// Fallback group background colors (soft pastel colors for header banners)
-const GROUP_THEMES = [
-  { headerBg: '#e9d5ff', textCol: '#6b21a8', borderCol: '#d8b4fe', label: 'Group 1' },  // Purple
-  { headerBg: '#fed7aa', textCol: '#9a3412', borderCol: '#fdba74', label: 'Group 2' },  // Orange
-  { headerBg: '#dcfce7', textCol: '#166534', borderCol: '#86efac', label: 'Group 3' }, // Green
-  { headerBg: '#fef9c3', textCol: '#854d0e', borderCol: '#fef08a', label: 'Group 4' }, // Yellow
-]
 
 const SLOTS = 5
 const ROW_HEIGHT = 22
@@ -39,7 +32,7 @@ const cellBase: React.CSSProperties = {
   color: '#000', // Black text is required for clear contrast in printed images
 }
 
-export default function ExportModal({ profiles, onClose, activity, customGroups, planTitle, planSubtitle, partyTeams }: Props) {
+export default function ExportModal({ profiles, onClose, activity, customGroups, planTitle, planSubtitle }: Props) {
   const gridRef = useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = useState(false)
 
@@ -47,42 +40,11 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
   const [bannerTitle, setBannerTitle] = useState(planTitle || 'แผนจัดทีม Emperium Overrun')
   const [bannerSubtitle, setBannerSubtitle] = useState(planSubtitle || 'แผนจัดทัพกำลังพลกิลด์ประจำกิจกรรม')
   const [activePreset, setActivePreset] = useState<'gvg' | 'dungeon' | 'temple' | 'league' | 'emperium_overrun' | 'custom'>('emperium_overrun')
-  const [localCustomGroups, setLocalCustomGroups] = useState<CustomTeamGroup[]>(customGroups || [])
-
-  // Dynamic party range limits per group for non-custom presets
-  const [group1End, setGroup1End] = useState(4)
-  const [group2End, setGroup2End] = useState(8)
-  const [group3End, setGroup3End] = useState(12)
+  const [localCustomGroups, setLocalCustomGroups] = useState<CustomTeamGroup[]>(() => sanitizeCustomGroups(customGroups))
 
   useEffect(() => {
-    if (customGroups && customGroups.length > 0) {
-      setLocalCustomGroups(customGroups)
-    }
+    setLocalCustomGroups(sanitizeCustomGroups(customGroups))
   }, [customGroups])
-
-  // Safe range updators to prevent overlap/invalidation
-  const updateGroup1End = (val: number) => {
-    setGroup1End(val)
-    if (val >= group2End) {
-      setGroup2End(Math.min(16, val + 1))
-      if (Math.min(16, val + 1) >= group3End) {
-        setGroup3End(Math.min(16, val + 2))
-      }
-    }
-  }
-
-  const updateGroup2End = (val: number) => {
-    if (val <= group1End) return
-    setGroup2End(val)
-    if (val >= group3End) {
-      setGroup3End(Math.min(16, val + 1))
-    }
-  }
-
-  const updateGroup3End = (val: number) => {
-    if (val <= group2End) return
-    setGroup3End(val)
-  }
 
   // Handle Preset Changes
   const handlePresetChange = (preset: 'gvg' | 'dungeon' | 'temple' | 'league' | 'emperium_overrun' | 'custom') => {
@@ -91,31 +53,23 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
     if (preset === 'league') {
       setBannerTitle('แผนจัดทีม Guild League (กิลด์ลีก)')
       setBannerSubtitle('แผนจัดทัพกำลังพลกิลด์ 40v40 ประจำกิจกรรม')
-      setLocalCustomGroups([
+      setLocalCustomGroups(sanitizeCustomGroups([
         { id: 'main', name: 'ทีมหลัก (40 คน)', icon: '🛡️', colorTheme: 'indigo', partyIds: [1, 2, 3, 4, 5, 6, 7, 8] },
         { id: 'sub', name: 'ทีมรอง (40 คน)', icon: '⚔️', colorTheme: 'purple', partyIds: [9, 10, 11, 12, 13, 14, 15, 16] },
-      ])
+      ]))
     } else if (preset === 'emperium_overrun' || preset === 'custom') {
       setBannerTitle(planTitle || 'แผนจัดทีม Emperium Overrun')
       setBannerSubtitle(planSubtitle || 'แผนจัดทัพกำลังพลกิลด์ประจำกิจกรรม')
-      if (customGroups && customGroups.length > 0) {
-        setLocalCustomGroups(customGroups)
-      } else {
-        setLocalCustomGroups([
-          { id: 'defense', name: 'ทีมป้องกันบ้าน', icon: '🏰', colorTheme: 'blue', partyIds: [1, 2, 3, 4, 5, 6] },
-          { id: 'offense', name: 'ทีมบุก', icon: '🔥', colorTheme: 'rose', partyIds: [7, 8, 9, 10, 11, 12] },
-          { id: 'runner', name: 'ทีมวิ่งบ้าน', icon: '⚡', colorTheme: 'amber', partyIds: [13, 14, 15, 16] },
-        ])
-      }
+      setLocalCustomGroups(sanitizeCustomGroups(customGroups))
     } else if (preset === 'gvg') {
       setBannerTitle('แผนจัดทีม Guild War (GvG)')
       setBannerSubtitle('แผนจัดทัพกำลังพลกิลด์ประจำกิจกรรม')
-      setLocalCustomGroups([
+      setLocalCustomGroups(sanitizeCustomGroups([
         { id: 'gvg_1', name: 'ทีมบุกหลัก', icon: '🔥', colorTheme: 'rose', partyIds: [1, 2, 3, 4] },
         { id: 'gvg_2', name: 'ทีมกันบ้าน', icon: '🏰', colorTheme: 'blue', partyIds: [5, 6, 7, 8] },
         { id: 'gvg_3', name: 'ทีมเคลียร์หิน', icon: '⚡', colorTheme: 'amber', partyIds: [9, 10, 11, 12] },
         { id: 'gvg_4', name: 'ทีมป่วน/ซัปพอร์ต', icon: '🎯', colorTheme: 'purple', partyIds: [13, 14, 15, 16] },
-      ])
+      ]))
     }
   }
 
@@ -159,7 +113,7 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
   }
 
   // Render a single party table
-  const renderPartyTable = (partyId: number, colorTheme: string) => {
+  const renderPartyTable = (partyId: number, colorTheme?: string) => {
     const members = profiles
       .filter(p => p.party_id === partyId)
       .sort((a, b) => (a.slot_index ?? 99) - (b.slot_index ?? 99))
@@ -168,7 +122,7 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
       members.find(m => m.slot_index === i) ?? null
     )
 
-    const colorMeta = (TEAM_COLOR_MAP as any)[colorTheme] || TEAM_COLOR_MAP.blue
+    const colorMeta = TEAM_COLOR_MAP[colorTheme as TeamColorTheme] || TEAM_COLOR_MAP.blue
 
     return (
       <table
@@ -306,7 +260,7 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
                 <button
                   type="button"
                   onClick={() => handlePresetChange('emperium_overrun')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold text-left transition-all ${
+                  className={`px-3 py-2 rounded-lg text-xs font-bold text-left transition-all cursor-pointer ${
                     activePreset === 'emperium_overrun' || activePreset === 'custom'
                       ? 'bg-orange-50 text-orange-700 border border-orange-200 shadow-xs'
                       : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-transparent'
@@ -317,7 +271,7 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
                 <button
                   type="button"
                   onClick={() => handlePresetChange('league')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold text-left transition-all ${
+                  className={`px-3 py-2 rounded-lg text-xs font-bold text-left transition-all cursor-pointer ${
                     activePreset === 'league'
                       ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-xs'
                       : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-transparent'
@@ -328,7 +282,7 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
                 <button
                   type="button"
                   onClick={() => handlePresetChange('gvg')}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold text-left transition-all ${
+                  className={`px-3 py-2 rounded-lg text-xs font-bold text-left transition-all cursor-pointer ${
                     activePreset === 'gvg'
                       ? 'bg-rose-50 text-rose-700 border border-rose-200 shadow-xs'
                       : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-transparent'
@@ -348,6 +302,7 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
                   type="text"
                   value={bannerTitle}
                   onChange={(e) => setBannerTitle(e.target.value)}
+                  placeholder="ชื่อหัวข้อแผนจัดทัพ"
                   className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-900 focus:outline-none focus:border-indigo-500"
                 />
               </div>
@@ -360,6 +315,7 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
                   type="text"
                   value={bannerSubtitle}
                   onChange={(e) => setBannerSubtitle(e.target.value)}
+                  placeholder="คำบรรยายหรือหมายเหตุ"
                   className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-900 focus:outline-none focus:border-indigo-500"
                 />
               </div>
@@ -371,14 +327,17 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
               </label>
               {localCustomGroups.map((group, idx) => (
                 <div key={group.id || idx} className="space-y-1">
-                  <span className="text-[11px] font-semibold text-gray-500 flex items-center gap-1">
-                    <span>{group.icon}</span> กลุ่มที่ {idx + 1} ({group.partyIds.length} ปาร์ตี้)
+                  <span className="text-[11px] font-bold text-gray-700 flex items-center gap-1.5">
+                    <span className="text-base">{group.icon || '🚩'}</span>
+                    <span>กลุ่มที่ {idx + 1}</span>
+                    <span className="text-gray-400 font-normal text-[10px]">({group.partyIds?.length || 0} ปาร์ตี้)</span>
                   </span>
                   <input
                     type="text"
-                    value={group.name}
+                    value={group.name || ''}
                     onChange={(e) => handleGroupNameChange(idx, e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-900 focus:outline-none focus:border-indigo-500"
+                    placeholder={`ชื่อทีมกลุ่มที่ ${idx + 1}`}
+                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               ))}
@@ -426,7 +385,7 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
                 const partiesList = group.partyIds || []
                 if (partiesList.length === 0) return null
 
-                const colorMeta = (TEAM_COLOR_MAP as any)[group.colorTheme] || TEAM_COLOR_MAP.blue
+                const colorMeta = TEAM_COLOR_MAP[group.colorTheme as TeamColorTheme] || TEAM_COLOR_MAP.blue
 
                 return (
                   <div key={group.id || groupIdx} style={{ gridColumn: 'span 4', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
@@ -442,8 +401,8 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
                         boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                       }}
                     >
-                      <h2 style={{ fontSize: 12, fontWeight: 'bold', color: colorMeta.hexText, margin: 0, fontFamily: 'sans-serif' }}>
-                        {group.icon} {group.name} (Party {partiesList.join(', ')})
+                      <h2 style={{ fontSize: 13, fontWeight: 'bold', color: colorMeta.hexText, margin: 0, fontFamily: 'sans-serif' }}>
+                        {group.icon || '🚩'} {group.name || `ทีมกลุ่มที่ ${groupIdx + 1}`} ({formatPartyRange(partiesList)})
                       </h2>
                     </div>
 
@@ -462,4 +421,5 @@ export default function ExportModal({ profiles, onClose, activity, customGroups,
       </div>
     </div>
   )
-}
+}
+

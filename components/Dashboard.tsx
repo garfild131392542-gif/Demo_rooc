@@ -20,7 +20,7 @@ import WaitlistBlock from "./WaitlistBlock";
 import LeaveListBlock from "./LeaveListBlock";
 import MemberCard, { MemberCardOverlay } from "./MemberCard";
 import ExportModal from "./ExportModal";
-import CustomTeamModal, { DEFAULT_CUSTOM_GROUPS } from "./CustomTeamModal";
+import CustomTeamModal, { DEFAULT_CUSTOM_GROUPS, sanitizeCustomGroups } from "./CustomTeamModal";
 import { CustomTeamGroup } from "@/types/database";
 
 export type Profile = {
@@ -183,7 +183,7 @@ export default function Dashboard({
       try {
         const parsed = JSON.parse(savedCustomGroups);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setCustomGroups(parsed);
+          setCustomGroups(sanitizeCustomGroups(parsed));
         }
       } catch (e) { }
     }
@@ -199,8 +199,9 @@ export default function Dashboard({
   };
 
   const handleSaveCustomGroups = (newGroups: CustomTeamGroup[]) => {
-    setCustomGroups(newGroups);
-    localStorage.setItem('rooc_custom_groups', JSON.stringify(newGroups));
+    const sanitized = sanitizeCustomGroups(newGroups);
+    setCustomGroups(sanitized);
+    localStorage.setItem('rooc_custom_groups', JSON.stringify(sanitized));
   };
 
   const handleSavePlanTitle = (title: string) => {

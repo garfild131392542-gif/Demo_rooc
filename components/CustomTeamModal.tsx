@@ -55,6 +55,60 @@ export const DEFAULT_CUSTOM_GROUPS: CustomTeamGroup[] = [
   },
 ]
 
+export function formatPartyRange(parties: number[]): string {
+  if (!parties || parties.length === 0) return 'ไม่มีปาร์ตี้'
+  const sorted = [...parties].sort((a, b) => a - b)
+  
+  // Check if contiguous
+  const isContiguous = sorted.length > 1 && sorted.every((val, i) => i === 0 || val === sorted[i - 1] + 1)
+  if (isContiguous) {
+    return `Party ${sorted[0]} - ${sorted[sorted.length - 1]}`
+  }
+  return `Party ${sorted.join(', ')}`
+}
+
+export function sanitizeCustomGroups(groups?: any[] | null): CustomTeamGroup[] {
+  if (!groups || !Array.isArray(groups) || groups.length === 0) {
+    return JSON.parse(JSON.stringify(DEFAULT_CUSTOM_GROUPS))
+  }
+
+  const defaultTemplates = DEFAULT_CUSTOM_GROUPS
+
+  return groups.map((g, idx) => {
+    const fallbackTemplate = defaultTemplates[idx] || {
+      id: `group_${Date.now()}_${idx + 1}`,
+      name: `ทีมกลุ่มที่ ${idx + 1}`,
+      icon: '🚩',
+      colorTheme: 'blue' as TeamColorTheme,
+      partyIds: [],
+    }
+
+    const name = (g?.name && typeof g.name === 'string' && g.name.trim() !== '')
+      ? g.name.trim()
+      : fallbackTemplate.name
+
+    const icon = (g?.icon && typeof g.icon === 'string' && g.icon.trim() !== '')
+      ? g.icon.trim()
+      : fallbackTemplate.icon
+
+    const colorTheme = (g?.colorTheme && typeof g.colorTheme === 'string' && (TEAM_COLOR_MAP as any)[g.colorTheme])
+      ? g.colorTheme
+      : fallbackTemplate.colorTheme
+
+    const partyIds = Array.isArray(g?.partyIds)
+      ? [...g.partyIds].sort((a, b) => a - b)
+      : fallbackTemplate.partyIds
+
+    return {
+      id: g?.id || fallbackTemplate.id,
+      name,
+      icon,
+      colorTheme,
+      partyIds,
+    }
+  })
+}
+
 export default function CustomTeamModal({
   isOpen,
   onClose,
@@ -67,21 +121,18 @@ export default function CustomTeamModal({
 }: CustomTeamModalProps) {
   const [localTitle, setLocalTitle] = useState(planTitle)
   const [localSubtitle, setLocalSubtitle] = useState(planSubtitle)
-  const [localGroups, setLocalGroups] = useState<CustomTeamGroup[]>(customGroups)
+  const [localGroups, setLocalGroups] = useState<CustomTeamGroup[]>(() => sanitizeCustomGroups(customGroups))
   const [activeEmojiPickerIndex, setActiveEmojiPickerIndex] = useState<number | null>(null)
 
   useEffect(() => {
     if (isOpen) {
       setLocalTitle(planTitle || 'แผนจัดทีม Emperium Overrun')
       setLocalSubtitle(planSubtitle || 'แผนจัดทัพกำลังพลกิลด์ประจำกิจกรรม')
-      setLocalGroups(
-        customGroups && customGroups.length > 0
-          ? JSON.parse(JSON.stringify(customGroups))
-          : JSON.parse(JSON.stringify(DEFAULT_CUSTOM_GROUPS))
-      )
+      setLocalGroups(sanitizeCustomGroups(customGroups))
       setActiveEmojiPickerIndex(null)
     }
   }, [isOpen, planTitle, planSubtitle, customGroups])
+
 
   if (!isOpen) return null
 

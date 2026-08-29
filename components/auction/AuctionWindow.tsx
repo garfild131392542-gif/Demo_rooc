@@ -545,6 +545,42 @@ export default function AuctionWindow({
     });
   };
 
+  // 🌟 ฟังก์ชันเลือกสล็อตทั้งหมดทุกหน้า (Select All Pending Slots across all pages)
+  const handleSelectAllSlots = () => {
+    const pendingIds = (mappedSlots || [])
+      .filter(s => !s.isEmpty && s.queueId)
+      .filter(s => {
+        const confirmed = s.queueId ? confirmedSlots[s.queueId] : undefined;
+        const localReceived = confirmed?.awardedQty !== undefined
+          ? Math.max(confirmed.awardedQty, s.receivedQty ?? 0)
+          : (s.receivedQty ?? 0);
+        return localReceived < (s.requestedQty ?? 1);
+      })
+      .map(s => s.queueId!);
+
+    setStagedQueueIds(new Set(pendingIds));
+  };
+
+  // 🌟 ฟังก์ชันเลือกเฉพาะหน้านี้ (Select Current Page Pending Slots)
+  const handleSelectCurrentPageSlots = () => {
+    const pendingIds = (currentSlots || [])
+      .filter(s => !s.isEmpty && s.queueId)
+      .filter(s => {
+        const confirmed = s.queueId ? confirmedSlots[s.queueId] : undefined;
+        const localReceived = confirmed?.awardedQty !== undefined
+          ? Math.max(confirmed.awardedQty, s.receivedQty ?? 0)
+          : (s.receivedQty ?? 0);
+        return localReceived < (s.requestedQty ?? 1);
+      })
+      .map(s => s.queueId!);
+
+    setStagedQueueIds(prev => {
+      const next = new Set(prev);
+      pendingIds.forEach(id => next.add(id));
+      return next;
+    });
+  };
+
   // 🌟 กดยืนยันบันทึกผลการประมูลแบบกลุ่ม (Batch 1-Click Multi-Award)
   const handleBatchSubmit = async () => {
     if (stagedQueueIds.size === 0) return;
@@ -1108,7 +1144,46 @@ export default function AuctionWindow({
                 </div>
               </div>
 
+              {isAdmin && mappedSlots.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 mb-4 bg-slate-50/90 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+                    <span className="text-xs font-black text-slate-700 dark:text-slate-200">
+                      เลือกประมูลแบบกลุ่ม (Batch Award):
+                    </span>
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSelectCurrentPageSlots}
+                      className="px-3 py-1.5 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>📄</span>
+                      <span>เลือกหน้านี้ (Page {currentPage})</span>
+                    </button>
 
+                    <button
+                      type="button"
+                      onClick={handleSelectAllSlots}
+                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-xl text-xs font-black transition shadow-sm shadow-blue-500/25 cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>⚡</span>
+                      <span>เลือกทั้งหมดทุกหน้า ({mappedSlots.filter(s => !s.isEmpty && s.status !== 'completed').length} ช่อง)</span>
+                    </button>
+
+                    {stagedQueueIds.size > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setStagedQueueIds(new Set())}
+                        className="px-3 py-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition cursor-pointer"
+                      >
+                        ยกเลิกที่เลือก ({stagedQueueIds.size})
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="flex-1 flex flex-col gap-4 content-start overflow-y-auto pr-2">
                 {currentSlots.map((slot, index) => {

@@ -15,13 +15,16 @@ import {
 import { updateProfileParty, swapPartyMembers } from "@/app/actions/dashboard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import dynamic from "next/dynamic";
 import PartyBlock, { TEAM_COLOR_MAP } from "./PartyBlock";
 import WaitlistBlock from "./WaitlistBlock";
 import LeaveListBlock from "./LeaveListBlock";
 import MemberCard, { MemberCardOverlay } from "./MemberCard";
-import ExportModal from "./ExportModal";
-import CustomTeamModal, { DEFAULT_CUSTOM_GROUPS, sanitizeCustomGroups } from "./CustomTeamModal";
+import { DEFAULT_CUSTOM_GROUPS, sanitizeCustomGroups } from "./CustomTeamModal";
 import { CustomTeamGroup } from "@/types/database";
+
+const ExportModal = dynamic(() => import("./ExportModal"), { ssr: false });
+const CustomTeamModal = dynamic(() => import("./CustomTeamModal"), { ssr: false });
 
 export type Profile = {
   id: string;
@@ -852,16 +855,18 @@ export default function Dashboard({
       )}
 
       {/* Custom Team Modal */}
-      <CustomTeamModal
-        isOpen={showCustomTeamModal}
-        onClose={() => setShowCustomTeamModal(false)}
-        customGroups={customGroups}
-        onSaveGroups={handleSaveCustomGroups}
-        planTitle={planTitle}
-        onSavePlanTitle={handleSavePlanTitle}
-        planSubtitle={planSubtitle}
-        onSavePlanSubtitle={handleSavePlanSubtitle}
-      />
+      {showCustomTeamModal && (
+        <CustomTeamModal
+          isOpen={showCustomTeamModal}
+          onClose={() => setShowCustomTeamModal(false)}
+          customGroups={customGroups}
+          onSaveGroups={handleSaveCustomGroups}
+          planTitle={planTitle}
+          onSavePlanTitle={handleSavePlanTitle}
+          planSubtitle={planSubtitle}
+          onSavePlanSubtitle={handleSavePlanSubtitle}
+        />
+      )}
 
       {/* Export Modal */}
       {showExportModal && (

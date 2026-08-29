@@ -48,17 +48,19 @@ import {
   syncMemberAuctionQueue,
   clearQueueByItemType,
 } from "@/app/actions/auction";
+import dynamic from "next/dynamic";
 import QueueSummaryTable from "./QueueSummaryTable";
 import AdminProxyBooking from "./AdminProxyBooking";
 import RoundStatusHeader from "./rounds/RoundStatusHeader";
 import RoundMemberTabs from "./rounds/RoundMemberTabs";
-import AdminTransferModal from "./rounds/AdminTransferModal";
-import AdminRoundSettingsModal from "./rounds/AdminRoundSettingsModal";
-import AdminSwapModal from "./rounds/AdminSwapModal";
-import AdminReorderModal from "./rounds/AdminReorderModal";
 import { getRoundMembersList, getRoundAuditLogs } from "@/app/actions/auction-rounds";
 import { captureAndDownload } from "@/lib/export-image";
 import { Pencil, Trash2, Clock, CheckCircle2, ShieldAlert, Sparkles, AlertCircle, Search, ChevronLeft, ChevronRight } from "lucide-react";
+
+const AdminTransferModal = dynamic(() => import("./rounds/AdminTransferModal"), { ssr: false });
+const AdminRoundSettingsModal = dynamic(() => import("./rounds/AdminRoundSettingsModal"), { ssr: false });
+const AdminSwapModal = dynamic(() => import("./rounds/AdminSwapModal"), { ssr: false });
+const AdminReorderModal = dynamic(() => import("./rounds/AdminReorderModal"), { ssr: false });
 
 type AuctionWindowProps = {
   isAdmin: boolean;
@@ -2158,55 +2160,63 @@ export default function AuctionWindow({
 
       {renderEditModal()}
 
-      {/* 🏆 Round Modals */}
-      <AdminTransferModal
-        isOpen={isTransferModalOpen}
-        onClose={() => setIsTransferModalOpen(false)}
-        onSuccess={async () => {
-          await handleFullRoundRefresh(true);
-        }}
-        onOptimisticTransfer={handleOptimisticTransfer}
-        activeItem={activeRoundItem}
-        guildMembers={guildMembers}
-        preselectedFromMember={selectedMemberForAction}
-        currentRoundNumber={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)?.round_number || 1}
-      />
+      {/* 🏆 Round Modals (Lazy Mounted) */}
+      {isTransferModalOpen && (
+        <AdminTransferModal
+          isOpen={isTransferModalOpen}
+          onClose={() => setIsTransferModalOpen(false)}
+          onSuccess={async () => {
+            await handleFullRoundRefresh(true);
+          }}
+          onOptimisticTransfer={handleOptimisticTransfer}
+          activeItem={activeRoundItem}
+          guildMembers={guildMembers}
+          preselectedFromMember={selectedMemberForAction}
+          currentRoundNumber={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)?.round_number || 1}
+        />
+      )}
 
-      <AdminRoundSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        onSuccess={async () => {
-          await handleFullRoundRefresh(false);
-        }}
-        activeItem={activeRoundItem}
-        activeRound={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)}
-        activeRounds={roundsOverview?.activeRounds || []}
-        mode={settingsMode}
-      />
+      {isSettingsModalOpen && (
+        <AdminRoundSettingsModal
+          isOpen={isSettingsModalOpen}
+          onClose={() => setIsSettingsModalOpen(false)}
+          onSuccess={async () => {
+            await handleFullRoundRefresh(false);
+          }}
+          activeItem={activeRoundItem}
+          activeRound={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)}
+          activeRounds={roundsOverview?.activeRounds || []}
+          mode={settingsMode}
+        />
+      )}
 
-      <AdminSwapModal
-        isOpen={isSwapModalOpen}
-        onClose={() => setIsSwapModalOpen(false)}
-        onSuccess={async () => {
-          await handleFullRoundRefresh(true);
-        }}
-        onOptimisticSwap={handleOptimisticSwap}
-        targetMember={selectedMemberForAction}
-        pendingMembers={roundMembers.filter(m => m.status !== 'completed')}
-      />
+      {isSwapModalOpen && (
+        <AdminSwapModal
+          isOpen={isSwapModalOpen}
+          onClose={() => setIsSwapModalOpen(false)}
+          onSuccess={async () => {
+            await handleFullRoundRefresh(true);
+          }}
+          onOptimisticSwap={handleOptimisticSwap}
+          targetMember={selectedMemberForAction}
+          pendingMembers={roundMembers.filter(m => m.status !== 'completed')}
+        />
+      )}
 
-      <AdminReorderModal
-        isOpen={isReorderModalOpen}
-        onClose={() => setIsReorderModalOpen(false)}
-        onSuccess={async () => {
-          await handleFullRoundRefresh(true);
-        }}
-        onOptimisticReorder={handleOptimisticReorder}
-        roundId={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)?.id}
-        itemName={activeRoundItem}
-        roundNumber={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)?.round_number || 1}
-        members={roundMembers}
-      />
+      {isReorderModalOpen && (
+        <AdminReorderModal
+          isOpen={isReorderModalOpen}
+          onClose={() => setIsReorderModalOpen(false)}
+          onSuccess={async () => {
+            await handleFullRoundRefresh(true);
+          }}
+          onOptimisticReorder={handleOptimisticReorder}
+          roundId={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)?.id}
+          itemName={activeRoundItem}
+          roundNumber={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)?.round_number || 1}
+          members={roundMembers}
+        />
+      )}
     </div>
   );
 }

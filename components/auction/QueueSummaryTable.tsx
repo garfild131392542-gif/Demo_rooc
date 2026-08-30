@@ -68,7 +68,7 @@ export default function QueueSummaryTable({ itemName, mappedSlots }: QueueSummar
             } else {
                 currentGroup = {
                     isUser: false,
-                    displayName: '--- ว่าง (ไม่มีผู้ประมูล) ---',
+                    displayName: '---ว่าง----',
                     itemName: slot.type || itemName,
                     date: '-',
                     slots: [slot],
@@ -120,11 +120,11 @@ export default function QueueSummaryTable({ itemName, mappedSlots }: QueueSummar
                 return {
                     isUser: false,
                     date: '-',
-                    displayName: '--- ว่าง (ไม่มีผู้ประมูล) ---',
+                    displayName: '---ว่าง----',
                     itemName: g.itemName,
                     allocatedQty: g.slots.length,
                     slotText,
-                    statusText: 'ว่าง (ไม่มีผู้ประมูล)',
+                    statusText: 'ว่าง',
                     statusColor: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                 };
             }

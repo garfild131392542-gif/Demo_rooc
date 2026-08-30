@@ -47,15 +47,42 @@ export default function RoundMemberTabs({
 
   const itemInfo = ITEM_CONFIG[activeItem]
 
+  // คำนวณหา base quota มาตรฐานของรอบ
+  const standardBaseQuota = (() => {
+    if (!members || members.length === 0) return 1
+    const minQuota = Math.min(...members.map(m => Number(m.base_quota) || 1))
+    return minQuota || 1
+  })()
+
   // Filter members
   const completedMembers = members.filter(m => {
     const target = m.base_quota + m.transferred_in_quota - m.transferred_out_quota
     return m.status === 'completed' || (m.received_qty >= target && target > 0)
   })
 
+  // 🌟 จัดเรียงคิวของคนที่กำลังรอรับ (Fairness Queue Progression):
+  // 1. สมาชิกที่ยังมียอดค้างจากรอบเก่าที่ยังไม่ได้ (deficitRemaining > 0) -> ได้รับสิทธิ์ก่อนเสมอ (#1 - #13)
+  // 2. สมาชิกทั่วไปในรอบใหม่ (deficit = 0 และยังไม่ได้รับของ)
+  // 3. สมาชิกที่เคลียร์ยอดค้างรอบเก่าครบแล้ว (เช่น ได้ 1/2 หรือ 5/10) -> ไปต่อคิวของรอบใหม่
   const pendingMembers = members.filter(m => {
     const target = m.base_quota + m.transferred_in_quota - m.transferred_out_quota
     return m.status !== 'completed' && !(m.received_qty >= target && target > 0)
+  }).sort((a, b) => {
+    const deficitA = Math.max(0, (Number(a.base_quota) || standardBaseQuota) - standardBaseQuota)
+    const deficitB = Math.max(0, (Number(b.base_quota) || standardBaseQuota) - standardBaseQuota)
+
+    const deficitRemainingA = Math.max(0, deficitA - (Number(a.received_qty) || 0))
+    const deficitRemainingB = Math.max(0, deficitB - (Number(b.received_qty) || 0))
+
+    const isTier1A = deficitRemainingA > 0
+    const isTier1B = deficitRemainingB > 0
+    if (isTier1A !== isTier1B) return isTier1A ? -1 : 1
+
+    const isRolloverFulfilledA = deficitA > 0 && deficitRemainingA === 0
+    const isRolloverFulfilledB = deficitB > 0 && deficitRemainingB === 0
+    if (isRolloverFulfilledA !== isRolloverFulfilledB) return isRolloverFulfilledA ? 1 : -1
+
+    return (a.queue_order || 0) - (b.queue_order || 0)
   })
 
   // 🌟 Selectable members for Direct Award (Excludes anyone who is completed!)
@@ -273,6 +300,9 @@ export default function RoundMemberTabs({
                 const isSkipped = member.status === 'skipped'
                 const isTransferred = member.status === 'transferred' || target <= 0
                 const remaining = Math.max(0, target - member.received_qty)
+                const deficit = Math.max(0, (Number(member.base_quota) || standardBaseQuota) - standardBaseQuota)
+                const deficitRemaining = Math.max(0, deficit - (Number(member.received_qty) || 0))
+                const isRolloverFulfilled = deficit > 0 && deficitRemaining === 0
 
                 return (
                   <div
@@ -288,6 +318,16 @@ export default function RoundMemberTabs({
                           <span className="truncate">{profile.display_name || 'ไม่ระบุชื่อ'}</span>
                           {profile.role === 'admin' && (
                             <ShieldCheck size={12} className="text-blue-500 shrink-0" />
+                          )}
+                          {deficitRemaining > 0 && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center gap-0.5 shrink-0 shadow-2xs">
+                              ⚡ สิทธิ์ค้าง (เหลือ {deficitRemaining} ชิ้น)
+                            </span>
+                          )}
+                          {isRolloverFulfilled && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-0.5 shrink-0 shadow-2xs">
+                              ⏳ ต่อคิวรอบใหม่
+                            </span>
                           )}
                         </div>
                       </div>

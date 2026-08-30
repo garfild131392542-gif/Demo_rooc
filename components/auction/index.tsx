@@ -200,9 +200,30 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
           }
         })
 
-        const sortedMembers = [...roundMembers].sort((a: any, b: any) => (a.queue_order || 0) - (b.queue_order || 0))
+        const standardBaseQuota = (() => {
+          if (!roundMembers || roundMembers.length === 0) return activeRound?.base_quota_per_member || 1
+          const minQuota = Math.min(...roundMembers.map((m: any) => Number(m.base_quota) || 1))
+          return minQuota || activeRound?.base_quota_per_member || 1
+        })()
 
-        sortedMembers.forEach((member: any) => {
+        // 🌟 สร้างรายการสล็อตแยกตาม Phase ความสำคัญ:
+        // Phase 1: สล็อตสำหรับเคลียร์ยอดค้างรอบเก่า (Deficit) -> ได้รับสิทธิ์ก่อนเสมอ
+        // Phase 2: สล็อตสำหรับโควตารอบใหม่ (New Round Quota) -> เรียงตามลำดับคิวของรอบใหม่
+        type SlotCandidate = {
+          member: any;
+          profile: any;
+          slotIndex: number;
+          totalSlotsForUser: number;
+          targetQuota: number;
+          totalReceivedSoFar: number;
+          isSlotCompleted: boolean;
+          phase: number;
+          queueOrder: number;
+        }
+
+        const slotCandidates: SlotCandidate[] = []
+
+        roundMembers.forEach((member: any) => {
           const profile = member.profiles || {}
           const targetQuota = (member.base_quota || 0) + (member.transferred_in_quota || 0) - (member.transferred_out_quota || 0)
           const totalReceivedSoFar = member.received_qty || 0
@@ -214,48 +235,75 @@ export default function AuctionBoard({ data: initialData, onRefresh }: { data: a
           // โควตาที่ยังคงเหลือสำหรับวันนี้และอนาคต
           const remainingForTodayAndFuture = Math.max(0, targetQuota - receivedBeforeToday)
 
-          // 🛑 ถ้าสมาชิกคนนี้ได้ครบตามโควตาไปแล้วในวันก่อนหน้า (remaining <= 0) ให้ข้ามไป ไม่ต้องสร้างสล็อตในวันนี้
+          // 🛑 ถ้าได้ครบตามโควตาไปแล้วในวันก่อนหน้า ให้ข้ามไป
           if (remainingForTodayAndFuture <= 0) {
             return
           }
 
-          // สมาชิกคนนี้จะได้จัดสล็อตในวันนี้กี่ช่อง (ไม่เกินโควตาที่เหลือ และไม่เกิน personalLimit ของวันนี้)
+          // สมาชิกคนนี้จะได้จัดสล็อตในวันนี้กี่ช่อง
           const slotsForUser = Math.min(remainingForTodayAndFuture, personalLimit || 2)
+          const deficit = Math.max(0, (Number(member.base_quota) || standardBaseQuota) - standardBaseQuota)
 
           for (let s = 1; s <= slotsForUser; s++) {
-            const isWaitlisted = allocatedSlotCount >= totalQuantity
-            const uniqueSlotQueueId = `round_${member.id}_${s}`
-            // ช่องนี้ได้รับการประมูลไปแล้วในวันนี้หรือไม่ (ถ้า s <= receivedToday แปลว่ากดประมูลสำเร็จไปแล้วในวันนี้)
+            const itemIndexOverall = receivedBeforeToday + s
+            // ถ้า itemIndexOverall <= deficit แปลว่าสล็อตนี้คือการเคลียร์ยอดค้างจากรอบเก่า (Phase 1)
+            // ถ้าเกิน deficit แปลว่าสล็อตนี้คือโควตาของรอบใหม่ (Phase 2)
+            const phase = itemIndexOverall <= deficit ? 1 : 2
             const isSlotCompleted = s <= receivedToday
 
-            slots.push({
-              id: `round-slot-${member.id}-${s}`,
-              type,
-              ...itemConfig,
-              assignedTo: profile.display_name || `ตัวที่ ${member.queue_order}`,
-              uid: profile.uid_game || '',
-              userId: member.user_id,
-              queueId: uniqueSlotQueueId,
-              roundMemberId: member.id,
-              requestedQty: 1,
-              receivedQty: isSlotCompleted ? 1 : 0,
-              remainingQty: isSlotCompleted ? 0 : 1,
-              accumulatedQuota: targetQuota,
-              accumulatedReceived: totalReceivedSoFar,
-              status: isSlotCompleted ? 'completed' : 'waiting',
-              isEmpty: false,
-              isMe: profile.uid_game === myProfile?.uid_game || member.user_id === myProfile?.id,
+            slotCandidates.push({
+              member,
+              profile,
               slotIndex: s,
-              bookingSessionSize: slotsForUser,
-              queueTimestamp: `round-${activeRound.round_number}`,
-              isFirstInSession: s === 1,
-              isWaitlist: isWaitlisted,
-              roundNumber: activeRound.round_number,
-              queueOrder: member.queue_order,
+              totalSlotsForUser: slotsForUser,
+              targetQuota,
+              totalReceivedSoFar,
+              isSlotCompleted,
+              phase,
+              queueOrder: member.queue_order || 9999,
             })
-
-            allocatedSlotCount++
           }
+        })
+
+        // จัดเรียงสล็อต: Phase 1 (เคลียร์ยอดค้างรอบเก่า) ขึ้นก่อน -> ตามด้วย Phase 2 (โควตารอบใหม่)
+        slotCandidates.sort((a, b) => {
+          if (a.phase !== b.phase) {
+            return a.phase - b.phase
+          }
+          return a.queueOrder - b.queueOrder
+        })
+
+        slotCandidates.forEach((cand) => {
+          const isWaitlisted = allocatedSlotCount >= totalQuantity
+          const uniqueSlotQueueId = `round_${cand.member.id}_${cand.slotIndex}`
+
+          slots.push({
+            id: `round-slot-${cand.member.id}-${cand.slotIndex}`,
+            type,
+            ...itemConfig,
+            assignedTo: cand.profile.display_name || `ตัวที่ ${cand.queueOrder}`,
+            uid: cand.profile.uid_game || '',
+            userId: cand.member.user_id,
+            queueId: uniqueSlotQueueId,
+            roundMemberId: cand.member.id,
+            requestedQty: 1,
+            receivedQty: cand.isSlotCompleted ? 1 : 0,
+            remainingQty: cand.isSlotCompleted ? 0 : 1,
+            accumulatedQuota: cand.targetQuota,
+            accumulatedReceived: cand.totalReceivedSoFar,
+            status: cand.isSlotCompleted ? 'completed' : 'waiting',
+            isEmpty: false,
+            isMe: cand.profile.uid_game === myProfile?.uid_game || cand.member.user_id === myProfile?.id,
+            slotIndex: cand.slotIndex,
+            bookingSessionSize: cand.totalSlotsForUser,
+            queueTimestamp: `round-${activeRound.round_number}`,
+            isFirstInSession: cand.slotIndex === 1,
+            isWaitlist: isWaitlisted,
+            roundNumber: activeRound.round_number,
+            queueOrder: cand.queueOrder,
+          })
+
+          allocatedSlotCount++
         })
 
         // Add empty slots

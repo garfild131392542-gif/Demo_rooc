@@ -172,9 +172,35 @@ export default function AdminReorderModal({
     return profile.slot_index ?? null
   }
 
+  // คำนวณหา base quota มาตรฐานของรอบ (โควตาฐานปกติ เช่น 1)
+  const standardBaseQuota = useMemo(() => {
+    if (!items || items.length === 0) return 1
+    const minQuota = Math.min(...items.map(m => Number(m.base_quota) || 1))
+    return minQuota
+  }, [items])
+
+  // ตรวจสอบว่าสมาชิกคนนี้เป็นผู้ได้รับสิทธิ์ทบยอดจากรอบก่อนหน้าหรือไม่ (Priority Rollover Member)
+  const isPriorityMember = (member: any): boolean => {
+    if (!member) return false
+    return (Number(member.base_quota) || 1) > standardBaseQuota
+  }
+
+  // Helper สำหรับจัดเรียงโดยล็อกสิทธิ์ทบยอด (Priority Members) ให้อยู่ด้านบนสุดเสมอ
+  const sortWithPriorityPinned = (comparator: (a: any, b: any) => number) => {
+    const priorityMembers = items
+      .filter(m => isPriorityMember(m))
+      .sort((a, b) => (a.queue_order || 0) - (b.queue_order || 0))
+
+    const regularMembers = items
+      .filter(m => !isPriorityMember(m))
+      .sort(comparator)
+
+    return [...priorityMembers, ...regularMembers]
+  }
+
   // --- Sort Helper Presets ---
   const handleSortByPartyGeneral = () => {
-    const sorted = [...items].sort((a, b) => {
+    const sorted = sortWithPriorityPinned((a, b) => {
       const profA = getProfile(a)
       const profB = getProfile(b)
       const pA = profA.party_id ?? 9999
@@ -195,7 +221,7 @@ export default function AdminReorderModal({
   }
 
   const handleSortByGuildLeague = () => {
-    const sorted = [...items].sort((a, b) => {
+    const sorted = sortWithPriorityPinned((a, b) => {
       const profA = getProfile(a)
       const profB = getProfile(b)
       const pA = profA.party_id_guild_league ?? 9999
@@ -216,7 +242,7 @@ export default function AdminReorderModal({
   }
 
   const handleSortByEmperium = () => {
-    const sorted = [...items].sort((a, b) => {
+    const sorted = sortWithPriorityPinned((a, b) => {
       const profA = getProfile(a)
       const profB = getProfile(b)
       const pA = profA.party_id_emperium_overrun ?? 9999
@@ -237,7 +263,7 @@ export default function AdminReorderModal({
   }
 
   const handleSortAlphabetical = () => {
-    const sorted = [...items].sort((a, b) => {
+    const sorted = sortWithPriorityPinned((a, b) => {
       const profA = getProfile(a)
       const profB = getProfile(b)
       const nameA = profA.display_name || ''
@@ -555,8 +581,13 @@ export default function AdminReorderModal({
                       </div>
                     </div>
 
-                    {/* Party Tag */}
-                    <div className="shrink-0 flex items-center gap-1">
+                    {/* Party & Priority Tags */}
+                    <div className="shrink-0 flex items-center gap-1.5 flex-wrap justify-end">
+                      {isPriorityMember(member) && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center gap-1 shrink-0 shadow-2xs">
+                          ⚡ สิทธิ์ทบยอด ({member.base_quota} ชิ้น)
+                        </span>
+                      )}
                       {partyColor ? (
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${partyColor.bg} ${partyColor.text} ${partyColor.border}`}>
                           <Users size={10} /> ปาร์ตี้ {partyId} {slotIdx !== null && slotIdx !== undefined ? `(Slot ${slotIdx + 1})` : ''}

@@ -65,10 +65,22 @@ export async function getGuildRoundsOverview(selectedItem?: ItemType) {
     if (roundsRes.error) throw roundsRes.error
     if (myQuotaRes.error) console.error('Error fetching myQuotas:', myQuotaRes.error)
 
+    // คำนวณยอดผู้ได้รับสำเร็จ (completed) และสมาชิกทั้งหมดแบบ Live จริงจาก auction_round_members ป้องกันตัวเลขค้าง
+    const activeRoundsWithLiveCounts = (roundsRes.data || []).map((round: any) => {
+      const membersForRound = (roundMembersRes.data || []).filter((m: any) => m.round_id === round.id)
+      const liveCompletedCount = membersForRound.filter((m: any) => m.status === 'completed').length
+      const liveTotalEligible = membersForRound.length > 0 ? membersForRound.length : (round.total_eligible_members || 0)
+      return {
+        ...round,
+        completed_members_count: liveCompletedCount,
+        total_eligible_members: liveTotalEligible,
+      }
+    })
+
     return {
       success: true,
       isAdmin,
-      activeRounds: roundsRes.data || [],
+      activeRounds: activeRoundsWithLiveCounts,
       myQuotas: myQuotaRes.data || [],
       guildMembers: profilesRes.data || [],
       activeRoundMembers: roundMembersRes.data || [],
@@ -1455,9 +1467,20 @@ export async function rollbackOrDeleteCurrentRound(itemName: ItemType) {
         .maybeSingle()
 
       if (prevRound) {
+        const { count: prevCompletedCount } = await supabase
+          .from('auction_round_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('round_id', prevRound.id)
+          .eq('status', 'completed')
+
         await supabase
           .from('auction_rounds')
-          .update({ status: 'active', updated_at: new Date().toISOString() })
+          .update({ 
+            status: 'active', 
+            completed_members_count: prevCompletedCount || 0,
+            completed_at: null,
+            updated_at: new Date().toISOString() 
+          })
           .eq('id', prevRound.id)
       }
     }

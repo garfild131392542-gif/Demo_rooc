@@ -155,6 +155,13 @@ export default function AdminReorderModal({
     return set
   }, [items, searchQuery])
 
+  // คำนวณหา base quota มาตรฐานของรอบ (โควตาฐานปกติ เช่น 1)
+  const standardBaseQuota = useMemo(() => {
+    if (!items || items.length === 0) return 1
+    const quotas = items.map(m => Number(m.base_quota) || 1)
+    return quotas.length > 0 ? Math.min(...quotas) : 1
+  }, [items])
+
   if (!isOpen || !mounted) return null
 
   const itemInfo = (itemName && ITEM_CONFIG[itemName]) ? ITEM_CONFIG[itemName] : { label: 'ไอเทม', color: 'from-blue-500 to-indigo-600' }
@@ -171,13 +178,6 @@ export default function AdminReorderModal({
     if (partySource === 'emperium_overrun') return profile.slot_index_emperium_overrun ?? null
     return profile.slot_index ?? null
   }
-
-  // คำนวณหา base quota มาตรฐานของรอบ (โควตาฐานปกติ เช่น 1)
-  const standardBaseQuota = useMemo(() => {
-    if (!items || items.length === 0) return 1
-    const minQuota = Math.min(...items.map(m => Number(m.base_quota) || 1))
-    return minQuota
-  }, [items])
 
   // ตรวจสอบว่าสมาชิกคนนี้เป็นผู้ได้รับสิทธิ์ทบยอดจากรอบก่อนหน้าหรือไม่ (Priority Rollover Member)
   const isPriorityMember = (member: any): boolean => {

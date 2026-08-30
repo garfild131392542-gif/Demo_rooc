@@ -8,7 +8,6 @@ import {
   Clock, 
   User, 
   ListOrdered, 
-  History as HistoryIcon,
   Search
 } from "lucide-react";
 
@@ -72,11 +71,9 @@ export default function HistoryClient({
   currentUserDisplayName = 'คุณ' 
 }: HistoryClientProps) {
   const [mounted, setMounted] = useState(false);
-  const [mainTab, setMainTab] = useState<"my_queues" | "guild_board" | "all_history">("my_queues");
+  const [mainTab, setMainTab] = useState<"guild_board" | "my_queues">("guild_board");
   const [boardItemTab, setBoardItemTab] = useState<ItemKey>("Album");
   const [searchTerm, setSearchTerm] = useState("");
-  const [historyStatusFilter, setHistoryStatusFilter] = useState<"waiting" | "completed" | "canceled">("waiting");
-  const [historyItemFilter, setHistoryItemFilter] = useState<"all" | ItemKey>("all");
 
   useEffect(() => {
     setMounted(true);
@@ -271,28 +268,14 @@ export default function HistoryClient({
     order: index + 1,
   }));
 
-  // 4. กรองประวัติทั้งหมดตาม Search, Item Filter & Status
-  const filteredHistory = initialQueues
-    .filter((q) => {
-      if (historyItemFilter !== "all" && normalizeItemKey(q.item_name) !== historyItemFilter) {
-        return false;
-      }
+  // กรองตามการค้นหาชื่อสมาชิก
+  const filteredWaitingMembers = waitingMembers.filter((m) =>
+    !searchTerm.trim() || m.display_name.toLowerCase().includes(searchTerm.toLowerCase().trim())
+  );
 
-      const displayNameOfItem = getItemDisplayName(q.item_name);
-      const matchesSearch =
-        q.item_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        displayNameOfItem.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        q.display_name.toLowerCase().includes(searchTerm.toLowerCase());
-
-      if (!matchesSearch) return false;
-      if (historyStatusFilter === "waiting") {
-        return q.calculated_status === "waiting" || q.calculated_status === "waitlist" || q.calculated_status === "partial";
-      }
-      if (historyStatusFilter === "completed") return q.calculated_status === "completed";
-      if (historyStatusFilter === "canceled") return q.calculated_status === "canceled";
-      return false;
-    })
-    .sort((a, b) => (new Date(b.queue_timestamp || 0).getTime() - new Date(a.queue_timestamp || 0).getTime()));
+  const filteredCompletedMembers = completedMembers.filter((m) =>
+    !searchTerm.trim() || m.display_name.toLowerCase().includes(searchTerm.toLowerCase().trim())
+  );
 
   return (
     <div className="max-w-6xl w-full mx-auto space-y-4 flex flex-col flex-1 min-h-0" suppressHydrationWarning>
@@ -345,54 +328,191 @@ export default function HistoryClient({
         ))}
       </div>
 
-      {/* 🌟 2. แถบสลับมุมมองหลัก (Main Tab Navigation) */}
+      {/* 🌟 2. แถบสลับมุมมองหลัก (Main Tab Navigation - 2 Tabs Only) */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm flex-1 flex flex-col min-h-0 space-y-4">
         {/* Main Tab Buttons */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-3">
-          <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl w-full sm:w-fit">
-            <button
-              type="button"
-              onClick={() => setMainTab("my_queues")}
-              className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                mainTab === "my_queues"
-                  ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-              }`}
-            >
-              <User size={14} />
-              <span>คิวของฉัน ({myQueueList.length})</span>
-            </button>
-
+          <div className="flex gap-1.5 p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setMainTab("guild_board")}
-              className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
                 mainTab === "guild_board"
                   ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
               }`}
             >
-              <ListOrdered size={14} />
+              <ListOrdered size={15} />
               <span>กระดานคิวกิลด์</span>
             </button>
 
             <button
               type="button"
-              onClick={() => setMainTab("all_history")}
-              className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                mainTab === "all_history"
+              onClick={() => setMainTab("my_queues")}
+              className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                mainTab === "my_queues"
                   ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
               }`}
             >
-              <HistoryIcon size={14} />
-              <span>ประวัติทั้งหมด ({initialQueues.length})</span>
+              <User size={15} />
+              <span>คิวของฉัน ({myQueueList.length})</span>
             </button>
           </div>
         </div>
 
         {/* ========================================================================= */}
-        {/* VIEW 1: คิวของฉัน (My Queues) */}
+        {/* VIEW 1: กระดานคิวกิลด์ (Guild Queue Board) -> 2 COLUMNS SIDE-BY-SIDE */}
+        {/* ========================================================================= */}
+        {mainTab === "guild_board" && (
+          <div className="flex-1 flex flex-col min-h-0 space-y-3">
+            {/* Item Filter Tabs + Search Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              {/* Item Selector Tabs (4 items) */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                {ITEM_KEYS.map((k) => (
+                  <button
+                    key={`board-tab-${k}`}
+                    type="button"
+                    onClick={() => setBoardItemTab(k)}
+                    className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 sm:gap-2 shrink-0 ${
+                      boardItemTab === k
+                        ? "bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/20"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 relative shrink-0">
+                      <Image src={ITEM_CONFIG[k].icon} alt={ITEM_CONFIG[k].label} fill className="object-contain" sizes="20px" />
+                    </div>
+                    <span>{ITEM_CONFIG[k].label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative w-full sm:w-64 shrink-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="ค้นหาชื่อสมาชิก..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-8.5 pr-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:border-blue-500 text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            {/* 🌟 2-Column Grid (Left: Waiting List, Right: Completed List) */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 flex-1 overflow-y-auto pr-0.5 sm:pr-1 min-h-0">
+              
+              {/* Column 1: ลำดับคิวที่กำลังรอรับ (Left Column) */}
+              <div className="space-y-2 flex flex-col min-h-0">
+                <div className="flex items-center justify-between px-2 py-2 bg-blue-50/80 dark:bg-blue-950/40 rounded-xl border border-blue-100 dark:border-blue-900/40">
+                  <span className="text-[11px] sm:text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5 truncate">
+                    <Clock size={14} className="text-blue-500 shrink-0" />
+                    <span>ลำดับรอคิว ({filteredWaitingMembers.length} คน)</span>
+                  </span>
+                </div>
+
+                {filteredWaitingMembers.length === 0 ? (
+                  <div className="text-center py-8 bg-slate-50 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800 rounded-2xl text-slate-400 text-xs">
+                    {searchTerm ? "ไม่พบสมาชิกที่ค้นหา" : "ไม่มีสมาชิกรอคิวสำหรับไอเทมนี้"}
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 overflow-y-auto flex-1 pr-0.5">
+                    {filteredWaitingMembers.map((member) => (
+                      <div
+                        key={`waiting-${member.user_id}`}
+                        className={`p-2 sm:p-2.5 rounded-xl border transition flex items-center justify-between gap-1.5 sm:gap-2 text-[11px] sm:text-xs ${
+                          member.isMe
+                            ? "bg-blue-50/90 dark:bg-blue-950/50 border-blue-300 dark:border-blue-800 shadow-xs"
+                            : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+                          <span className={`text-[9px] sm:text-[10px] font-bold font-mono px-1.5 py-0.5 rounded shrink-0 ${
+                            member.isMe
+                              ? "bg-blue-600 text-white"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                          }`}>
+                            #{member.order}
+                          </span>
+                          <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                            {member.display_name}
+                            {member.isMe && (
+                              <span className="text-blue-600 dark:text-blue-400 font-bold ml-1">
+                                (คุณ)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="font-bold text-blue-600 dark:text-blue-400 font-mono text-[11px] sm:text-xs">
+                            จอง {member.requested_qty} ชิ้น
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Column 2: ผู้ที่ได้รับสำเร็จแล้ว (Right Column) */}
+              <div className="space-y-2 flex flex-col min-h-0">
+                <div className="flex items-center justify-between px-2 py-2 bg-green-50/80 dark:bg-green-950/40 rounded-xl border border-green-100 dark:border-green-900/40">
+                  <span className="text-[11px] sm:text-xs font-bold text-green-700 dark:text-green-300 flex items-center gap-1.5 truncate">
+                    <CheckCircle2 size={14} className="text-green-500 shrink-0" />
+                    <span>ได้รับสำเร็จแล้ว ({filteredCompletedMembers.length} คน)</span>
+                  </span>
+                </div>
+
+                {filteredCompletedMembers.length === 0 ? (
+                  <div className="text-center py-8 bg-slate-50 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800 rounded-2xl text-slate-400 text-xs">
+                    {searchTerm ? "ไม่พบสมาชิกที่ค้นหา" : "ยังไม่มีสมาชิกได้รับไอเทมนี้"}
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 overflow-y-auto flex-1 pr-0.5">
+                    {filteredCompletedMembers.map((member) => (
+                      <div
+                        key={`completed-${member.user_id}`}
+                        className={`p-2 sm:p-2.5 rounded-xl border transition flex items-center justify-between gap-1.5 sm:gap-2 text-[11px] sm:text-xs ${
+                          member.isMe
+                            ? "bg-green-50/90 dark:bg-green-950/50 border-green-300 dark:border-green-800 shadow-xs"
+                            : "bg-green-50/20 dark:bg-green-950/10 border-green-200/60 dark:border-green-900/30"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+                          <span className="text-[9px] sm:text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 shrink-0">
+                            ✓
+                          </span>
+                          <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                            {member.display_name}
+                            {member.isMe && (
+                              <span className="text-green-600 dark:text-green-400 font-bold ml-1">
+                                (คุณ)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="font-bold text-green-600 dark:text-green-400 font-mono text-[11px] sm:text-xs">
+                            ได้รับ {member.received_qty} ชิ้น
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* VIEW 2: คิวของฉัน (My Queues) */}
         {/* ========================================================================= */}
         {mainTab === "my_queues" && (
           <div className="flex-1 overflow-y-auto space-y-3 pr-1">
@@ -457,256 +577,6 @@ export default function HistoryClient({
           </div>
         )}
 
-        {/* ========================================================================= */}
-        {/* VIEW 2: กระดานคิวกิลด์ (Guild Queue Board) */}
-        {/* ========================================================================= */}
-        {mainTab === "guild_board" && (
-          <div className="flex-1 flex flex-col min-h-0 space-y-3">
-            {/* Item Filter Tabs (4 Items Only) */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-              {ITEM_KEYS.map((k) => (
-                <button
-                  key={`board-tab-${k}`}
-                  type="button"
-                  onClick={() => setBoardItemTab(k)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2 shrink-0 ${
-                    boardItemTab === k
-                      ? "bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/20"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                  }`}
-                >
-                  <div className="w-5 h-5 relative shrink-0">
-                    <Image src={ITEM_CONFIG[k].icon} alt={ITEM_CONFIG[k].label} fill className="object-contain" sizes="20px" />
-                  </div>
-                  <span>{ITEM_CONFIG[k].label}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 overflow-y-auto pr-1 min-h-0">
-              {/* Column 1: สมาชิกที่กำลังรอรับคิว (Waiting Queue List - Summed per Member) */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <Clock size={14} className="text-blue-500" />
-                    <span>ลำดับคิวที่กำลังรอรับ ({waitingMembers.length} คน)</span>
-                  </span>
-                </div>
-
-                {waitingMembers.length === 0 ? (
-                  <div className="text-center py-10 bg-slate-50 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800 rounded-2xl text-slate-400 text-xs">
-                    ไม่มีสมาชิกรอคิวสำหรับไอเทมนี้ในขณะนี้
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {waitingMembers.map((member) => (
-                      <div
-                        key={`waiting-${member.user_id}`}
-                        className={`p-2.5 rounded-xl border transition flex items-center justify-between gap-2 text-xs ${
-                          member.isMe
-                            ? "bg-blue-50/80 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800 shadow-xs"
-                            : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded shrink-0 ${
-                            member.isMe
-                              ? "bg-blue-600 text-white"
-                              : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
-                          }`}>
-                            #{member.order}
-                          </span>
-                          <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
-                            {member.display_name}
-                            {member.isMe && (
-                              <span className="text-blue-600 dark:text-blue-400 font-bold ml-1">
-                                (คุณ)
-                              </span>
-                            )}
-                          </span>
-                        </div>
-
-                        <div className="text-right shrink-0">
-                          <span className="font-bold text-blue-600 dark:text-blue-400 font-mono">
-                            จอง {member.requested_qty} ชิ้น
-                          </span>
-                          <span className="text-[10px] text-slate-400 block">
-                            {getItemDisplayName(member.item_name)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Column 2: สมาชิกที่ได้รับสำเร็จแล้ว (Completed Members - Summed per Member) */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <CheckCircle2 size={14} className="text-green-500" />
-                    <span>ผู้ที่ได้รับสำเร็จแล้ว ({completedMembers.length} คน)</span>
-                  </span>
-                </div>
-
-                {completedMembers.length === 0 ? (
-                  <div className="text-center py-10 bg-slate-50 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800 rounded-2xl text-slate-400 text-xs">
-                    ยังไม่มีสมาชิกได้รับไอเทมนี้
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {completedMembers.map((member) => (
-                      <div
-                        key={`completed-${member.user_id}`}
-                        className={`p-2.5 rounded-xl border transition flex items-center justify-between gap-2 text-xs ${
-                          member.isMe
-                            ? "bg-green-50/80 dark:bg-green-950/40 border-green-300 dark:border-green-800 shadow-xs"
-                            : "bg-green-50/20 dark:bg-green-950/10 border-green-200/60 dark:border-green-900/30"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 shrink-0">
-                            ✓
-                          </span>
-                          <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
-                            {member.display_name}
-                            {member.isMe && (
-                              <span className="text-green-600 dark:text-green-400 font-bold ml-1">
-                                (คุณ)
-                              </span>
-                            )}
-                          </span>
-                        </div>
-
-                        <div className="text-right shrink-0">
-                          <span className="font-bold text-green-600 dark:text-green-400 font-mono">
-                            ได้รับ {member.received_qty} ชิ้น
-                          </span>
-                          <span className="text-[10px] text-slate-400 block">
-                            {getItemDisplayName(member.item_name)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* VIEW 3: ประวัติทั้งหมด (All History List / Search / Dropdown Filter) */}
-        {/* ========================================================================= */}
-        {mainTab === "all_history" && (
-          <div className="flex-1 flex flex-col min-h-0 space-y-3">
-            {/* Search and Filters */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Status Filter */}
-                <div className="flex flex-wrap gap-1 p-1 bg-slate-100 dark:bg-slate-950 rounded-xl">
-                  {(
-                    [
-                      { id: "waiting", label: "กำลังรอคิว" },
-                      { id: "completed", label: "ได้รับแล้ว" },
-                      { id: "canceled", label: "ยกเลิกแล้ว" },
-                    ] as const
-                  ).map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setHistoryStatusFilter(tab.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                        historyStatusFilter === tab.id
-                          ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs"
-                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Dropdown เลือกไอเทม */}
-                <select
-                  value={historyItemFilter}
-                  onChange={(e) => setHistoryItemFilter(e.target.value as any)}
-                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 cursor-pointer"
-                >
-                  <option value="all">📦 ทุกไอเทม</option>
-                  <option value="Album">📖 สมุดการ์ด</option>
-                  <option value="Puppet">🃏 เศษการ์ดบอส</option>
-                  <option value="White">🪶 ขนขาว</option>
-                  <option value="RedBlack">🪶 ขนดำแดง</option>
-                </select>
-              </div>
-
-              {/* Search Box */}
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="ค้นหาชื่อสมาชิก หรือไอเทม..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:border-blue-500 text-slate-900 dark:text-white"
-                />
-              </div>
-            </div>
-
-            {/* List */}
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
-              {filteredHistory.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-xs">
-                  ไม่พบรายการที่ตรงกับเงื่อนไขการค้นหา
-                </div>
-              ) : (
-                filteredHistory.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/60 flex items-center justify-between gap-3 text-xs"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <div className="min-w-0">
-                        <div className="font-bold text-slate-900 dark:text-white truncate flex items-center gap-1.5">
-                          {item.display_name}
-                          {item.user_id === currentUserId && (
-                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.2 rounded">
-                              คุณ
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-slate-400" suppressHydrationWarning>
-                          {getItemDisplayName(item.item_name)} • {mounted ? formatDate(item.queue_timestamp) : "-"}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right">
-                        <div className="font-bold font-mono text-slate-700 dark:text-slate-300">
-                          {item.calculated_status === 'completed'
-                            ? `ได้รับ ${item.received_qty || item.requested_qty} ชิ้น`
-                            : `จอง ${item.requested_qty} ชิ้น`}
-                        </div>
-                        {item.calculated_status !== 'completed' && item.received_qty > 0 && (
-                          <div className="text-[10px] text-green-600 font-bold font-mono">
-                            ได้ {item.received_qty} ชิ้น
-                          </div>
-                        )}
-                        {item.slot_range && item.slot_range !== '-' && (
-                          <div className="text-[10px] text-slate-400 font-normal">
-                            {item.slot_range}
-                          </div>
-                        )}
-                      </div>
-                      {getStatusBadge(item.calculated_status)}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

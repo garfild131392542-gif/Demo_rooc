@@ -16,12 +16,21 @@ type ItemKey = 'Album' | 'Puppet' | 'White' | 'RedBlack';
 
 const ITEM_KEYS: ItemKey[] = ['Album', 'Puppet', 'White', 'RedBlack'];
 
+const normalizeItemKey = (name: string): ItemKey | string => {
+  const lower = (name || '').toLowerCase();
+  if (lower === 'album' || lower.includes('สมุด')) return 'Album';
+  if (lower === 'puppet' || lower.includes('เศษ')) return 'Puppet';
+  if (lower === 'white' || lower.includes('ขาว')) return 'White';
+  if (lower === 'redblack' || lower === 'red_black' || lower.includes('ดำ')) return 'RedBlack';
+  return name;
+};
+
 const getItemDisplayName = (name: string): string => {
-  const lower = name.toLowerCase();
-  if (lower === 'album') return 'สมุดการ์ด';
-  if (lower === 'puppet') return 'เศษการ์ดบอส';
-  if (lower === 'white') return 'ขนขาว';
-  if (lower === 'redblack' || lower === 'red_black') return 'ขนดำแดง';
+  const lower = (name || '').toLowerCase();
+  if (lower === 'album' || lower.includes('สมุด')) return 'สมุดการ์ด';
+  if (lower === 'puppet' || lower.includes('เศษ')) return 'เศษการ์ดบอส';
+  if (lower === 'white' || lower.includes('ขาว')) return 'ขนขาว';
+  if (lower === 'redblack' || lower === 'red_black' || lower.includes('ดำ')) return 'ขนดำแดง';
   return name;
 };
 
@@ -128,7 +137,7 @@ export default function HistoryClient({
   // 1. คำนวณสถิติรายไอเทม 4 ชนิด สำหรับการ์ดสรุปด้านบน
   const itemSummaries = ITEM_KEYS.map((key) => {
     const config = ITEM_CONFIG[key];
-    const itemRaw = rawQueues.filter((q) => q.item_name === key);
+    const itemRaw = rawQueues.filter((q) => normalizeItemKey(q.item_name) === key);
     
     // สถิติกิลด์
     const waitingQueues = itemRaw.filter((q) => q.calculated_status === "waiting" || q.calculated_status === "waitlist" || q.calculated_status === "partial");
@@ -187,10 +196,12 @@ export default function HistoryClient({
   });
 
   // 2. คิวของฉัน (My Queues)
-  const myQueueList = initialQueues.filter((q) => q.user_id === currentUserId);
+  const myQueueList = initialQueues
+    .filter((q) => q.user_id === currentUserId)
+    .sort((a, b) => (new Date(b.queue_timestamp || 0).getTime() - new Date(a.queue_timestamp || 0).getTime()));
 
   // 3. กระดานคิวกิลด์ (Guild Queue Board) - รวมยอดจองตามบุคคล (Sum per member)
-  const selectedItemQueues = rawQueues.filter((q) => q.item_name === boardItemTab);
+  const selectedItemQueues = rawQueues.filter((q) => normalizeItemKey(q.item_name) === boardItemTab);
 
   // 3.1 สมาชิกที่ได้รับสำเร็จแล้ว (Completed Members) - รวมยอดที่ได้รับต่อคน
   const completedGroupMap = new Map<string, {
@@ -261,25 +272,27 @@ export default function HistoryClient({
   }));
 
   // 4. กรองประวัติทั้งหมดตาม Search, Item Filter & Status
-  const filteredHistory = initialQueues.filter((q) => {
-    if (historyItemFilter !== "all" && q.item_name !== historyItemFilter) {
+  const filteredHistory = initialQueues
+    .filter((q) => {
+      if (historyItemFilter !== "all" && normalizeItemKey(q.item_name) !== historyItemFilter) {
+        return false;
+      }
+
+      const displayNameOfItem = getItemDisplayName(q.item_name);
+      const matchesSearch =
+        q.item_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        displayNameOfItem.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        q.display_name.toLowerCase().includes(searchTerm.toLowerCase());
+
+      if (!matchesSearch) return false;
+      if (historyStatusFilter === "waiting") {
+        return q.calculated_status === "waiting" || q.calculated_status === "waitlist" || q.calculated_status === "partial";
+      }
+      if (historyStatusFilter === "completed") return q.calculated_status === "completed";
+      if (historyStatusFilter === "canceled") return q.calculated_status === "canceled";
       return false;
-    }
-
-    const displayNameOfItem = getItemDisplayName(q.item_name);
-    const matchesSearch =
-      q.item_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      displayNameOfItem.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      q.display_name.toLowerCase().includes(searchTerm.toLowerCase());
-
-    if (!matchesSearch) return false;
-    if (historyStatusFilter === "waiting") {
-      return q.calculated_status === "waiting" || q.calculated_status === "waitlist" || q.calculated_status === "partial";
-    }
-    if (historyStatusFilter === "completed") return q.calculated_status === "completed";
-    if (historyStatusFilter === "canceled") return q.calculated_status === "canceled";
-    return false;
-  });
+    })
+    .sort((a, b) => (new Date(b.queue_timestamp || 0).getTime() - new Date(a.queue_timestamp || 0).getTime()));
 
   return (
     <div className="max-w-6xl w-full mx-auto space-y-4 flex flex-col flex-1 min-h-0" suppressHydrationWarning>
@@ -671,11 +684,18 @@ export default function HistoryClient({
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right">
                         <div className="font-bold font-mono text-slate-700 dark:text-slate-300">
-                          จอง {item.requested_qty} ชิ้น
+                          {item.calculated_status === 'completed'
+                            ? `ได้รับ ${item.received_qty || item.requested_qty} ชิ้น`
+                            : `จอง ${item.requested_qty} ชิ้น`}
                         </div>
-                        {item.received_qty > 0 && (
+                        {item.calculated_status !== 'completed' && item.received_qty > 0 && (
                           <div className="text-[10px] text-green-600 font-bold font-mono">
                             ได้ {item.received_qty} ชิ้น
+                          </div>
+                        )}
+                        {item.slot_range && item.slot_range !== '-' && (
+                          <div className="text-[10px] text-slate-400 font-normal">
+                            {item.slot_range}
                           </div>
                         )}
                       </div>

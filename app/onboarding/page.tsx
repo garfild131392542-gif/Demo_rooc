@@ -32,7 +32,10 @@ export default async function OnboardingPage() {
 
   // 🌟 ด่านที่ 3: ไม่มีกิลด์ + มีข้อมูลตัวละครแล้ว = คนนี้ตั้งใจมาสร้างกิลด์จริงๆ อนุญาตให้เห็นฟอร์มได้
   return (
-    <div className="container mx-auto p-4">
+    <div className="min-h-[calc(100vh-80px)] flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Ambient background glows */}
+      <div className="pointer-events-none absolute -top-12 left-1/4 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-12 right-1/4 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl" />
       <OnboardingForm />
     </div>
   )

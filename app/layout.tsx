@@ -12,6 +12,7 @@ import PoringAssistant from "@/components/PoringAssistant";
 import UpdateTicker from "@/components/UpdateTicker";
 import AnnouncementModal from "@/components/AnnouncementModal";
 import QueryProvider from "@/components/QueryProvider";
+import AutoVersionRefresh from "@/components/AutoVersionRefresh";
 import Link from "next/link";
 import { getActiveAnnouncementForGuild, getUpdateTickerSetting } from "@/app/actions/admin-guilds";
 
@@ -84,6 +85,7 @@ export default async function RootLayout({
         />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <QueryProvider>
+            <AutoVersionRefresh />
             <Navbar />
             {session && (
               <UpdateTicker

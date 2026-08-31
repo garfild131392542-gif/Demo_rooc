@@ -1,9 +1,11 @@
 'use server'
 
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 import { headers } from 'next/headers'
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
 import { validateEmail } from '@/lib/validations'
+
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function sendContactEmail(formData: FormData) {
   const contactEmail = (formData.get('contactEmail') as string || '').trim()
@@ -48,23 +50,16 @@ export async function sendContactEmail(formData: FormData) {
   }
 
   try {
-    // 💡 ตั้งค่า Nodemailer (คุณต้องเอาอีเมลและ App Password ของคุณมาใส่)
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.ADMIN_EMAIL, // อีเมล Gmail ของคุณ
-        pass: process.env.ADMIN_APP_PASSWORD, // รหัสผ่านแอปพลิเคชัน (App Password)
-      },
-    })
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+    const toEmail = process.env.ADMIN_EMAIL || 'sakditach25@gmail.com'
 
-    const mailOptions = {
-      from: process.env.ADMIN_EMAIL,
-      to: process.env.ADMIN_EMAIL, // ส่งเข้าเมลตัวเอง
+    await resend.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      replyTo: contactEmail,
       subject: `🚨 แจ้งปัญหาจากผู้ใช้งานระบบ ROOC Guild`,
       text: `มีผู้ใช้งานแจ้งปัญหาเข้ามาครับ:\n\nอีเมลสำหรับติดต่อกลับ: ${contactEmail}\nรายละเอียดปัญหา:\n${message}`,
-    }
-
-    await transporter.sendMail(mailOptions)
+    })
     
     return { success: true }
   } catch (error: any) {

@@ -25,6 +25,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const runtime = 'edge';
+
 export const metadata: Metadata = {
   title: "ระบบจัดการสมาชิกกิลด์",
   description: "ROOC Management System By แมวส้ม",

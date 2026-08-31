@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 
+export const runtime = 'edge'
+
 export async function GET(request: Request) {
   // ตรวจสอบ Authorization header เพื่อความปลอดภัย (Vercel จะส่ง CRON_SECRET มาให้)
   const authHeader = request.headers.get('authorization');

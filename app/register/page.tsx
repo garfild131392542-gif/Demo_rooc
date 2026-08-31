@@ -12,7 +12,7 @@ export default function RegisterPage() {
       {/* 🌟 1. รูปภาพพื้นหลัง */}
       <div className="absolute inset-0 z-0 animate-in fade-in duration-[1500ms] ease-out">
     <Image
-      src="/register.png"
+      src="/register-bg.png"
       alt="Epic Fantasy Guild Background"
       fill
       priority

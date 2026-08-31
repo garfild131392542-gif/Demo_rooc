@@ -149,7 +149,7 @@ export default function LoginPage() {
         {/* เลเยอร์ 0: รูปภาพพื้นหลัง */}
         <div className="absolute inset-0 z-0 animate-in fade-in duration-[1500ms] ease-out">
           <Image
-            src="/login.png"
+            src="/login-bg.png"
             alt="Epic Fantasy Guild Background"
             fill
             priority

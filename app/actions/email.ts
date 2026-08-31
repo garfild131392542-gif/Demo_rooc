@@ -147,7 +147,7 @@ export async function sendWelcomeEmailAction(
       const resend = new Resend(process.env.RESEND_API_KEY)
 
       const response = await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || 'Rooc_Management@resend.dev',
+        from: process.env.RESEND_FROM_EMAIL || 'noreply@rooc-manage.xyz',
         to: email,
         subject,
         html,

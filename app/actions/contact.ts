@@ -50,7 +50,7 @@ export async function sendContactEmail(formData: FormData) {
   }
 
   try {
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@rooc-manage.xyz'
     const toEmail = process.env.ADMIN_EMAIL || 'sakditach25@gmail.com'
 
     await resend.emails.send({

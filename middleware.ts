@@ -18,43 +18,55 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  // Get the user securely — handle expired/invalid refresh tokens gracefully
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('[MIDDLEWARE WARNING] Supabase environment variables not ready')
+    return supabaseResponse
+  }
 
-  // ถ้า Refresh Token หมดอายุหรือถูก revoke ให้ sign out และ redirect ไป login ทันที
-  // แทนที่จะ log error ซ้ำๆ ทุก request
-  if (authError && (
-    authError.message?.includes('refresh_token_not_found') ||
-    authError.message?.includes('Invalid Refresh Token') ||
-    (authError as any).code === 'refresh_token_not_found'
-  )) {
-    await supabase.auth.signOut()
-    const loginUrl = new URL('/login', request.url)
-    const response = NextResponse.redirect(loginUrl)
-    // ลบ cookie session ที่เสียออกทั้งหมด
-    request.cookies.getAll().forEach(cookie => {
-      if (cookie.name.startsWith('sb-')) {
-        response.cookies.delete(cookie.name)
+  let user = null
+  try {
+    const supabase = createServerClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              supabaseResponse.cookies.set(name, value, options)
+            )
+          },
+        },
       }
-    })
-    return response
+    )
+
+    // Get the user securely — handle expired/invalid refresh tokens gracefully
+    const { data, error: authError } = await supabase.auth.getUser()
+    user = data?.user || null
+
+    // ถ้า Refresh Token หมดอายุหรือถูก revoke ให้ sign out และ redirect ไป login ทันที
+    if (authError && (
+      authError.message?.includes('refresh_token_not_found') ||
+      authError.message?.includes('Invalid Refresh Token') ||
+      (authError as any).code === 'refresh_token_not_found'
+    )) {
+      await supabase.auth.signOut()
+      const loginUrl = new URL('/login', request.url)
+      const response = NextResponse.redirect(loginUrl)
+      request.cookies.getAll().forEach(cookie => {
+        if (cookie.name.startsWith('sb-')) {
+          response.cookies.delete(cookie.name)
+        }
+      })
+      return response
+    }
+  } catch (authErr) {
+    console.error('[MIDDLEWARE AUTH ERROR]', authErr)
   }
 
   // 1. If authenticated, prevent access to login/register routes and redirect to home

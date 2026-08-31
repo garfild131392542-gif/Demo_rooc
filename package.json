@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "pages:build": "npx @cloudflare/next-on-pages@1",
     "start": "next start",
     "lint": "eslint",
     "update-types": "npx supabase gen types typescript --project-id qiqsbuagnycprmccielx --schema public > types/supabase.ts"

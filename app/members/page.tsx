@@ -1,23 +1,22 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSession } from '@/app/actions/auth'
+import { redirect } from 'next/navigation'
 import LeaderboardTable from './LeaderboardTable'
 
 export default async function MembersPage() {
   const session = await getSession()
+  if (!session) {
+    redirect('/login')
+  }
+
   const supabase = await createClient()
 
   // 1. ดึง guild_id ของผู้ใช้งานปัจจุบันที่กำลังเปิดดูหน้าเว็บนี้
   const myGuildId = (session as any)?.profile?.guild_id
 
-  // 💡 ระบบป้องกัน: หากไม่ได้เข้าสู่ระบบ หรือยังไม่มีการสังกัดกิลด์ จะไม่อนุญาตให้เห็นรายชื่อสมาชิกกิลด์อื่น
+  // 💡 ระบบป้องกัน: หากยังไม่มีการสังกัดกิลด์ จะไม่อนุญาตให้เห็นรายชื่อสมาชิกกิลด์อื่น
   if (!myGuildId) {
-    return (
-      <div className="max-w-[1400px] mx-auto px-4 py-16 text-center">
-        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-300 rounded-2xl p-6 font-medium inline-block shadow-sm">
-          🔒 กรุณาเข้าสู่ระบบและเข้าร่วมกิลด์ก่อน เพื่อเปิดดูตารางอันดับสมาชิก
-        </div>
-      </div>
-    )
+    redirect('/onboarding')
   }
 
   // 🌟 2. ดึงข้อมูลโปรไฟล์ล็อกเฉพาะคนที่มี guild_id ตรงกับเราเท่านั้น ป้องกัน Data Leak

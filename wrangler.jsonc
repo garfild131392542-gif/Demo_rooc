@@ -6,7 +6,6 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": ".vercel/output/static",
-    "binding": "ASSETS",
-    "run_worker_first": true
+    "binding": "ASSETS"
   }
 }

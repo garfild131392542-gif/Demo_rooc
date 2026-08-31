@@ -94,7 +94,9 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
         if (removeBgAutomatic) {
           try {
             const { removeBackground } = await import("@imgly/background-removal");
-            const resultBlob = await removeBackground(file);
+            const resultBlob = await removeBackground(file, {
+              publicPath: "https://staticimgly.com/@imgly/background-removal-data@1.7.0/dist/",
+            });
             fileToUpload = new File([resultBlob], "logo_image.png", { type: "image/png" });
           } catch (bgError: any) {
             console.error("Failed to remove background:", bgError);

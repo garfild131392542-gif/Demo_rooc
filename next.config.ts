@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   images: {
     qualities: [75, 95],
   },
+  serverExternalPackages: ['@imgly/background-removal', 'onnxruntime-web'],
 };
 
 export default nextConfig;

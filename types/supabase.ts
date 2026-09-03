@@ -445,6 +445,68 @@ export type Database = {
           },
         ]
       }
+      guild_attendance_logs: {
+        Row: {
+          activity_type: string
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          date: string
+          guild_id: string
+          id: string
+          note: string | null
+          present_count: number
+          absent_count: number
+          leave_count: number
+          records: Json
+          title: string
+          total_members: number
+          updated_at: string
+        }
+        Insert: {
+          activity_type?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          date?: string
+          guild_id: string
+          id?: string
+          note?: string | null
+          present_count?: number
+          absent_count?: number
+          leave_count?: number
+          records?: Json
+          title: string
+          total_members?: number
+          updated_at?: string
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          date?: string
+          guild_id?: string
+          id?: string
+          note?: string | null
+          present_count?: number
+          absent_count?: number
+          leave_count?: number
+          records?: Json
+          title?: string
+          total_members?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guild_attendance_logs_guild_id_fkey"
+            columns: ["guild_id"]
+            isOneToOne: false
+            referencedRelation: "guilds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guild_owners: {
         Row: {
           created_at: string
@@ -567,6 +629,10 @@ export type Database = {
           p_dmg: number | null
           p_reduc: number | null
           party_id: number | null
+          party_id_guild_league: number | null
+          slot_index_guild_league: number | null
+          party_id_emperium_overrun: number | null
+          slot_index_emperium_overrun: number | null
           pvp_dmg: number | null
           pvp_reduc: number | null
           cri: number | null
@@ -604,6 +670,10 @@ export type Database = {
           p_dmg?: number | null
           p_reduc?: number | null
           party_id?: number | null
+          party_id_guild_league?: number | null
+          slot_index_guild_league?: number | null
+          party_id_emperium_overrun?: number | null
+          slot_index_emperium_overrun?: number | null
           pvp_dmg?: number | null
           pvp_reduc?: number | null
           cri?: number | null
@@ -641,6 +711,10 @@ export type Database = {
           p_dmg?: number | null
           p_reduc?: number | null
           party_id?: number | null
+          party_id_guild_league?: number | null
+          slot_index_guild_league?: number | null
+          party_id_emperium_overrun?: number | null
+          slot_index_emperium_overrun?: number | null
           pvp_dmg?: number | null
           pvp_reduc?: number | null
           cri?: number | null

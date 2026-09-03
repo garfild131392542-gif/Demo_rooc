@@ -9,28 +9,35 @@ export default async function Navbar() {
 
   const supabase = await createClient()
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name')
-    .eq('id', sessionAny.user?.id ?? sessionAny.id)
-    .single()
+  const userId = sessionAny.user?.id ?? sessionAny.id
+  const guildId = sessionAny.profile?.guild_id
 
-  // 🌟 Check if user is a System Admin from public.admins table
-  const { data: adminCheck } = await supabase
-    .from('admins')
-    .select('id')
-    .eq('id', sessionAny.user?.id ?? sessionAny.id)
-    .maybeSingle()
+  // 🌟 Parallel fetch for admin check and guild details (zero redundant queries)
+  const [adminCheckRes, guildRes] = await Promise.all([
+    supabase.from('admins').select('id').eq('id', userId).maybeSingle(),
+    guildId
+      ? supabase.from('guilds').select('name, logo_url').eq('id', guildId).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+
+  const adminCheck = adminCheckRes.data
+  const guild = guildRes.data
+
+  const guildName = guild?.name || (guildId ? 'ไม่มีกิลด์' : 'ยังไม่มีกิลด์')
+  const logoUrl = guild?.logo_url || null
 
   const enrichedSession = {
     uid_game: sessionAny.profile?.uid_game ?? '',
     role: sessionAny.profile?.role ?? '',
     is_system_admin: !!adminCheck,
-    display_name:
-      (profile as any)?.display_name ||
-      sessionAny.profile?.display_name ||
-      'Unknown',
+    display_name: sessionAny.profile?.display_name || sessionAny.user?.email || 'Unknown',
   }
   // โยนข้อมูล session ไปให้ Navbar ฝั่ง Client จัดการต่อ
-  return <NavbarClient enrichedSession={enrichedSession} />
+  return (
+    <NavbarClient
+      enrichedSession={enrichedSession}
+      initialGuildName={guildName}
+      initialLogoUrl={logoUrl}
+    />
+  )
 }

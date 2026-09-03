@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { loginAction, forgotPasswordAction } from '@/app/actions/auth'
 import { sendContactEmail } from '@/app/actions/contact'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -20,6 +21,26 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+
+  // 🧹 ตรวจสอบและเคลียร์ Session ที่หมดอายุหรือเสีย (เพื่อหยุด error loop และ 429 rate limit)
+  useEffect(() => {
+    async function cleanupStaleSession() {
+      try {
+        const supabase = createClient()
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        if (sessionError) {
+          // หาก Refresh Token เสีย ให้เคลียร์ทิ้งทันที
+          await supabase.auth.signOut({ scope: 'local' })
+        } else if (session?.user) {
+          // หากมี Session ที่ยังใช้งานได้อยู่จริง ให้พาไปหน้าหลัก
+          router.replace('/')
+        }
+      } catch (_) {
+        // ignore
+      }
+    }
+    cleanupStaleSession()
+  }, [router])
 
   const handleIdentifierChange = (value: string) => {
     setIdentifier(value)

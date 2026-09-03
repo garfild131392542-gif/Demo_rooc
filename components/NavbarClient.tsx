@@ -18,13 +18,21 @@ type SessionType = {
     is_system_admin?: boolean;
 }
 
-export default function NavbarClient({ enrichedSession }: { enrichedSession: SessionType }) {
+export default function NavbarClient({
+    enrichedSession,
+    initialGuildName = 'ROOC',
+    initialLogoUrl = null,
+}: {
+    enrichedSession: SessionType;
+    initialGuildName?: string;
+    initialLogoUrl?: string | null;
+}) {
     const [isOpen, setIsOpen] = useState(false)
     const { resolvedTheme, setTheme } = useTheme()
     const [mounted, setMounted] = useState(false)
 
-    const [guildName, setGuildName] = useState('กำลังโหลด...')
-    const [logoUrl, setLogoUrl] = useState<string | null>(null)
+    const [guildName, setGuildName] = useState(initialGuildName)
+    const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl)
 
     // 🌟 State สำหรับจัดการ Modal Logout
     const [showLogoutModal, setShowLogoutModal] = useState(false)
@@ -42,59 +50,9 @@ export default function NavbarClient({ enrichedSession }: { enrichedSession: Ses
     }, [pathname])
 
     useEffect(() => {
-        if (!mounted) return
-
-        async function fetchGuildData() {
-            try {
-                const supabase = createClient()
-                const { data: { user } } = await supabase.auth.getUser()
-                if (!user) return
-
-                const { data: profile, error: profileError } = await supabase
-                    .from('profiles')
-                    .select('guild_id')
-                    .eq('id', user.id)
-                    .maybeSingle()
-
-                if (profileError) {
-                    console.error('Navbar profile query error:', profileError.message)
-                    setGuildName('ข้อผิดพลาดระบบ')
-                    return
-                }
-
-                if (profile?.guild_id) {
-                    const { data: guild, error: guildError } = await supabase
-                        .from('guilds')
-                        .select('name, logo_url')
-                        .eq('id', profile.guild_id)
-                        .maybeSingle()
-
-                    if (guildError) {
-                        console.error('Navbar guild query error:', guildError.message)
-                        setGuildName('ข้อผิดพลาดระบบ')
-                        return
-                    }
-
-                    if (guild) {
-                        setGuildName(guild.name)
-                        setLogoUrl(guild.logo_url || null)
-                    } else {
-                        setGuildName('ไม่มีกิลด์')
-                        setLogoUrl(null)
-                    }
-                } else {
-                    setGuildName('ยังไม่มีกิลด์')
-                    setLogoUrl(null)
-                }
-            } catch (err) {
-                console.error('Error fetching guild name:', err)
-                setGuildName('ROOC')
-                setLogoUrl(null)
-            }
-        }
-
-        fetchGuildData()
-    }, [mounted, pathname])
+        if (initialGuildName) setGuildName(initialGuildName)
+        if (initialLogoUrl !== undefined) setLogoUrl(initialLogoUrl)
+    }, [initialGuildName, initialLogoUrl])
 
     const isDarkMode = mounted && resolvedTheme === 'dark'
 

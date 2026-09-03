@@ -173,3 +173,45 @@ export interface CustomTeamGroup {
   partyIds: number[];
 }
 
+export type AttendanceStatus = 'present' | 'absent' | 'leave';
+
+export type AttendanceRecordItem = {
+  profile_id: string;
+  display_name: string;
+  job_name: string;
+  avatar_url?: string | null;
+  party_id: number | null;
+  slot_index: number | null;
+  room: 'main' | 'sub' | 'reserve';
+  status: AttendanceStatus;
+  note?: string;
+};
+
+export type GuildAttendanceLog = {
+  id: string;
+  guild_id: string;
+  title: string;
+  date: string;
+  activity_type: 'guild_league' | 'general' | 'emperium_overrun' | 'other' | string;
+  created_by?: string | null;
+  created_by_name?: string | null;
+  total_members: number;
+  present_count: number;
+  absent_count: number;
+  leave_count: number;
+  note?: string | null;
+  records: AttendanceRecordItem[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type SaveAttendancePayload = {
+  id?: string; // If provided, update existing log; otherwise create new log
+  guild_id?: string;
+  title: string;
+  date: string;
+  activity_type: string;
+  note?: string;
+  records: AttendanceRecordItem[];
+};
+

@@ -1,6 +1,7 @@
 'use client'
 
 import { toJpeg } from 'html-to-image'
+import html2canvas from 'html2canvas'
 
 // Check if browser is Safari (iOS or macOS)
 export function isSafari(): boolean {
@@ -80,6 +81,8 @@ export async function captureAndDownload(
     quality,
     backgroundColor,
     pixelRatio,
+    skipFonts: true,
+    cacheBust: true,
     ...(options.width && computedHeight ? {
       width: options.width,
       height: computedHeight,
@@ -110,8 +113,20 @@ export async function captureAndDownload(
       }
     }
 
-    // 2. Final render pass
-    dataUrl = await toJpeg(element, renderOptions)
+    // 2. Final render pass (with fallback to html2canvas)
+    try {
+      dataUrl = await toJpeg(element, renderOptions)
+    } catch (toJpegError) {
+      console.warn('toJpeg failed, attempting html2canvas fallback:', toJpegError)
+      const canvas = await html2canvas(element, {
+        backgroundColor,
+        scale: pixelRatio,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+      })
+      dataUrl = canvas.toDataURL('image/jpeg', quality)
+    }
   } finally {
     // Restore original styles
     element.style.width = originalWidth

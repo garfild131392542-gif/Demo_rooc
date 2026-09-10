@@ -4,7 +4,6 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
   verifyAndRenewSubscriptionAction, 
-  renewSubscriptionAction,
   getGuildTrialStatus, 
   getGuildPaymentHistory 
 } from '@/app/actions/billing'
@@ -57,22 +56,6 @@ export default function BillingPage() {
     }
   })
 
-  // Check if current user is Super Admin
-  const { data: isSystemAdmin = false } = useQuery({
-    queryKey: ['isSystemAdmin'],
-    queryFn: async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return false
-      const { data } = await supabase
-        .from('admins')
-        .select('id')
-        .eq('id', user.id)
-        .maybeSingle()
-      return !!data
-    }
-  })
-
   // Fetch subscription status
   const { data: trialStatus = null } = useQuery<TrialStatus | null>({
     queryKey: ['guildTrialStatus'],
@@ -98,24 +81,6 @@ export default function BillingPage() {
       setUploadError(null)
       setUploadSuccess(null)
     }
-  }
-
-  const handleAdminDirectRenew = async () => {
-    if (!confirm('ยืนยันต่ออายุ 30 วันให้กิลด์นี้ทันที (สิทธิ์ Super Admin)?')) return
-    startTransition(async () => {
-      try {
-        const result = await renewSubscriptionAction()
-        if (!result.success) {
-          setUploadError(result.error || 'ต่ออายุไม่สำเร็จ')
-          return
-        }
-        setUploadSuccess(result.message || 'ต่ออายุ 30 วันสำเร็จเรียบร้อยแล้ว')
-        queryClient.invalidateQueries({ queryKey: ['guildTrialStatus'] })
-        queryClient.invalidateQueries({ queryKey: ['guildPaymentHistory'] })
-      } catch (err: any) {
-        setUploadError(err.message || 'เกิดข้อผิดพลาด')
-      }
-    })
   }
 
   const handleUploadAndVerify = async (e: React.FormEvent) => {
@@ -203,28 +168,6 @@ export default function BillingPage() {
             <span className="text-lg font-extrabold text-blue-600 dark:text-blue-450">PRO Plan (30 วัน)</span>
           </div>
         </div>
-
-        {/* 👑 Super Admin Direct Renew Section */}
-        {isSystemAdmin && (
-          <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-amber-500/10 dark:bg-amber-500/15 p-4 rounded-xl border border-amber-500/30">
-            <div>
-              <span className="text-xs font-black text-amber-700 dark:text-amber-400 uppercase tracking-wider block">
-                👑 สิทธิ์ผู้ดูแลระบบสูงสุด (Super Admin)
-              </span>
-              <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-                คุณสามารถกดต่ออายุ 30 วันให้กิลด์นี้ได้ทันทีโดยไม่ต้องตรวจสลิป
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleAdminDirectRenew}
-              disabled={isPending}
-              className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-extrabold py-2.5 px-4 rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-            >
-              ⚡ ต่ออายุ 30 วันทันที
-            </button>
-          </div>
-        )}
       </div>
 
       {/* 🌟 Grid: QR Code Scan & Upload Slip */}

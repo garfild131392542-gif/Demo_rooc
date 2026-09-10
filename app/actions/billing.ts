@@ -63,7 +63,7 @@ export async function renewSubscriptionAction() {
 /**
  * Verifies the PromptPay slip using SlipOK API and extends the subscription by 30 days
  */
-export async function verifyAndRenewSubscriptionAction(slipUrl: string, expectedAmount: number = 259) {
+export async function verifyAndRenewSubscriptionAction(input: FormData | string, expectedAmount: number = 259) {
   // 🛡️ ป้องกัน Brute-force & Denial-of-Service (จำกัด 5 ครั้งต่อ 10 นาทีต่อ IP)
   try {
     const headersList = await headers()
@@ -103,9 +103,54 @@ export async function verifyAndRenewSubscriptionAction(slipUrl: string, expected
     return { success: false, error: 'ไม่พบสังกัดกิลด์ของคุณ' }
   }
 
-  // 🔒 ตรวจสอบสิทธิ์เฉพาะหัวหน้ากิลด์ (Admin) เท่านั้นที่สามารถกดยืนยันชำระเงินของกิลด์ได้
-  if (profile.role !== 'admin') {
+  // 🔒 Check if user is Super Admin or Guild Admin
+  const { data: adminCheck } = await supabaseAny
+    .from('admins')
+    .select('id')
+    .eq('id', current.user.id)
+    .maybeSingle()
+
+  const isSuperAdmin = !!adminCheck
+  if (profile.role !== 'admin' && !isSuperAdmin) {
     return { success: false, error: 'เฉพาะหัวหน้ากิลด์ (Admin) เท่านั้นที่สามารถต่ออายุการใช้งานกิลด์ได้' }
+  }
+
+  let slipUrl = ''
+  let fileBuffer: Buffer | null = null
+  let fileObj: File | null = null
+
+  if (typeof input === 'string') {
+    slipUrl = input
+  } else if (input instanceof FormData) {
+    const file = input.get('file') as File | null
+    if (!file) {
+      return { success: false, error: 'กรุณาเลือกไฟล์สลิปการโอนเงิน' }
+    }
+    fileObj = file
+    const arrayBuffer = await file.arrayBuffer()
+    fileBuffer = Buffer.from(arrayBuffer)
+
+    // Upload to Supabase Storage 'slips' using createAdminClient() (Bypasses RLS)
+    const fileExt = file.name.split('.').pop() || 'jpg'
+    const fileName = `slip_${Date.now()}.${fileExt}`
+    const filePath = `${profile.guild_id}/${fileName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('slips')
+      .upload(filePath, fileBuffer, {
+        contentType: file.type || 'image/jpeg',
+        upsert: true,
+      })
+
+    if (uploadError) {
+      console.error('[Billing] Storage upload failed:', uploadError.message)
+      return { success: false, error: 'อัปโหลดสลิปไม่สำเร็จ: ' + uploadError.message }
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('slips')
+      .getPublicUrl(filePath)
+    slipUrl = publicUrl
   }
 
   const apiKey = process.env.SLIPOK_API_KEY
@@ -135,21 +180,43 @@ export async function verifyAndRenewSubscriptionAction(slipUrl: string, expected
     }
   } else {
     try {
-      const response = await fetch(`https://api.slipok.com/api/line/apikey/${branchId.trim()}`, {
-        method: 'POST',
-        headers: {
-          'x-authorization': apiKey.trim(),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          url: slipUrl,
-          log: true,
-          amount: expectedAmount
+      let response: Response
+      if (fileObj) {
+        const slipokForm = new FormData()
+        slipokForm.append('files', fileObj)
+        slipokForm.append('log', 'true')
+        slipokForm.append('amount', expectedAmount.toString())
+
+        response = await fetch(`https://api.slipok.com/api/line/apikey/${branchId.trim()}`, {
+          method: 'POST',
+          headers: {
+            'x-authorization': apiKey.trim(),
+          },
+          body: slipokForm,
         })
-      })
+      } else {
+        response = await fetch(`https://api.slipok.com/api/line/apikey/${branchId.trim()}`, {
+          method: 'POST',
+          headers: {
+            'x-authorization': apiKey.trim(),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: slipUrl,
+            log: true,
+            amount: expectedAmount,
+          }),
+        })
+      }
 
       const result = await response.json()
       if (!response.ok || !result.success || !result.data) {
+        if (result.code === 1003 || result.message?.includes('Package') || result.message?.includes('หมดอายุ')) {
+          return {
+            success: false,
+            error: 'แพ็กเกจระบบตรวจสอบสลิปอัตโนมัติ (SlipOK) หมดอายุ กรุณาติดต่อผู้ดูแลระบบเพื่อต่ออายุหรือตรวจสอบสลิป',
+          }
+        }
         return { 
           success: false, 
           error: result.message || 'การตรวจสอบสลิปไม่ผ่านหรือรูปสลิปไม่ถูกต้อง' 

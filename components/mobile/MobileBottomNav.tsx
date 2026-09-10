@@ -279,22 +279,41 @@ export default function MobileBottomNav({
                     </div>
 
                     {enrichedSession.role === 'admin' && (
-                      <Link
-                        href="/guild-admin/credentials"
-                        onClick={() => setIsMoreOpen(false)}
-                        className="flex items-center justify-between p-3 rounded-2xl hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors group text-slate-700 dark:text-slate-200 border border-indigo-100 dark:border-indigo-900/30"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400">
-                            <Shield size={18} />
+                      <>
+                        <Link
+                          href="/guild-admin/credentials"
+                          onClick={() => setIsMoreOpen(false)}
+                          className="flex items-center justify-between p-3 rounded-2xl hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors group text-slate-700 dark:text-slate-200 border border-indigo-100 dark:border-indigo-900/30"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400">
+                              <Shield size={18} />
+                            </div>
+                            <div>
+                              <div className="font-bold text-sm text-indigo-900 dark:text-indigo-200">จัดการสมาชิกระบบ</div>
+                              <div className="text-xs text-indigo-600/70 dark:text-indigo-400/70">รีเซ็ตรหัสผ่าน, ลบสมาชิก, สเตตัส</div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="font-bold text-sm text-indigo-900 dark:text-indigo-200">จัดการสมาชิกระบบ</div>
-                            <div className="text-xs text-indigo-600/70 dark:text-indigo-400/70">รีเซ็ตรหัสผ่าน, ลบสมาชิก, สเตตัส</div>
+                          <ChevronRight size={16} className="text-indigo-400 group-hover:translate-x-0.5 transition-transform" />
+                        </Link>
+
+                        <Link
+                          href="/billing"
+                          onClick={() => setIsMoreOpen(false)}
+                          className="flex items-center justify-between p-3 rounded-2xl hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors group text-slate-700 dark:text-slate-200 border border-emerald-100 dark:border-emerald-900/30"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400">
+                              <CreditCard size={18} />
+                            </div>
+                            <div>
+                              <div className="font-bold text-sm text-emerald-900 dark:text-emerald-200">สมาชิกและค่าบริการกิลด์</div>
+                              <div className="text-xs text-emerald-600/70 dark:text-emerald-400/70">ตรวจสอบสถานะ PRO และต่ออายุ</div>
+                            </div>
                           </div>
-                        </div>
-                        <ChevronRight size={16} className="text-indigo-400 group-hover:translate-x-0.5 transition-transform" />
-                      </Link>
+                          <ChevronRight size={16} className="text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
+                        </Link>
+                      </>
                     )}
 
                     {enrichedSession.is_system_admin && (
@@ -322,23 +341,6 @@ export default function MobileBottomNav({
                 <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-3 pb-1.5">
                   บริการและข้อกำหนด
                 </div>
-
-                <Link
-                  href="/billing"
-                  onClick={() => setIsMoreOpen(false)}
-                  className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors group text-slate-700 dark:text-slate-200"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">
-                      <CreditCard size={18} />
-                    </div>
-                    <div>
-                      <div className="font-bold text-sm">สมาชิกและค่าบริการกิลด์</div>
-                      <div className="text-xs text-slate-400">ตรวจสอบสถานะ PRO และต่ออายุ</div>
-                    </div>
-                  </div>
-                  <ChevronRight size={16} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-                </Link>
 
                 <Link
                   href="/privacy-policy"

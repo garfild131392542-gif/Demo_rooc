@@ -174,7 +174,7 @@ export default function BillingPage() {
       </div>
 
       {/* 🌟 Grid: QR Code Scan & Upload Slip (สงวนสิทธิ์เฉพาะหัวหน้ากิลด์ Admin เท่านั้น) */}
-      {isAdmin ? (
+      {isAdmin && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-10">
           
           {/* Box 1: PromptPay QR Code (Left) */}
@@ -296,21 +296,7 @@ export default function BillingPage() {
           </div>
 
         </div>
-      ) : !isProfileLoading ? (
-        <div className="glass-panel rounded-2xl p-8 mb-10 text-center border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-          <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-amber-200 dark:border-amber-800/40">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">
-            สงวนสิทธิ์การต่ออายุสำหรับหัวหน้ากิลด์ (Admin) เท่านั้น
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-            สมาชิกทั่วไปสามารถตรวจสอบสถานะและประวัติการต่ออายุของกิลด์ได้ แต่สิทธิ์ในการสแกนชำระเงินและส่งสลิปเพื่อต่ออายุจะสามารถทำได้โดยหัวหน้ากิลด์เท่านั้นครับ
-          </p>
-        </div>
-      ) : null}
+      )}
 
       {/* 🌟 3. Payment History Section */}
       <div className="glass-panel rounded-2xl p-6 md:p-8 shadow-sm transition-colors">

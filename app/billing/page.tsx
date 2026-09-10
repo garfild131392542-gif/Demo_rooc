@@ -40,21 +40,24 @@ export default function BillingPage() {
   const promptPayName = process.env.NEXT_PUBLIC_PROMPTPAY_NAME || 'นายศักดิ์ธัช (Sakditach)'
   const packagePrice = 259
 
-  // Fetch user's profile to get guild ID
-  const { data: guildId = null } = useQuery({
-    queryKey: ['userGuildId'],
+  // Fetch user's profile to get guild ID and role
+  const { data: userProfile = null, isLoading: isProfileLoading } = useQuery({
+    queryKey: ['userProfileBilling'],
     queryFn: async () => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return null
       const { data: profile } = await supabase
         .from('profiles')
-        .select('guild_id')
+        .select('guild_id, role')
         .eq('id', user.id)
         .maybeSingle()
-      return profile?.guild_id || null
+      return profile || null
     }
   })
+
+  const guildId = userProfile?.guild_id || null
+  const isAdmin = userProfile?.role === 'admin'
 
   // Fetch subscription status
   const { data: trialStatus = null } = useQuery<TrialStatus | null>({
@@ -170,128 +173,144 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* 🌟 Grid: QR Code Scan & Upload Slip */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-10">
-        
-        {/* Box 1: PromptPay QR Code (Left) */}
-        <div className="lg:col-span-5 glass-panel rounded-2xl p-6 md:p-8 flex flex-col items-center justify-between shadow-sm transition-colors">
-          <div className="w-full text-center">
-            <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1.5 block">ขั้นตอนที่ 1: สแกนชำระเงิน</span>
-            <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mb-2">โอนเงินผ่าน PromptPay</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">สแกนจ่าย QR Code เพื่อต่ออายุระบบ 30 วัน</p>
+      {/* 🌟 Grid: QR Code Scan & Upload Slip (สงวนสิทธิ์เฉพาะหัวหน้ากิลด์ Admin เท่านั้น) */}
+      {isAdmin ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-10">
+          
+          {/* Box 1: PromptPay QR Code (Left) */}
+          <div className="lg:col-span-5 glass-panel rounded-2xl p-6 md:p-8 flex flex-col items-center justify-between shadow-sm transition-colors">
+            <div className="w-full text-center">
+              <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1.5 block">ขั้นตอนที่ 1: สแกนชำระเงิน</span>
+              <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mb-2">โอนเงินผ่าน PromptPay</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">สแกนจ่าย QR Code เพื่อต่ออายุระบบ 30 วัน</p>
+            </div>
+
+            {/* QR Code Container */}
+            <div className="bg-white p-4 rounded-2xl shadow-md relative group overflow-hidden border border-slate-200 max-w-[240px] mb-6">
+              <img 
+                src={`https://promptpay.io/${promptPayId}/${packagePrice}.png`} 
+                alt="PromptPay QR Code"
+                className="w-full h-auto aspect-square"
+              />
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-3 text-center">
+                <span className="text-[10px] font-bold text-yellow-300">
+                  ยอดเงินถูกล็อกไว้ที่ {packagePrice} บาท เพื่อให้ออโต้เช็กผ่านง่าย
+                </span>
+              </div>
+            </div>
+
+            {/* Payment Details */}
+            <div className="w-full bg-white/40 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 text-center">
+              <div className="flex justify-between items-center text-xs mb-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+                <span className="text-slate-500 dark:text-slate-400">ชื่อบัญชี:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{promptPayName}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs mb-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+                <span className="text-slate-500 dark:text-slate-400">พร้อมเพย์ ID:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">{promptPayId}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-500 dark:text-slate-400">ยอดเงินโอน:</span>
+                <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm">{packagePrice} บาท</span>
+              </div>
+            </div>
           </div>
 
-          {/* QR Code Container */}
-          <div className="bg-white p-4 rounded-2xl shadow-md relative group overflow-hidden border border-slate-200 max-w-[240px] mb-6">
-            <img 
-              src={`https://promptpay.io/${promptPayId}/${packagePrice}.png`} 
-              alt="PromptPay QR Code"
-              className="w-full h-auto aspect-square"
-            />
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-3 text-center">
-              <span className="text-[10px] font-bold text-yellow-300">
-                ยอดเงินถูกล็อกไว้ที่ {packagePrice} บาท เพื่อให้ออโต้เช็กผ่านง่าย
-              </span>
+          {/* Box 2: Upload Slip Form (Right) */}
+          <div className="lg:col-span-7 glass-panel rounded-2xl p-6 md:p-8 flex flex-col justify-between shadow-sm transition-colors">
+            <div>
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-450 tracking-widest mb-1.5 block">ขั้นตอนที่ 2: อัปโหลดสลิป</span>
+              <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mb-2">ส่งสลิปเพื่อตรวจสอบ</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">ระบบจะเช็คยอดเงินและต่ออายุให้กิลด์ทันทีผ่าน SlipOK API</p>
+
+              {/* Status Alert Messages */}
+              {uploadError && (
+                <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300 text-xs font-semibold rounded-xl p-4 mb-5 animate-in fade-in duration-200">
+                  ⚠️ {uploadError}
+                </div>
+              )}
+              {uploadSuccess && (
+                <div className="bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 text-green-700 dark:text-green-300 text-xs font-semibold rounded-xl p-4 mb-5 animate-in fade-in duration-200">
+                  🎉 {uploadSuccess}
+                </div>
+              )}
+
+              {/* Form Input */}
+              <form onSubmit={handleUploadAndVerify} className="space-y-5">
+                <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500/50 rounded-xl p-6 bg-white/30 dark:bg-slate-950/40 transition-colors relative">
+                  <input 
+                    type="file" 
+                    id="slipFile" 
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  {previewUrl ? (
+                    <div className="flex flex-col items-center gap-3 w-full">
+                      <img 
+                        src={previewUrl} 
+                        alt="Slip Preview" 
+                        className="max-h-40 object-contain rounded-lg border border-slate-200 dark:border-slate-800"
+                      />
+                      <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold truncate max-w-[200px]">
+                        {selectedFile?.name}
+                      </span>
+                      <span className="text-[10px] text-slate-500">คลิกหรือลากไฟล์ใหม่เพื่อเปลี่ยน</span>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <svg className="w-10 h-10 text-slate-400 dark:text-slate-500 mx-auto mb-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-xs font-bold text-slate-600 dark:text-slate-300 block mb-1">เลือกไฟล์ภาพสลิปที่โอนเงิน</span>
+                      <span className="text-[10px] text-slate-500">รองรับไฟล์ PNG, JPG, JPEG (ขนาดไม่เกิน 5MB)</span>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={!selectedFile || isPending}
+                  className="w-full bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-slate-200 dark:disabled:from-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 disabled:cursor-not-allowed text-white font-extrabold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-blue-500/10 text-sm flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isPending ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      กำลังอัปโหลดและตรวจสอบสลิป...
+                    </>
+                  ) : (
+                    '🚀 ตรวจสอบสลิปและเปิดใช้งาน'
+                  )}
+                </button>
+              </form>
+            </div>
+
+            <div className="bg-white/40 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mt-6 text-center">
+              <p className="text-[11px] text-slate-550 dark:text-slate-400 leading-relaxed">
+                ระบบจะตรวจสอบความถูกต้องจาก **รหัส QR Code (Ref)** บนสลิป หากไม่มี API Key ระบบจะตรวจสอบในรูปแบบ **Mock Mode** และผ่านให้ทันทีสำหรับการทดสอบใช้งานในขั้นตอนพัฒนา
+              </p>
             </div>
           </div>
 
-          {/* Payment Details */}
-          <div className="w-full bg-white/40 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 text-center">
-            <div className="flex justify-between items-center text-xs mb-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-              <span className="text-slate-500 dark:text-slate-400">ชื่อบัญชี:</span>
-              <span className="font-bold text-slate-800 dark:text-slate-200">{promptPayName}</span>
-            </div>
-            <div className="flex justify-between items-center text-xs mb-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-              <span className="text-slate-500 dark:text-slate-400">พร้อมเพย์ ID:</span>
-              <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">{promptPayId}</span>
-            </div>
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-slate-500 dark:text-slate-400">ยอดเงินโอน:</span>
-              <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm">{packagePrice} บาท</span>
-            </div>
-          </div>
         </div>
-
-        {/* Box 2: Upload Slip Form (Right) */}
-        <div className="lg:col-span-7 glass-panel rounded-2xl p-6 md:p-8 flex flex-col justify-between shadow-sm transition-colors">
-          <div>
-            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-450 tracking-widest mb-1.5 block">ขั้นตอนที่ 2: อัปโหลดสลิป</span>
-            <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mb-2">ส่งสลิปเพื่อตรวจสอบ</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">ระบบจะเช็คยอดเงินและต่ออายุให้กิลด์ทันทีผ่าน SlipOK API</p>
-
-            {/* Status Alert Messages */}
-            {uploadError && (
-              <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300 text-xs font-semibold rounded-xl p-4 mb-5 animate-in fade-in duration-200">
-                ⚠️ {uploadError}
-              </div>
-            )}
-            {uploadSuccess && (
-              <div className="bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 text-green-700 dark:text-green-300 text-xs font-semibold rounded-xl p-4 mb-5 animate-in fade-in duration-200">
-                🎉 {uploadSuccess}
-              </div>
-            )}
-
-            {/* Form Input */}
-            <form onSubmit={handleUploadAndVerify} className="space-y-5">
-              <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500/50 rounded-xl p-6 bg-white/30 dark:bg-slate-950/40 transition-colors relative">
-                <input 
-                  type="file" 
-                  id="slipFile" 
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-                {previewUrl ? (
-                  <div className="flex flex-col items-center gap-3 w-full">
-                    <img 
-                      src={previewUrl} 
-                      alt="Slip Preview" 
-                      className="max-h-40 object-contain rounded-lg border border-slate-200 dark:border-slate-800"
-                    />
-                    <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold truncate max-w-[200px]">
-                      {selectedFile?.name}
-                    </span>
-                    <span className="text-[10px] text-slate-500">คลิกหรือลากไฟล์ใหม่เพื่อเปลี่ยน</span>
-                  </div>
-                ) : (
-                  <div className="text-center py-4">
-                    <svg className="w-10 h-10 text-slate-400 dark:text-slate-500 mx-auto mb-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300 block mb-1">เลือกไฟล์ภาพสลิปที่โอนเงิน</span>
-                    <span className="text-[10px] text-slate-500">รองรับไฟล์ PNG, JPG, JPEG (ขนาดไม่เกิน 5MB)</span>
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={!selectedFile || isPending}
-                className="w-full bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-slate-200 dark:disabled:from-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 disabled:cursor-not-allowed text-white font-extrabold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-blue-500/10 text-sm flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {isPending ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    กำลังอัปโหลดและตรวจสอบสลิป...
-                  </>
-                ) : (
-                  '🚀 ตรวจสอบสลิปและเปิดใช้งาน'
-                )}
-              </button>
-            </form>
+      ) : !isProfileLoading ? (
+        <div className="glass-panel rounded-2xl p-8 mb-10 text-center border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
+          <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-amber-200 dark:border-amber-800/40">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
           </div>
-
-          <div className="bg-white/40 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mt-6 text-center">
-            <p className="text-[11px] text-slate-550 dark:text-slate-400 leading-relaxed">
-              ระบบจะตรวจสอบความถูกต้องจาก **รหัส QR Code (Ref)** บนสลิป หากไม่มี API Key ระบบจะตรวจสอบในรูปแบบ **Mock Mode** และผ่านให้ทันทีสำหรับการทดสอบใช้งานในขั้นตอนพัฒนา
-            </p>
-          </div>
+          <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">
+            สงวนสิทธิ์การต่ออายุสำหรับหัวหน้ากิลด์ (Admin) เท่านั้น
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            สมาชิกทั่วไปสามารถตรวจสอบสถานะและประวัติการต่ออายุของกิลด์ได้ แต่สิทธิ์ในการสแกนชำระเงินและส่งสลิปเพื่อต่ออายุจะสามารถทำได้โดยหัวหน้ากิลด์เท่านั้นครับ
+          </p>
         </div>
-
-      </div>
+      ) : null}
 
       {/* 🌟 3. Payment History Section */}
       <div className="glass-panel rounded-2xl p-6 md:p-8 shadow-sm transition-colors">

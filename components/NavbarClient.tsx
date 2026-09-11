@@ -112,14 +112,9 @@ export default function NavbarClient({
                                     </Link>
                                 ))}
                                 {enrichedSession.role === 'admin' && (
-                                    <>
-                                        <Link href="/guild-admin/credentials" className="px-3 py-2 rounded-xl text-xs font-bold transition-all hover:bg-white/10 bg-indigo-500/30 border border-white/20">
-                                            จัดการสมาชิก
-                                        </Link>
-                                        <Link href="/billing" className="px-3 py-2 rounded-xl text-xs font-bold transition-all hover:bg-white/10 bg-emerald-500/30 border border-white/20">
-                                            ค่าบริการกิลด์
-                                        </Link>
-                                    </>
+                                    <Link href="/guild-admin/credentials" className="px-3 py-2 rounded-xl text-xs font-bold transition-all hover:bg-white/10 bg-indigo-500/30 border border-white/20">
+                                        จัดการสมาชิก
+                                    </Link>
                                 )}
                                 {enrichedSession.is_system_admin && (
                                     <Link href="/admin-control" className="px-3 py-2 rounded-xl text-xs font-bold transition-all hover:bg-white/10 bg-rose-600/40 border border-rose-500/40 text-rose-200">

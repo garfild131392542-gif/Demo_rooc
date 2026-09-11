@@ -71,21 +71,23 @@ export default async function HomePage() {
 
   return (
     <div className="w-full mt-10 max-w-[1450px] mx-auto px-4 ">
-      {/* Trial Countdown Banner */}
-      {session && trialDaysRemaining > 0 && isAdmin && (
-        <div className="mb-6 mx-10 bg-linear-to-r from-blue-50 to-blue-100 border border-blue-300 rounded-lg px-6 py-4 flex items-center justify-between">
+      {/* Trial Countdown Banner (เฉพาะ role === 'admin' เท่านั้นที่เห็นได้) */}
+      {session && isAdmin && (
+        <div className="mb-6 mx-10 bg-linear-to-r from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/40 border border-blue-300 dark:border-blue-800 rounded-xl px-6 py-4 flex items-center justify-between shadow-xs">
           {/* Full Banner - Hidden on sm/md, visible on lg */}
           <div className="hidden lg:flex items-center gap-3 flex-1">
             <div className="shrink-0">
-              <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zm-11-1a1 1 0 11-2 0 1 1 0 012 0z" clipRule="evenodd" />
               </svg>
             </div>
             <div>
-              <p className="text-blue-800 font-semibold">
-                เหลือเวลาทดลองใช้งานอีก {trialDaysRemaining} วัน
+              <p className="text-blue-800 dark:text-blue-200 font-semibold">
+                {trialDaysRemaining > 0
+                  ? `เหลือเวลาทดลองใช้งานอีก ${trialDaysRemaining} วัน`
+                  : 'แพ็กเกจการใช้งานหมดอายุแล้ว'}
               </p>
-              <p className="text-blue-700 text-sm">
+              <p className="text-blue-700 dark:text-blue-300 text-sm">
                 เมื่อสิ้นสุดการทดลอง คุณจะต้องซื้อแผนใดแผนหนึ่งเพื่อให้กิลด์ของคุณอยู่ในสถานะใช้งาน
               </p>
             </div>

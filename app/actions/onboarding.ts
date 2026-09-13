@@ -3,6 +3,7 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getSession } from './auth'
 import { sendWelcomeEmailAction } from './email' 
+import { getAppBaseUrl } from '@/lib/url' 
 
 export interface OnboardingFormData {
   guildName: string
@@ -106,7 +107,7 @@ export async function completeOnboardingAction(
       return { success: false, error: 'สร้างกิลด์สำเร็จ แต่เกิดข้อผิดพลาดในการเชื่อมโยงโปรไฟล์' }
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const appUrl = getAppBaseUrl()
     const inviteLink = `${appUrl}/g/${formData.guildUrl}`
 
     try {

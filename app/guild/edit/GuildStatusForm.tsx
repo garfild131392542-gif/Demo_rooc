@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { updateGuildAction } from "@/app/actions/guild";
 import { checkImageSafetyAction } from "@/app/actions/moderation";
 import { createClient } from "@/lib/supabase/client";
 import { getJobIconUrl } from "@/components/helpers";
+import { getAppBaseUrl } from "@/lib/url";
 
 interface GuildStatusFormProps {
   guild: {
@@ -55,8 +56,13 @@ export default function GuildStatusForm({ guild, isAdmin, members }: GuildStatus
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const finalGuildUrl = `${appUrl}/g/${guild.guild_url}`;
+  const [appUrl, setAppUrl] = useState<string>(() => getAppBaseUrl());
+
+  useEffect(() => {
+    setAppUrl(getAppBaseUrl());
+  }, []);
+
+  const finalGuildUrl = `${appUrl}/g/${guild.guild_url || ""}`;
 
   // Helper copy handlers
   const handleCopyUrl = () => {

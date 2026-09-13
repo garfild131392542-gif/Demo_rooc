@@ -1,5 +1,6 @@
 'use server'
 import { Resend } from 'resend';
+import { getAppBaseUrl } from '@/lib/url';
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface SendWelcomeEmailParams {
@@ -112,7 +113,7 @@ export async function sendWelcomeEmailAction(
 ): Promise<SendWelcomeEmailResponse> {
   try {
     const { email, displayName = 'Admin', guildName, guildUrl } = params
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const appUrl = getAppBaseUrl()
     const loginUrl = `${appUrl}/login`
     const inviteLink = guildUrl ? `${appUrl}/g/${guildUrl}` : undefined
 

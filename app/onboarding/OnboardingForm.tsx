@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { getAppBaseUrl } from "@/lib/url";
 import { FormInput } from "@/components/FormInput";
 import { FormTextarea } from "@/components/FormTextarea";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -38,7 +39,11 @@ export function OnboardingForm() {
     contactEmail: "",
   });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const [appUrl, setAppUrl] = useState<string>(() => getAppBaseUrl());
+
+  useEffect(() => {
+    setAppUrl(getAppBaseUrl());
+  }, []);
 
   const validateGuildUrl = useCallback(async (url: string) => {
     if (!url || url.length < 3) {

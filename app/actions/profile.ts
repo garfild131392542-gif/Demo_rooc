@@ -205,11 +205,16 @@ export async function setupProfileAction(formData: ProfileSetupFormData) {
       chosenPath = "/";
     }
 
-    const { data: existingProfile } = await (adminClient as any)
+    const { data: existingProfile, error: checkProfileError } = await (adminClient as any)
       .from("profiles")
       .select("id")
       .eq("id", userId)
       .maybeSingle();
+
+    if (checkProfileError) {
+      console.error("Profile check error:", checkProfileError);
+      return { success: false, error: "เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล โปรดลองใหม่อีกครั้ง" };
+    }
 
     if (existingProfile) {
       // 🟢 กรณีอัปเดต: ใช้ secureUidGame ที่สกัดมาจากระบบหลังบ้าน บันทึกทับเพื่อกู้ข้อมูลคืนมา
@@ -230,10 +235,10 @@ export async function setupProfileAction(formData: ProfileSetupFormData) {
         return { success: false, error: "ไม่สามารถอัปเดตข้อมูลโปรไฟล์ได้" };
       }
     } else {
-      // 🔵 กรณีผู้ใช้ใหม่
+      // 🔵 กรณีผู้ใช้ใหม่ (ใช้ upsert เพื่อป้องกัน 409 Conflict)
       const { error: insertError } = await (adminClient as any)
         .from("profiles")
-        .insert([
+        .upsert([
           {
             id: userId,
             guild_id: assignedGuildId,
@@ -261,7 +266,7 @@ export async function setupProfileAction(formData: ProfileSetupFormData) {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
-        ]);
+        ], { onConflict: 'id' });
 
       if (insertError) {
         console.error("Profile creation error:", insertError);

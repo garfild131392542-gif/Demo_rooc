@@ -21,12 +21,23 @@ export const getSession = cache(async () => {
       return null
     }
 
-    // Fetch user's profile data
-    let { data: profile } = await (supabase as any)
+    // Fetch user's profile data using admin client (bypasses RLS to avoid overhead and 504 timeouts)
+    const admin = await createAdminClient()
+    let { data: profile, error: profileError } = await (admin as any)
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .maybeSingle()
+
+    // หากเกิดข้อผิดพลาดในการดึงข้อมูล (เช่น Supabase 504 Gateway Timeout ในช่วง cold start)
+    // ให้คืนค่า user ไปก่อน และห้ามเข้าบล็อก self-healing insert เด็ดขาด เพื่อป้องกัน Error 409 Conflict
+    if (profileError) {
+      console.warn('[getSession] Profile query warning/timeout:', profileError.message)
+      return {
+        user: user,
+        profile: null,
+      }
+    }
 
     // 🌟 [APPLICATION SELF-HEALING]: ระบบตรวจจับและซ่อมแซมข้อมูลอัตโนมัติ
     // หากพบว่า uid_game เป็น NULL, ค่าว่าง หรือคำว่า 'EMPTY' ระบบจะสกัด Username จาก Email มาซ่อมแซมลง DB ให้ทันที
@@ -41,7 +52,6 @@ export const getSession = cache(async () => {
           profile.uid_game = extractedUsername
           // ทำการอัปเดตลงฐานข้อมูลแบบ Background ทันที
           try {
-            const admin = await createAdminClient()
             await (admin as any)
               .from('profiles')
               .update({ uid_game: extractedUsername, updated_at: new Date().toISOString() })
@@ -51,12 +61,11 @@ export const getSession = cache(async () => {
           }
         }
       } else {
-        // กรณีเป็น User ที่ยังไม่มีแถว Profile ในตาราง ให้สร้างขึ้นมาให้อัตโนมัติ
+        // กรณีเป็น User ที่ยังไม่มีแถว Profile ในตาราง ให้สร้างขึ้นมาให้อัตโนมัติ (ใช้ upsert เพื่อป้องกัน 409 Conflict)
         try {
-          const admin = await createAdminClient()
           const { data: newProfile } = await (admin as any)
             .from('profiles')
-            .insert([{
+            .upsert([{
               id: user.id,
               uid_game: extractedUsername,
               display_name: extractedUsername,
@@ -67,7 +76,7 @@ export const getSession = cache(async () => {
               ignore_pdef: 0, ignore_mdef: 0, cri: 0, cri_dmg: 0,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
-            }])
+            }], { onConflict: 'id', ignoreDuplicates: true })
             .select('*')
             .maybeSingle()
 
@@ -191,7 +200,7 @@ export async function registerAction(username: string, password: string) {
     const adminClient = await createAdminClient()
     const { error: profileError } = await (adminClient as any)
       .from('profiles')
-      .insert([
+      .upsert([
         {
           id: data.user.id,
           uid_game: username.trim(), // 🎯 ล็อกค่า Username ลงคอลัมน์ uid_game ทันที ข้อมูลจะไม่หลุดชัวร์!
@@ -202,7 +211,7 @@ export async function registerAction(username: string, password: string) {
           cri: 0, cri_dmg: 0,
           created_at: new Date().toISOString(),
         },
-      ])
+      ], { onConflict: 'id', ignoreDuplicates: true })
 
     if (profileError) {
       console.error('Initial profile creation warning:', profileError.message)

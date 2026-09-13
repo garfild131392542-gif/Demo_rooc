@@ -107,7 +107,7 @@ export default function Dashboard({
     }
   }, [queryProfiles]);
 
-  // ⚡ Supabase Realtime: Sync party positions live across all connected users (Debounced 200ms)
+  // ⚡ Supabase Realtime: Sync party positions live across all connected users (Debounced 600ms to avoid connection pool spikes)
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
     if (!guildId) return;
@@ -117,7 +117,7 @@ export default function Dashboard({
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         refetch();
-      }, 200);
+      }, 600);
     };
 
     const channel = supabase

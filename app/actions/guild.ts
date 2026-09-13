@@ -1,6 +1,7 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { cache } from 'react'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 interface UpdateGuildData {
@@ -83,3 +84,23 @@ export async function updateGuildAction(guildId: string, data: UpdateGuildData) 
     }
   }
 }
+
+/**
+ * ⚡ Deduplicated guild basic info lookup via React cache & admin client.
+ * Caches name and logo_url per request to prevent redundant Supabase queries.
+ */
+export const getGuildBasicInfo = cache(async (guildId: string) => {
+  if (!guildId) return null
+  try {
+    const admin = await createAdminClient()
+    const { data, error } = await (admin as any)
+      .from('guilds')
+      .select('name, logo_url')
+      .eq('id', guildId)
+      .maybeSingle()
+    if (error) return null
+    return data as { name: string; logo_url: string | null } | null
+  } catch (err) {
+    return null
+  }
+})

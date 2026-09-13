@@ -1,30 +1,45 @@
 'use server'
 
+import { cache } from 'react'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getSession } from './auth'
 import { revalidatePath } from 'next/cache'
 
 /**
- * Helper function to verify that the current user has System Admin privileges.
- * Throws an error if unauthorized.
+ * Deduplicated check for system admin status by user id.
+ * Uses React cache to run at most once per request lifecycle.
  */
-async function checkSystemAdmin() {
+export const checkIsSystemAdmin = cache(async (userId: string): Promise<boolean> => {
+  if (!userId) return false
+  try {
+    const admin = await createAdminClient()
+    const { data, error } = await (admin as any)
+      .from('admins')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle()
+    return !error && !!data
+  } catch (err) {
+    return false
+  }
+})
+
+/**
+ * Helper function to verify that the current user has System Admin privileges.
+ * Deduplicated via React cache. Throws an error if unauthorized.
+ */
+export const checkSystemAdmin = cache(async () => {
   const session = await getSession()
   if (!session?.user?.id) {
     throw new Error('กรุณาเข้าสู่ระบบก่อน')
   }
 
-  const supabase = await createClient()
-  const { data: adminCheck, error } = await supabase
-    .from('admins')
-    .select('id')
-    .eq('id', session.user.id)
-    .maybeSingle()
-
-  if (error || !adminCheck) {
+  const isSysAdmin = await checkIsSystemAdmin(session.user.id)
+  if (!isSysAdmin) {
     throw new Error('ไม่มีสิทธิ์เข้าถึงหน้านี้ (เฉพาะผู้ดูแลระบบ)')
   }
-}
+  return true
+})
 
 /**
  * Fetches all guilds in the system along with their member counts,
@@ -385,8 +400,9 @@ export async function saveAnnouncementWithTargets(
 /**
  * Fetches the active announcement targeting the logged-in user's guild.
  * Public method called by components/layout on the client or server.
+ * Deduplicated per request via React cache.
  */
-export async function getActiveAnnouncementForGuild(guildId: string) {
+export const getActiveAnnouncementForGuild = cache(async (guildId: string) => {
   if (!guildId) return null
 
   const supabase = await createAdminClient()
@@ -426,28 +442,49 @@ export async function getActiveAnnouncementForGuild(guildId: string) {
     footer: announcement.footer,
     is_active: announcement.is_active
   }
-}
+})
+
+// ⚡ In-Memory Cache for global ticker settings to eliminate repeated Supabase queries
+let tickerCache: { data: { text: string; is_visible: boolean }; expiresAt: number } | null = null
+const TICKER_TTL_MS = 60 * 1000 // 60 seconds
 
 /**
  * Fetches the global update ticker settings.
  * Accessible by anyone (public).
+ * Cached in memory for 60 seconds to prevent 504 timeouts on Supabase.
  */
-export async function getUpdateTickerSetting() {
-  const supabase = await createAdminClient()
-  const { data, error } = await (supabase as any)
-    .from('system_settings')
-    .select('value')
-    .eq('key', 'update_ticker')
-    .maybeSingle()
+export async function getUpdateTickerSetting(): Promise<{ text: string; is_visible: boolean }> {
+  const now = Date.now()
+  if (tickerCache && tickerCache.expiresAt > now) {
+    return tickerCache.data
+  }
 
-  if (error || !data) {
+  try {
+    const supabase = await createAdminClient()
+    const { data, error } = await (supabase as any)
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'update_ticker')
+      .maybeSingle()
+
+    if (error || !data) {
+      const fallback = {
+        text: '📢 อัปเดตใหม่ล่าสุด: ปรับลดราคาแพ็กเกจเป็น 259 บาท/30 วัน | เปิดให้ใช้งานระบบจัดทีมปาร์ตี้ หน้าข้อมูลส่วนตัว และบอร์ดกิลด์ฟรี! (จำกัดสิทธิ์เฉพาะส่วนการประมูลหากยังไม่ได้ชำระเงิน)',
+        is_visible: true
+      }
+      tickerCache = { data: fallback, expiresAt: now + 15 * 1000 }
+      return fallback
+    }
+
+    const result = data.value as { text: string; is_visible: boolean }
+    tickerCache = { data: result, expiresAt: now + TICKER_TTL_MS }
+    return result
+  } catch (err) {
     return {
       text: '📢 อัปเดตใหม่ล่าสุด: ปรับลดราคาแพ็กเกจเป็น 259 บาท/30 วัน | เปิดให้ใช้งานระบบจัดทีมปาร์ตี้ หน้าข้อมูลส่วนตัว และบอร์ดกิลด์ฟรี! (จำกัดสิทธิ์เฉพาะส่วนการประมูลหากยังไม่ได้ชำระเงิน)',
       is_visible: true
     }
   }
-
-  return data.value as { text: string; is_visible: boolean }
 }
 
 /**
@@ -470,6 +507,9 @@ export async function saveUpdateTickerSetting(data: { text: string; is_visible: 
     console.error('Error saving update ticker settings:', error.message)
     return { success: false, error: error.message }
   }
+
+  // ล้าง In-Memory Cache ทันทีเพื่อให้ทุก Request ถัดไปได้รับค่าใหม่ทันที
+  tickerCache = null
 
   revalidatePath('/')
   revalidatePath('/admin-control')

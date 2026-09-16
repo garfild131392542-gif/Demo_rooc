@@ -215,3 +215,14 @@ export type SaveAttendancePayload = {
   records: AttendanceRecordItem[];
 };
 
+export type QueueTemplate = {
+  id: string;
+  guild_id: string;
+  name: string;
+  description?: string | null;
+  member_ids: string[];
+  created_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+

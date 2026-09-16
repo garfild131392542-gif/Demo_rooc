@@ -286,6 +286,7 @@ export default function TacticalBoardClient({
   // Tokens state
   const [tokens, setTokens] = useState(DEFAULT_TOKENS)
   const [draggedTokenId, setDraggedTokenId] = useState<number | null>(null)
+  const [tokenSize, setTokenSize] = useState<'normal' | 'large' | 'xlarge'>('large')
   const dragOffset = useRef({ x: 0, y: 0 })
 
   const [activity, setActivity] = useState<'general' | 'guild_league' | 'emperium_overrun'>('general')
@@ -739,6 +740,7 @@ export default function TacticalBoardClient({
           activity,
           partyTeams,
           guildLeagueRoom,
+          tokenSize,
           audio_url: finalAudioUrl,
           video_url: finalVideoUrl
         }
@@ -784,6 +786,9 @@ export default function TacticalBoardClient({
         }
         if (plan.parties_data.guildLeagueRoom) {
           setGuildLeagueRoom(plan.parties_data.guildLeagueRoom)
+        }
+        if (plan.parties_data.tokenSize) {
+          setTokenSize(plan.parties_data.tokenSize)
         }
         if (plan.parties_data.audio_url || plan.parties_data.audioUrl) {
           setSavedAudioUrl(plan.parties_data.audio_url || plan.parties_data.audioUrl)
@@ -1225,6 +1230,21 @@ export default function TacticalBoardClient({
             </div>
           )}
 
+          {/* Token Size Toggle Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setTokenSize(prev => prev === 'normal' ? 'large' : prev === 'large' ? 'xlarge' : 'normal')
+            }}
+            className="px-2.5 py-1 rounded-full text-xs font-bold border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
+            title="ปรับขนาดไอคอนและตัวเลขทีมบนแผนที่ (ปกติ / ใหญ่ / ใหญ่พิเศษ)"
+          >
+            <span className="text-xs">🎯</span>
+            <span className="text-[11px] font-bold">
+              {tokenSize === 'normal' ? 'เลขทีม: ปกติ' : tokenSize === 'large' ? 'เลขทีม: ใหญ่ (ชัด)' : 'เลขทีม: พิเศษ'}
+            </span>
+          </button>
+
           {/* Clear button */}
           <button
             onClick={() => setDrawings([])}
@@ -1468,6 +1488,24 @@ export default function TacticalBoardClient({
               const topPercent = token.y / 10
               const isDragged = token.id === draggedTokenId
 
+              const sizeConfig = tokenSize === 'xlarge'
+                ? {
+                    container: 'w-16 h-16 border-4',
+                    emoji: 'text-3xl',
+                    badge: 'w-8 h-8 -top-3 -right-3 text-base font-black shadow-xl border-2',
+                  }
+                : tokenSize === 'normal'
+                ? {
+                    container: 'w-11 h-11 border-3',
+                    emoji: 'text-xl',
+                    badge: 'w-6 h-6 -top-2 -right-2 text-xs font-black shadow-md border-2',
+                  }
+                : {
+                    container: 'w-13 h-13 border-3.5',
+                    emoji: 'text-2xl',
+                    badge: 'w-7 h-7 -top-2.5 -right-2.5 text-sm font-black shadow-lg border-2',
+                  }
+
               return (
                 <div
                   key={token.id}
@@ -1488,13 +1526,13 @@ export default function TacticalBoardClient({
                   </div>
 
                   <div
-                    style={{ borderColor: token.color, boxShadow: `0 0 12px ${token.color}80` }}
-                    className={`w-10 h-10 rounded-full border-3 bg-white dark:bg-slate-900 flex items-center justify-center transition-all shadow-md relative ${isDragged ? 'scale-125 shadow-lg' : 'hover:scale-110 shadow-sm'}`}
+                    style={{ borderColor: token.color, boxShadow: `0 0 14px ${token.color}90` }}
+                    className={`${sizeConfig.container} rounded-full bg-white dark:bg-slate-900 flex items-center justify-center transition-all relative ${isDragged ? 'scale-125 shadow-2xl z-30' : 'hover:scale-110 shadow-md'}`}
                   >
-                    <span className="text-xl">{token.emoji}</span>
+                    <span className={sizeConfig.emoji}>{token.emoji}</span>
                     <span
                       style={{ backgroundColor: token.color }}
-                      className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[9px] font-bold text-white flex items-center justify-center border border-white dark:border-slate-900"
+                      className={`absolute ${sizeConfig.badge} rounded-full text-white flex items-center justify-center border-white dark:border-slate-900 font-mono tracking-tighter`}
                     >
                       {token.id}
                     </span>

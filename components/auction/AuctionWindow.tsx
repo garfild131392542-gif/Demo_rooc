@@ -2199,7 +2199,10 @@ export default function AuctionWindow({
           }}
           onOptimisticSwap={handleOptimisticSwap}
           targetMember={selectedMemberForAction}
-          pendingMembers={roundMembers.filter(m => m.status !== 'completed')}
+          pendingMembers={roundMembers.filter(m => {
+            const target = (Number(m.base_quota) || 0) + (Number(m.transferred_in_quota) || 0) - (Number(m.transferred_out_quota) || 0);
+            return m.status !== 'completed' && !(target > 0 && (Number(m.received_qty) || 0) >= target);
+          })}
         />
       )}
 
@@ -2215,6 +2218,7 @@ export default function AuctionWindow({
           itemName={activeRoundItem}
           roundNumber={roundsOverview?.activeRounds?.find((r: any) => r.item_name === activeRoundItem)?.round_number || 1}
           members={roundMembers}
+          guildMembers={roundsOverview?.guildMembers || []}
         />
       )}
     </div>

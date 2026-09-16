@@ -2,9 +2,14 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { bulkReorderRoundQueue } from '@/app/actions/auction-rounds'
+import {
+  bulkReorderRoundQueue,
+  getGuildQueueTemplates,
+  createQueueTemplate,
+} from '@/app/actions/auction-rounds'
 import { ItemType } from '@/app/actions/auction'
 import { ITEM_CONFIG } from '../constants'
+import AdminQueueTemplateModal from './AdminQueueTemplateModal'
 import {
   X,
   GripVertical,
@@ -19,12 +24,14 @@ import {
   Search,
   Sparkles,
   Layers,
-  Sword,
-  Castle,
   ArrowDownAZ,
   RotateCcw,
   AlertCircle,
-  Check
+  Check,
+  CheckCircle2,
+  Settings,
+  Plus,
+  Info
 } from 'lucide-react'
 
 type AdminReorderModalProps = {
@@ -36,25 +43,7 @@ type AdminReorderModalProps = {
   itemName?: ItemType
   roundNumber?: number
   members?: any[]
-}
-
-const getPartyColor = (partyId: number | null | undefined) => {
-  if (!partyId) return null
-  const colors: Record<number, { bg: string; text: string; border: string }> = {
-    1: { bg: 'bg-blue-50 dark:bg-blue-950/50', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-800' },
-    2: { bg: 'bg-emerald-50 dark:bg-emerald-950/50', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-800' },
-    3: { bg: 'bg-purple-50 dark:bg-purple-950/50', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-800' },
-    4: { bg: 'bg-amber-50 dark:bg-amber-950/50', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800' },
-    5: { bg: 'bg-rose-50 dark:bg-rose-950/50', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-200 dark:border-rose-800' },
-    6: { bg: 'bg-cyan-50 dark:bg-cyan-950/50', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-200 dark:border-cyan-800' },
-    7: { bg: 'bg-indigo-50 dark:bg-indigo-950/50', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-800' },
-    8: { bg: 'bg-orange-50 dark:bg-orange-950/50', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-200 dark:border-orange-800' },
-  }
-  return colors[partyId] || {
-    bg: 'bg-slate-50 dark:bg-slate-800',
-    text: 'text-slate-700 dark:text-slate-300',
-    border: 'border-slate-200 dark:border-slate-700',
-  }
+  guildMembers?: any[]
 }
 
 const getProfile = (member: any) => {
@@ -72,31 +61,64 @@ export default function AdminReorderModal({
   itemName,
   roundNumber = 1,
   members = [],
+  guildMembers = [],
 }: AdminReorderModalProps) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
     setMounted(true)
   }, [])
 
+  // กรองแยกสมาชิกที่ "ได้รับครบแล้ว" (Completed) ออกจากสมาชิกที่ "กำลังรอรับ" (Pending)
+  const { pendingMembers, completedMembers } = useMemo(() => {
+    const pending: any[] = []
+    const completed: any[] = []
+    ;(members || []).forEach(m => {
+      if (!m) return
+      const target = (Number(m.base_quota) || 0) + (Number(m.transferred_in_quota) || 0) - (Number(m.transferred_out_quota) || 0)
+      const isDone = m.status === 'completed' || (target > 0 && (Number(m.received_qty) || 0) >= target)
+      if (isDone) {
+        completed.push(m)
+      } else {
+        pending.push(m)
+      }
+    })
+    return { pendingMembers: pending, completedMembers: completed }
+  }, [members])
+
   const [items, setItems] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSortMode, setActiveSortMode] = useState<string>('custom')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // Which party column to display as badge — changes with sort preset
-  const [partySource, setPartySource] = useState<'general' | 'guild_league' | 'emperium_overrun'>('general')
   
+  // Custom Templates states
+  const [templates, setTemplates] = useState<any[]>([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
+  const [templateNotice, setTemplateNotice] = useState<string | null>(null)
+
   // Drag and Drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
-  // 🛡️ Track open state to only initialize ONCE on open, preventing background SWR refreshes from wiping user's unsaved sort changes
+  // 🛡️ Track open state to only initialize ONCE on open
   const prevIsOpenRef = useRef(false)
+
+  const loadTemplates = async () => {
+    try {
+      const res = await getGuildQueueTemplates()
+      if (res.success && res.templates) {
+        setTemplates(res.templates)
+      }
+    } catch (err) {
+      console.error('loadTemplates error:', err)
+    }
+  }
 
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
-      if (Array.isArray(members) && members.length > 0) {
-        const sorted = [...members].sort((a, b) => (a?.queue_order || 0) - (b?.queue_order || 0))
+      if (Array.isArray(pendingMembers) && pendingMembers.length > 0) {
+        const sorted = [...pendingMembers].sort((a, b) => (a?.queue_order || 0) - (b?.queue_order || 0))
         setItems(sorted)
       } else {
         setItems([])
@@ -104,31 +126,32 @@ export default function AdminReorderModal({
       setActiveSortMode('custom')
       setError(null)
       setSearchQuery('')
-      setPartySource('general')
+      setTemplateNotice(null)
+      setSelectedTemplateId('')
+      loadTemplates()
     }
     prevIsOpenRef.current = isOpen
-  }, [isOpen, members])
+  }, [isOpen, pendingMembers])
 
-  // Fallback: If modal opened while members was still loading, initialize when members arrives
+  // Fallback: If modal opened while pendingMembers was still loading
   useEffect(() => {
-    if (isOpen && items.length === 0 && Array.isArray(members) && members.length > 0) {
-      const sorted = [...members].sort((a, b) => (a?.queue_order || 0) - (b?.queue_order || 0))
+    if (isOpen && items.length === 0 && Array.isArray(pendingMembers) && pendingMembers.length > 0) {
+      const sorted = [...pendingMembers].sort((a, b) => (a?.queue_order || 0) - (b?.queue_order || 0))
       setItems(sorted)
     }
-  }, [isOpen, members, items.length])
-
+  }, [isOpen, pendingMembers, items.length])
 
   const initialOrderMap = useMemo(() => {
     const map = new Map<string, number>()
-    if (Array.isArray(members)) {
-      members.forEach((m, idx) => {
+    if (Array.isArray(pendingMembers)) {
+      pendingMembers.forEach((m, idx) => {
         if (m && m.id) {
           map.set(m.id, m.queue_order || idx + 1)
         }
       })
     }
     return map
-  }, [members])
+  }, [pendingMembers])
 
   const changedCount = useMemo(() => {
     return items.reduce((acc, m, idx) => {
@@ -138,7 +161,6 @@ export default function AdminReorderModal({
     }, 0)
   }, [items, initialOrderMap])
 
-  // ⚠️ filteredIndices MUST be here (before early return) to obey React Rules of Hooks
   const filteredIndices = useMemo(() => {
     if (!searchQuery.trim()) return null
     const q = searchQuery.toLowerCase().trim()
@@ -147,8 +169,7 @@ export default function AdminReorderModal({
       const prof = getProfile(m)
       const name = (prof.display_name || '').toLowerCase()
       const uid = (prof.uid_game || '').toLowerCase()
-      const party = String(prof.party_id || '')
-      if (name.includes(q) || uid.includes(q) || party === q) {
+      if (name.includes(q) || uid.includes(q)) {
         set.add(idx)
       }
     })
@@ -166,123 +187,121 @@ export default function AdminReorderModal({
 
   const itemInfo = (itemName && ITEM_CONFIG[itemName]) ? ITEM_CONFIG[itemName] : { label: 'ไอเทม', color: 'from-blue-500 to-indigo-600' }
 
-  // --- Helper: resolve party info based on active source ---
-  const getActivePartyId = (profile: any): number | null => {
-    if (partySource === 'guild_league') return profile.party_id_guild_league ?? null
-    if (partySource === 'emperium_overrun') return profile.party_id_emperium_overrun ?? null
-    return profile.party_id ?? null
-  }
-
-  const getActiveSlotIndex = (profile: any): number | null => {
-    if (partySource === 'guild_league') return profile.slot_index_guild_league ?? null
-    if (partySource === 'emperium_overrun') return profile.slot_index_emperium_overrun ?? null
-    return profile.slot_index ?? null
-  }
-
   // ตรวจสอบว่าสมาชิกคนนี้เป็นผู้ได้รับสิทธิ์ทบยอดจากรอบก่อนหน้าหรือไม่ (Priority Rollover Member)
   const isPriorityMember = (member: any): boolean => {
     if (!member) return false
     return (Number(member.base_quota) || 1) > standardBaseQuota
   }
 
-  // Helper สำหรับจัดเรียงโดยล็อกสิทธิ์ทบยอด (Priority Members) ให้อยู่ด้านบนสุดเสมอ
-  const sortWithPriorityPinned = (comparator: (a: any, b: any) => number) => {
+  // จัดเรียงตามตัวอักษร
+  const handleSortAlphabetical = () => {
     const priorityMembers = items
       .filter(m => isPriorityMember(m))
       .sort((a, b) => (a.queue_order || 0) - (b.queue_order || 0))
 
     const regularMembers = items
       .filter(m => !isPriorityMember(m))
-      .sort(comparator)
+      .sort((a, b) => {
+        const nameA = getProfile(a).display_name || ''
+        const nameB = getProfile(b).display_name || ''
+        return nameA.localeCompare(nameB, 'th', { numeric: true })
+      })
 
-    return [...priorityMembers, ...regularMembers]
-  }
-
-  // --- Sort Helper Presets ---
-  const handleSortByPartyGeneral = () => {
-    const sorted = sortWithPriorityPinned((a, b) => {
-      const profA = getProfile(a)
-      const profB = getProfile(b)
-      const pA = profA.party_id ?? 9999
-      const pB = profB.party_id ?? 9999
-      if (pA !== pB) return pA - pB
-
-      const slotA = profA.slot_index ?? 9999
-      const slotB = profB.slot_index ?? 9999
-      if (slotA !== slotB) return slotA - slotB
-
-      const nameA = profA.display_name || ''
-      const nameB = profB.display_name || ''
-      return nameA.localeCompare(nameB, 'th', { numeric: true })
-    })
-    setItems(sorted)
-    setActiveSortMode('party_general')
-    setPartySource('general')
-  }
-
-  const handleSortByGuildLeague = () => {
-    const sorted = sortWithPriorityPinned((a, b) => {
-      const profA = getProfile(a)
-      const profB = getProfile(b)
-      const pA = profA.party_id_guild_league ?? 9999
-      const pB = profB.party_id_guild_league ?? 9999
-      if (pA !== pB) return pA - pB
-
-      const slotA = profA.slot_index_guild_league ?? 9999
-      const slotB = profB.slot_index_guild_league ?? 9999
-      if (slotA !== slotB) return slotA - slotB
-
-      const nameA = profA.display_name || ''
-      const nameB = profB.display_name || ''
-      return nameA.localeCompare(nameB, 'th', { numeric: true })
-    })
-    setItems(sorted)
-    setActiveSortMode('party_guild_league')
-    setPartySource('guild_league')
-  }
-
-  const handleSortByEmperium = () => {
-    const sorted = sortWithPriorityPinned((a, b) => {
-      const profA = getProfile(a)
-      const profB = getProfile(b)
-      const pA = profA.party_id_emperium_overrun ?? 9999
-      const pB = profB.party_id_emperium_overrun ?? 9999
-      if (pA !== pB) return pA - pB
-
-      const slotA = profA.slot_index_emperium_overrun ?? 9999
-      const slotB = profB.slot_index_emperium_overrun ?? 9999
-      if (slotA !== slotB) return slotA - slotB
-
-      const nameA = profA.display_name || ''
-      const nameB = profB.display_name || ''
-      return nameA.localeCompare(nameB, 'th', { numeric: true })
-    })
-    setItems(sorted)
-    setActiveSortMode('party_emperium')
-    setPartySource('emperium_overrun')
-  }
-
-  const handleSortAlphabetical = () => {
-    const sorted = sortWithPriorityPinned((a, b) => {
-      const profA = getProfile(a)
-      const profB = getProfile(b)
-      const nameA = profA.display_name || ''
-      const nameB = profB.display_name || ''
-      return nameA.localeCompare(nameB, 'th', { numeric: true })
-    })
-    setItems(sorted)
+    setItems([...priorityMembers, ...regularMembers])
     setActiveSortMode('alphabetical')
   }
 
+  // รีเซ็ตกลับเป็นลำดับเดิม
   const handleReset = () => {
-    if (Array.isArray(members)) {
-      const sorted = [...members].sort((a, b) => (a?.queue_order || 0) - (b?.queue_order || 0))
+    if (Array.isArray(pendingMembers)) {
+      const sorted = [...pendingMembers].sort((a, b) => (a?.queue_order || 0) - (b?.queue_order || 0))
       setItems(sorted)
     }
     setActiveSortMode('custom')
+    setSelectedTemplateId('')
+    setTemplateNotice(null)
   }
 
-  // --- Step Manual Moves ---
+  // นำเทมเพลตที่เลือกมาจัดเรียงคิว (พร้อม Logic ข้ามคนที่ได้ของครบแล้วในรอบนี้)
+  const handleApplyTemplate = (tmplId: string) => {
+    setSelectedTemplateId(tmplId)
+    if (!tmplId) return
+
+    const targetTmpl = templates.find(t => t.id === tmplId)
+    if (!targetTmpl) return
+
+    const tmplUserIds: string[] = Array.isArray(targetTmpl.member_ids) ? targetTmpl.member_ids : []
+    const pendingMap = new Map<string, any>()
+    items.forEach(m => {
+      const uId = m.user_id || m.profiles?.id
+      if (uId) pendingMap.set(uId, m)
+    })
+
+    const newOrdered: any[] = []
+    const placedIds = new Set<string>()
+    const skippedCompletedNames: string[] = []
+
+    // 1. นำสมาชิกตามเทมเพลตมาจัดวาง
+    for (const uId of tmplUserIds) {
+      // ตรวจสอบว่าคนนี้ได้รับของครบแล้วในรอบนี้หรือไม่?
+      const completedMatch = completedMembers.find(cm => (cm.user_id || cm.profiles?.id) === uId)
+      if (completedMatch) {
+        // ข้ามทันที! ไม่สามารถจัดคิวซ้ำได้
+        const name = getProfile(completedMatch).display_name || 'สมาชิก'
+        skippedCompletedNames.push(name)
+        continue
+      }
+
+      // ตรวจสอบว่าเป็นสมาชิกที่กำลังรอรับของในรอบนี้
+      const pendingMatch = pendingMap.get(uId)
+      if (pendingMatch && !placedIds.has(pendingMatch.id)) {
+        newOrdered.push(pendingMatch)
+        placedIds.add(pendingMatch.id)
+      }
+    }
+
+    // 2. สมาชิกในรอบที่รอรับอยู่ แต่ไม่ได้อยู่ในเทมเพลต ให้นำมาต่อท้ายตามลำดับเดิม
+    items.forEach(m => {
+      if (!placedIds.has(m.id)) {
+        newOrdered.push(m)
+        placedIds.add(m.id)
+      }
+    })
+
+    setItems(newOrdered)
+    setActiveSortMode(`template_${targetTmpl.id}`)
+
+    if (skippedCompletedNames.length > 0) {
+      setTemplateNotice(
+        `นำเทมเพลต "${targetTmpl.name}" มาใช้จัดคิวแล้ว (ข้าม ${skippedCompletedNames.length} คนที่ได้ของครบในรอบนี้: ${skippedCompletedNames.slice(0, 3).join(', ')}${skippedCompletedNames.length > 3 ? '...' : ''})`
+      )
+    } else {
+      setTemplateNotice(`นำเทมเพลต "${targetTmpl.name}" มาใช้จัดเรียงคิวเรียบร้อย`)
+    }
+  }
+
+  // เซฟลำดับคิวปัจจุบันเป็นเทมเพลตใหม่
+  const handleSaveAsNewTemplate = async () => {
+    const defaultName = `เทมเพลตคิว ${templates.length + 1}`
+    const name = prompt('กรุณาตั้งชื่อเทมเพลตใหม่:', defaultName)
+    if (!name || !name.trim()) return
+
+    const memberIds = items.map(m => m.user_id || m.profiles?.id).filter(Boolean)
+    try {
+      const res = await createQueueTemplate(name.trim(), `สร้างจากคิวรอบประมูล ${itemInfo.label || ''}`, memberIds)
+      if (res.success && res.template) {
+        setTemplates(prev => [res.template, ...prev])
+        setSelectedTemplateId(res.template.id)
+        setTemplateNotice(`บันทึกเป็นเทมเพลตใหม่ "${res.template.name}" เรียบร้อยแล้ว`)
+      } else {
+        alert(res.error || 'ไม่สามารถบันทึกเทมเพลตได้')
+      }
+    } catch (err: any) {
+      alert(err.message || 'เกิดข้อผิดพลาดในการบันทึก')
+    }
+  }
+
+  // Step Manual Moves
   const moveItem = (fromIdx: number, toIdx: number) => {
     if (toIdx < 0 || toIdx >= items.length) return
     const copy = [...items]
@@ -292,18 +311,12 @@ export default function AdminReorderModal({
     setActiveSortMode('custom')
   }
 
-  // --- Drag and Drop Handlers ---
-  const onDragStart = (index: number) => {
-    setDraggedIndex(index)
-  }
-
+  // Drag and Drop Handlers
+  const onDragStart = (index: number) => setDraggedIndex(index)
   const onDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault()
-    if (dragOverIndex !== index) {
-      setDragOverIndex(index)
-    }
+    if (dragOverIndex !== index) setDragOverIndex(index)
   }
-
   const onDrop = (index: number) => {
     if (draggedIndex === null || draggedIndex === index) {
       setDraggedIndex(null)
@@ -314,13 +327,12 @@ export default function AdminReorderModal({
     setDraggedIndex(null)
     setDragOverIndex(null)
   }
-
   const onDragEnd = () => {
     setDraggedIndex(null)
     setDragOverIndex(null)
   }
 
-  // --- Save Changes ---
+  // Save Changes
   const handleSave = async () => {
     if (!roundId) {
       setError('ไม่พบรหัสรอบการประมูล กรุณาลองใหม่อีกครั้ง')
@@ -334,17 +346,18 @@ export default function AdminReorderModal({
 
     const orderedIds = items.map(m => m?.id).filter(Boolean)
     
-    // ⚡ Instant Optimistic Update (0ms): ปรับ state ที่หน้าหลักทันทีและปิด Modal ทันใจ
+    // ⚡ Instant Optimistic Update (0ms)
     onOptimisticReorder?.(orderedIds)
     onClose()
 
-    let sortLabel = 'จัดเรียงตำแหน่งใหม่'
-    if (activeSortMode === 'party_general') sortLabel = 'จัดเรียงตามปาร์ตี้ทั่วไป'
-    else if (activeSortMode === 'party_guild_league') sortLabel = 'จัดเรียงตามปาร์ตี้ Guild League'
-    else if (activeSortMode === 'party_emperium') sortLabel = 'จัดเรียงตามปาร์ตี้ Emperium Overrun'
-    else if (activeSortMode === 'alphabetical') sortLabel = 'จัดเรียงตามตัวอักษร'
+    let sortLabel = 'จัดเรียงลำดับคิวใหม่'
+    if (activeSortMode.startsWith('template_')) {
+      const tmpl = templates.find(t => `template_${t.id}` === activeSortMode)
+      if (tmpl) sortLabel = `จัดตามเทมเพลต "${tmpl.name}"`
+    } else if (activeSortMode === 'alphabetical') {
+      sortLabel = 'จัดเรียงตามตัวอักษร'
+    }
 
-    // บันทึกลงฐานข้อมูลแบบ Background
     try {
       const res = await bulkReorderRoundQueue(roundId, orderedIds, `${sortLabel} (เปลี่ยน ${changedCount} ตำแหน่ง)`)
       if (res.success) {
@@ -359,7 +372,7 @@ export default function AdminReorderModal({
   }
 
   const modalContent = (
-    <div className="fixed inset-0 z-[99999] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-[99999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150">
       <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 rounded-3xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
         
         {/* Header */}
@@ -374,11 +387,11 @@ export default function AdminReorderModal({
                   รอบที่ {roundNumber} • {itemInfo.label}
                 </span>
                 <span className="text-xs text-slate-400 font-mono">
-                  ({items.length} สมาชิก)
+                  (รอรับ {items.length} สมาชิก)
                 </span>
               </div>
               <h2 className="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 mt-0.5">
-                จัดลำดับคิวประมูล (Reorder & Party Sort)
+                จัดลำดับคิวประมูล (Queue Templates & Reorder)
               </h2>
             </div>
           </div>
@@ -392,81 +405,80 @@ export default function AdminReorderModal({
           </button>
         </div>
 
-        {/* Action Toolbar / Presets */}
+        {/* Action Toolbar: Custom Templates & Controls (No party buttons) */}
         <div className="p-3 sm:px-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 flex flex-wrap items-center justify-between gap-2 shrink-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 mr-1">
-              <Sparkles size={12} className="text-amber-500" /> จัดเรียงด่วน:
-            </span>
+          <div className="flex items-center gap-2 flex-wrap flex-1">
+            
+            {/* Template Selector Dropdown */}
+            <div className="flex items-center gap-1.5 bg-purple-50 dark:bg-purple-950/40 px-2 py-1 rounded-xl border border-purple-200 dark:border-purple-800/80">
+              <span className="text-[11px] font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1">
+                <Layers size={13} /> ใช้เทมเพลต:
+              </span>
+              <select
+                value={selectedTemplateId}
+                onChange={e => handleApplyTemplate(e.target.value)}
+                className="bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-100 py-1 px-2.5 rounded-lg border border-purple-200 dark:border-purple-700/80 focus:outline-none focus:ring-1 focus:ring-purple-500 cursor-pointer"
+              >
+                <option value="">-- เลือกเทมเพลตจัดคิว --</option>
+                {templates.map(tmpl => (
+                  <option key={tmpl.id} value={tmpl.id}>
+                    📋 {tmpl.name} ({Array.isArray(tmpl.member_ids) ? tmpl.member_ids.length : 0} คน)
+                  </option>
+                ))}
+              </select>
+            </div>
 
+            {/* Manage Templates Button */}
             <button
               type="button"
-              onClick={handleSortByPartyGeneral}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
-                activeSortMode === 'party_general'
-                  ? 'bg-blue-600 text-white border-blue-700 shadow-sm ring-2 ring-blue-400/40'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-              }`}
-              title="จัดเรียงกลุ่มสมาชิกตามปาร์ตี้ทั่วไป (ทีมหลัก)"
+              onClick={() => setIsTemplateModalOpen(true)}
+              className="px-2.5 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+              title="เปิดหน้าต่างจัดการ สร้าง แก้ไข หรือลบเทมเพลตคิว"
             >
-              <Users size={13} /> {activeSortMode === 'party_general' && <Check size={12} className="stroke-[3]" />} ตามปาร์ตี้ทั่วไป
+              <Settings size={13} className="text-purple-500" /> จัดการเทมเพลต
             </button>
 
+            {/* Quick Save as New Template */}
             <button
               type="button"
-              onClick={handleSortByGuildLeague}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
-                activeSortMode === 'party_guild_league'
-                  ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm ring-2 ring-indigo-400/40'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-              }`}
-              title="จัดเรียงกลุ่มสมาชิกตามปาร์ตี้ Guild League"
+              onClick={handleSaveAsNewTemplate}
+              className="px-2.5 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+              title="เซฟลำดับคิวในหน้านี้เป็นเทมเพลตใหม่"
             >
-              <Sword size={13} /> {activeSortMode === 'party_guild_league' && <Check size={12} className="stroke-[3]" />} Guild League
+              <Plus size={13} className="text-indigo-500" /> เซฟเป็นเทมเพลตใหม่
             </button>
 
-            <button
-              type="button"
-              onClick={handleSortByEmperium}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
-                activeSortMode === 'party_emperium'
-                  ? 'bg-amber-600 text-white border-amber-700 shadow-sm ring-2 ring-amber-400/40'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-              }`}
-              title="จัดเรียงกลุ่มสมาชิกตามปาร์ตี้ Emperium Overrun"
-            >
-              <Castle size={13} /> {activeSortMode === 'party_emperium' && <Check size={12} className="stroke-[3]" />} Emperium
-            </button>
-
+            {/* Alphabetical Sort */}
             <button
               type="button"
               onClick={handleSortAlphabetical}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer border ${
                 activeSortMode === 'alphabetical'
-                  ? 'bg-slate-700 text-white border-slate-800 shadow-sm ring-2 ring-slate-400/40'
+                  ? 'bg-slate-700 text-white border-slate-800 shadow-xs ring-1 ring-slate-400'
                   : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
               title="จัดเรียงตามตัวอักษร ก-ฮ / A-Z"
             >
-              <ArrowDownAZ size={13} /> {activeSortMode === 'alphabetical' && <Check size={12} className="stroke-[3]" />} ตัวอักษร
+              <ArrowDownAZ size={13} /> {activeSortMode === 'alphabetical' && <Check size={11} className="stroke-[3]" />} ตัวอักษร
             </button>
 
+            {/* Reset */}
             <button
               type="button"
               onClick={handleReset}
-              className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg text-xs font-medium transition flex items-center gap-1 cursor-pointer"
-              title="คืนค่าเป็นลำดับเดิมจากฐานข้อมูล"
+              className="px-2 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg text-xs font-medium transition flex items-center gap-1 cursor-pointer"
+              title="คืนค่าเป็นลำดับเดิม"
             >
               <RotateCcw size={12} /> รีเซ็ต
             </button>
           </div>
 
           {/* Quick Search */}
-          <div className="relative w-full sm:w-48">
+          <div className="relative w-full sm:w-44">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="ค้นหาชื่อ / ปาร์ตี้..."
+              placeholder="ค้นหาชื่อ / UID..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500"
@@ -474,26 +486,39 @@ export default function AdminReorderModal({
           </div>
         </div>
 
-        {/* Tip & Status Banner */}
-        <div className="px-4 py-2 bg-slate-50/90 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400 font-medium">แหล่งข้อมูลปาร์ตี้ที่แสดง:</span>
-            {partySource === 'guild_league' && (
-              <span className="font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
-                <Sword size={11} /> ปาร์ตี้ Guild League
-              </span>
-            )}
-            {partySource === 'emperium_overrun' && (
-              <span className="font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800 flex items-center gap-1">
-                <Castle size={11} /> ปาร์ตี้ Emperium Overrun
-              </span>
-            )}
-            {partySource === 'general' && (
-              <span className="font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800 flex items-center gap-1">
-                <Users size={11} /> ปาร์ตี้ทั่วไป (ทีมหลัก)
-              </span>
-            )}
+        {/* Informative Banners: Completed Members Exclusion Notice & Template Notice */}
+        {completedMembers.length > 0 && (
+          <div className="px-4 py-2 bg-emerald-50/70 dark:bg-emerald-950/30 border-b border-emerald-200/80 dark:border-emerald-800/50 flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-800 dark:text-emerald-300">
+            <span className="flex items-center gap-1.5 font-bold text-[11px]">
+              <CheckCircle2 size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+              มีสมาชิกประมูลได้รับของครบในรอบนี้แล้ว {completedMembers.length} คน (ถูกล็อกและข้ามการจัดคิวอัตโนมัติ ไม่สามารถจัดคิวซ้ำได้)
+            </span>
+            <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-100/80 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full">
+              แสดงเฉพาะคนที่รอรับ {items.length} คน
+            </span>
           </div>
+        )}
+
+        {templateNotice && (
+          <div className="px-4 py-2 bg-purple-50/80 dark:bg-purple-950/40 border-b border-purple-200 dark:border-purple-800 flex items-center justify-between gap-2 text-xs text-purple-800 dark:text-purple-300 animate-in fade-in duration-150">
+            <span className="flex items-center gap-1.5 font-bold text-[11px]">
+              <Sparkles size={13} className="text-purple-600 dark:text-purple-400 shrink-0" />
+              {templateNotice}
+            </span>
+            <button
+              onClick={() => setTemplateNotice(null)}
+              className="text-purple-400 hover:text-purple-700 dark:hover:text-purple-200"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
+        {/* Unsaved Changes Banner */}
+        <div className="px-4 py-1.5 bg-slate-50/90 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-[11px]">
+          <span className="text-slate-400 font-medium">
+            คิวประมูลในรอบ (เรียงจากบนลงล่าง):
+          </span>
           {changedCount > 0 ? (
             <span className="font-bold font-mono bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full text-[10px]">
               มีการปรับ {changedCount} ตำแหน่ง (ยังไม่บันทึก)
@@ -518,15 +543,17 @@ export default function AdminReorderModal({
           {items.length === 0 ? (
             <div className="py-12 text-center text-slate-400">
               <Users size={32} className="mx-auto mb-2 opacity-50" />
-              <p className="text-sm font-bold">ไม่พบสมาชิกในรอบนี้</p>
+              <p className="text-sm font-bold">ไม่มีสมาชิกที่กำลังรอรับของในรอบนี้</p>
+              {completedMembers.length > 0 && (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-bold">
+                  สมาชิกทุกคนได้รับไอเทมครบตามโควตาของรอบแล้ว 🎉
+                </p>
+              )}
             </div>
           ) : (
             items.map((member, index) => {
               if (!member) return null
               const profile = getProfile(member)
-              const partyId = getActivePartyId(profile)
-              const slotIdx = getActiveSlotIndex(profile)
-              const partyColor = getPartyColor(partyId)
               const isMatch = filteredIndices ? filteredIndices.has(index) : true
               const isDragging = draggedIndex === index
               const isOver = dragOverIndex === index && draggedIndex !== index
@@ -535,6 +562,7 @@ export default function AdminReorderModal({
               const transferredOut = Number(member.transferred_out_quota) || 0
               const target = baseQuota + transferredIn - transferredOut
               const received = Number(member.received_qty) || 0
+              const remaining = Math.max(0, target - received)
 
               return (
                 <div
@@ -554,11 +582,11 @@ export default function AdminReorderModal({
                       : 'opacity-30 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800'
                   }`}
                 >
-                  {/* Left: Drag handle + Index + Name + Party */}
+                  {/* Left: Drag handle + Index + Name */}
                   <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                     <div
                       className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-grab active:cursor-grabbing rounded shrink-0"
-                      title="ลากเพื่อสลับตำแหน่ง"
+                      title="ลากเพื่อสลับตำแหน่งคิว"
                     >
                       <GripVertical size={16} />
                     </div>
@@ -581,31 +609,25 @@ export default function AdminReorderModal({
                       </div>
                     </div>
 
-                    {/* Party & Priority Tags */}
-                    <div className="shrink-0 flex items-center gap-1.5 flex-wrap justify-end">
-                      {isPriorityMember(member) && (
+                    {/* Priority Rollover Tags */}
+                    {isPriorityMember(member) && (
+                      <div className="shrink-0">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center gap-1 shrink-0 shadow-2xs">
                           ⚡ สิทธิ์ทบยอด ({member.base_quota} ชิ้น)
                         </span>
-                      )}
-                      {partyColor ? (
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${partyColor.bg} ${partyColor.text} ${partyColor.border}`}>
-                          <Users size={10} /> ปาร์ตี้ {partyId} {slotIdx !== null && slotIdx !== undefined ? `(Slot ${slotIdx + 1})` : ''}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                          ไม่มีปาร์ตี้
-                        </span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Right: Quota + Action Step Buttons */}
                   <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                     <div className="text-right hidden sm:block pr-2">
                       <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
-                        {received}/{target}
+                        {received}/{target} ชิ้น
                       </span>
+                      <div className="text-[10px] text-slate-400 font-mono">
+                        รอรับอีก {remaining} ชิ้น
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
@@ -658,7 +680,7 @@ export default function AdminReorderModal({
           <div className="text-xs text-slate-500 dark:text-slate-400">
             {changedCount > 0 ? (
               <span className="text-amber-600 dark:text-amber-400 font-bold">
-                * มีการเปลี่ยนแปลง {changedCount} รายการที่ยังไม่ได้บันทึก
+                * มีการเปลี่ยนแปลง {changedCount} ตำแหน่งที่ยังไม่ได้บันทึก
               </span>
             ) : (
               <span>ลำดับยังตรงกับฐานข้อมูลปัจจุบัน</span>
@@ -694,6 +716,19 @@ export default function AdminReorderModal({
         </div>
 
       </div>
+
+      {/* Embedded AdminQueueTemplateModal for managing templates */}
+      {isTemplateModalOpen && (
+        <AdminQueueTemplateModal
+          isOpen={isTemplateModalOpen}
+          onClose={() => {
+            setIsTemplateModalOpen(false)
+            loadTemplates()
+          }}
+          guildMembers={guildMembers.length > 0 ? guildMembers : members.map(m => getProfile(m)).filter(Boolean)}
+          onTemplatesUpdated={loadTemplates}
+        />
+      )}
     </div>
   )
 

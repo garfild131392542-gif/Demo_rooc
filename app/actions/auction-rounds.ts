@@ -1,4 +1,4 @@
-'use server'
+﻿'use server'
 
 import { createClient } from '@/lib/supabase/server'
 import { getSession } from './auth'
@@ -632,11 +632,27 @@ export async function bulkReorderRoundQueue(roundId: string, orderedMemberIds: s
       return { success: false, error: 'ไม่พบข้อมูลรอบการประมูล' }
     }
 
+    // ตรวจสอบ completed members ในรอบ เพื่อ offset queue_order ป้องกันการชนกัน
+    const { data: allRoundMembers } = await supabase
+      .from('auction_round_members')
+      .select('id, status, received_qty, base_quota, transferred_in_quota, transferred_out_quota')
+      .eq('round_id', roundId)
+
+    const completedMembers = (allRoundMembers || []).filter((m: any) => {
+      const target = (m.base_quota || 0) + (m.transferred_in_quota || 0) - (m.transferred_out_quota || 0)
+      return m.status === 'completed' || (target > 0 && (m.received_qty || 0) >= target)
+    })
+
+    // ถ้า orderedMemberIds ส่งมาเฉพาะ pending members ให้ offset ต่อจาก completed members
+    const isOnlyPending = orderedMemberIds.length < (allRoundMembers?.length || 0) &&
+                          !orderedMemberIds.some(id => completedMembers.some(cm => cm.id === id))
+    const offset = isOnlyPending ? completedMembers.length : 0
+
     const now = new Date().toISOString()
     const updates = orderedMemberIds.map((id, idx) =>
       supabase
         .from('auction_round_members')
-        .update({ queue_order: idx + 1, updated_at: now })
+        .update({ queue_order: offset + idx + 1, updated_at: now })
         .eq('id', id)
         .eq('round_id', roundId)
     )
@@ -666,6 +682,303 @@ export async function bulkReorderRoundQueue(roundId: string, orderedMemberIds: s
     return { success: true }
   } catch (err: any) {
     console.error('bulkReorderRoundQueue error:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+// 5.2 ดึงรายการเทมเพลตคิวทั้งหมดของกิลด์ (Queue Templates)
+export async function getGuildQueueTemplates() {
+  try {
+    const session = await getSession()
+    if (!session?.profile?.guild_id) {
+      return { success: false, error: 'ไม่พบข้อมูลกิลด์', templates: [] }
+    }
+
+    const supabase = (await createClient()) as any
+    const { data: templates, error } = await supabase
+      .from('auction_queue_templates')
+      .select('*')
+      .eq('guild_id', session.profile.guild_id)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.warn('getGuildQueueTemplates warning:', error.message)
+      return { success: true, templates: [] }
+    }
+
+    return { success: true, templates: templates || [] }
+  } catch (err: any) {
+    console.error('getGuildQueueTemplates error:', err)
+    return { success: false, error: err.message, templates: [] }
+  }
+}
+
+// 5.3 สร้างเทมเพลตคิวใหม่ (Create Queue Template)
+export async function createQueueTemplate(name: string, description?: string, memberIds: string[] = []) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin' || !session.profile.guild_id) {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    if (!name || !name.trim()) {
+      return { success: false, error: 'กรุณาระบุชื่อเทมเพลต' }
+    }
+
+    const supabase = (await createClient()) as any
+    const { data, error } = await supabase
+      .from('auction_queue_templates')
+      .insert({
+        guild_id: session.profile.guild_id,
+        name: name.trim(),
+        description: description?.trim() || null,
+        member_ids: memberIds,
+        created_by: session.profile.id,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    revalidatePath('/auction')
+    return { success: true, template: data }
+  } catch (err: any) {
+    console.error('createQueueTemplate error:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+// 5.4 แก้ไขเทมเพลตคิว (Update Queue Template)
+export async function updateQueueTemplate(templateId: string, name: string, description?: string, memberIds?: string[]) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin' || !session.profile.guild_id) {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    if (!templateId) {
+      return { success: false, error: 'ไม่พบรหัสเทมเพลต' }
+    }
+
+    const supabase = (await createClient()) as any
+    const updatePayload: any = {
+      updated_at: new Date().toISOString(),
+    }
+    if (name && name.trim()) updatePayload.name = name.trim()
+    if (description !== undefined) updatePayload.description = description?.trim() || null
+    if (memberIds !== undefined) updatePayload.member_ids = memberIds
+
+    const { data, error } = await supabase
+      .from('auction_queue_templates')
+      .update(updatePayload)
+      .eq('id', templateId)
+      .eq('guild_id', session.profile.guild_id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    revalidatePath('/auction')
+    return { success: true, template: data }
+  } catch (err: any) {
+    console.error('updateQueueTemplate error:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+// 5.5 ลบเทมเพลตคิว (Delete Queue Template)
+export async function deleteQueueTemplate(templateId: string) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin' || !session.profile.guild_id) {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const supabase = (await createClient()) as any
+    const { error } = await supabase
+      .from('auction_queue_templates')
+      .delete()
+      .eq('id', templateId)
+      .eq('guild_id', session.profile.guild_id)
+
+    if (error) throw error
+
+    revalidatePath('/auction')
+    return { success: true }
+  } catch (err: any) {
+    console.error('deleteQueueTemplate error:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+// 5.6 นำเทมเพลตไปจัดคิวในรอบประมูล (Apply Template to Round Queue with Exclusion Logic)
+export async function applyQueueTemplateToRound(roundId: string, templateId: string) {
+  try {
+    const session = await getSession()
+    if (!session?.profile || session.profile.role !== 'admin' || !session.profile.guild_id) {
+      return { success: false, error: 'คุณไม่มีสิทธิ์ผู้ดูแลระบบ' }
+    }
+
+    const supabase = (await createClient()) as any
+
+    // 1. ดึงข้อมูลรอบ
+    const { data: round, error: roundErr } = await supabase
+      .from('auction_rounds')
+      .select('*')
+      .eq('id', roundId)
+      .eq('guild_id', session.profile.guild_id)
+      .single()
+
+    if (roundErr || !round) {
+      return { success: false, error: 'ไม่พบข้อมูลรอบการประมูล' }
+    }
+
+    // 2. ดึงข้อมูลเทมเพลต
+    const { data: template, error: tmplErr } = await supabase
+      .from('auction_queue_templates')
+      .select('*')
+      .eq('id', templateId)
+      .eq('guild_id', session.profile.guild_id)
+      .single()
+
+    if (tmplErr || !template) {
+      return { success: false, error: 'ไม่พบข้อมูลเทมเพลต' }
+    }
+
+    // 3. ดึงสมาชิกทั้งหมดในรอบนี้
+    const { data: roundMembers, error: memErr } = await supabase
+      .from('auction_round_members')
+      .select('*, profiles:user_id(id, display_name, uid_game)')
+      .eq('round_id', roundId)
+      .order('queue_order', { ascending: true })
+
+    if (memErr || !roundMembers) {
+      return { success: false, error: 'ไม่สามารถดึงข้อมูลสมาชิกในรอบได้' }
+    }
+
+    // 4. แยกสมาชิกที่ "ประมูลได้ของครบแล้ว" (Completed) ออกจากคิว
+    const completedMembers: any[] = []
+    const pendingMembersMap = new Map<string, any>() // map by user_id
+    const pendingMembersByRoundMemberId = new Map<string, any>()
+
+    for (const m of roundMembers) {
+      const target = (m.base_quota || 0) + (m.transferred_in_quota || 0) - (m.transferred_out_quota || 0)
+      const isComplete = m.status === 'completed' || (target > 0 && (m.received_qty || 0) >= target)
+
+      if (isComplete) {
+        completedMembers.push(m)
+      } else {
+        pendingMembersMap.set(m.user_id, m)
+        pendingMembersByRoundMemberId.set(m.id, m)
+      }
+    }
+
+    // 5. นำสมาชิกในเทมเพลตมาจัดเรียง
+    const templateUserIds: string[] = Array.isArray(template.member_ids) ? template.member_ids : []
+    const orderedPending: any[] = []
+    const skippedCompletedNames: string[] = []
+    const placedMemberIds = new Set<string>()
+
+    // ตรวจสอบสมาชิกแต่ละคนที่อยู่ในเทมเพลต
+    for (const uId of templateUserIds) {
+      // ตรวจสอบว่าคนนี้อยู่ในกลุ่มที่ได้ของครบไปแล้วหรือไม่?
+      const completedMatch = completedMembers.find(cm => cm.user_id === uId)
+      if (completedMatch) {
+        // ข้ามทันที! ไม่สามารถจัดคิวซ้ำได้
+        const displayName = completedMatch.profiles?.display_name || completedMatch.user_id
+        skippedCompletedNames.push(displayName)
+        continue
+      }
+
+      // ตรวจสอบว่าเป็นสมาชิกที่กำลังรอรับของในรอบนี้หรือไม่
+      const pendingMatch = pendingMembersMap.get(uId)
+      if (pendingMatch && !placedMemberIds.has(pendingMatch.id)) {
+        orderedPending.push(pendingMatch)
+        placedMemberIds.add(pendingMatch.id)
+      }
+    }
+
+    // 6. สมาชิกในรอบที่ยังรอรับของอยู่ แต่ไม่ได้ระบุไว้ในเทมเพลต ให้นำมาต่อท้ายตามลำดับเดิม
+    for (const [roundMemberId, m] of pendingMembersByRoundMemberId.entries()) {
+      if (!placedMemberIds.has(roundMemberId)) {
+        orderedPending.push(m)
+        placedMemberIds.add(roundMemberId)
+      }
+    }
+
+    // 7. บันทึก queue_order ลงฐานข้อมูล
+    // Completed members อยู่ลำดับ 1..offset
+    // Pending members อยู่ลำดับ offset + 1..offset + N
+    const offset = completedMembers.length
+    const now = new Date().toISOString()
+    const updates = orderedPending.map((m, idx) =>
+      supabase
+        .from('auction_round_members')
+        .update({ queue_order: offset + idx + 1, updated_at: now })
+        .eq('id', m.id)
+        .eq('round_id', roundId)
+    )
+
+    const results = await Promise.all(updates)
+    const hasError = results.find(r => r.error)
+    if (hasError?.error) throw hasError.error
+
+    await supabase
+      .from('auction_rounds')
+      .update({ updated_at: now })
+      .eq('id', roundId)
+
+    // บันทึก Audit Log
+    const skipNote = skippedCompletedNames.length > 0
+      ? ` (ข้าม ${skippedCompletedNames.length} คนที่ได้ของครบแล้ว: ${skippedCompletedNames.slice(0, 3).join(', ')}${skippedCompletedNames.length > 3 ? '...' : ''})`
+      : ''
+
+    await supabase.from('auction_round_logs').insert({
+      guild_id: round.guild_id,
+      round_id: roundId,
+      round_number: round.round_number,
+      item_name: round.item_name,
+      action_type: 'REORDER_QUEUE',
+      performed_by: session.profile.id,
+      note: `ใช้เทมเพลตคิว "${template.name}" จัดคิว (${orderedPending.length} สมาชิก)${skipNote}`,
+      details: {
+        template_id: templateId,
+        template_name: template.name,
+        applied_count: orderedPending.length,
+        skipped_completed_count: skippedCompletedNames.length,
+        skipped_names: skippedCompletedNames,
+      },
+    })
+
+    // Auto populate slots if today's auction is active
+    const today = new Date().toISOString().split('T')[0]
+    const { data: todaySession } = await supabase
+      .from('auction_sessions')
+      .select('*')
+      .eq('guild_id', round.guild_id)
+      .eq('item_name', round.item_name)
+      .eq('session_date', today)
+      .maybeSingle()
+
+    if (todaySession && Number(todaySession.total_quantity) > 0) {
+      await autoPopulateSlotsFromRound(
+        round.item_name as ItemType,
+        Number(todaySession.total_quantity),
+        Number(todaySession.personal_limit) || 2
+      )
+    }
+
+    revalidatePath('/auction')
+
+    return {
+      success: true,
+      appliedCount: orderedPending.length,
+      skippedCount: skippedCompletedNames.length,
+      skippedNames: skippedCompletedNames,
+      orderedIds: orderedPending.map(m => m.id),
+    }
+  } catch (err: any) {
+    console.error('applyQueueTemplateToRound error:', err)
     return { success: false, error: err.message }
   }
 }

@@ -191,8 +191,6 @@ export default function AdminReorderModal({
     return quotas.length > 0 ? Math.min(...quotas) : 1
   }, [items])
 
-  if (!isOpen || !mounted) return null
-
   const itemInfo = (itemName && ITEM_CONFIG[itemName]) ? ITEM_CONFIG[itemName] : { label: 'ไอเทม', color: 'from-blue-500 to-indigo-600' }
 
   // ตรวจสอบว่าสมาชิกคนนี้เป็นผู้ได้รับสิทธิ์ทบยอดจากรอบก่อนหน้าหรือไม่ (Priority Rollover Member)
@@ -508,6 +506,8 @@ export default function AdminReorderModal({
       alert('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + (err.message || 'Network error'))
     }
   }
+
+  if (!isOpen || !mounted) return null
 
   const modalContent = (
     <div className="fixed inset-0 z-[99999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150">

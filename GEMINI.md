@@ -35,6 +35,14 @@ You must treat these quotas as hard budgetary constraints:
 2. **No Silent "Fixes" with Unchecked Side Effects**:
    - Never solve one symptom (e.g. mobile browser caching old assets) by introducing an architecture-level penalty (e.g. shutting down CDN caching site-wide).
    - Use surgical solutions (e.g. `AutoVersionRefresh` chunk error listener) instead of global sledgehammers.
+3. **Mandatory Real-time Work Updates (5-Point Protocol)**:
+   - Always read and obey `.agents/skills/transparent-work-communication/SKILL.md` before and during any task.
+   - You MUST explicitly communicate to the user:
+     1. **กำลังจะทำอะไร**: What you are about to do / inspect / edit.
+     2. **เจออะไร**: What you found / observed in logs, terminal, or code.
+     3. **สาเหตุตรงนี้เกิดจากอะไร**: Clear technical root cause explanation.
+     4. **จะแก้ไขยังไง**: Concrete plan for how you will fix it.
+     5. **ติดตรงไหนบ้าง**: Any blockers, build errors, or delays encountered along the way.
 
 ---
 

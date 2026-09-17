@@ -97,9 +97,17 @@ export default function AdminReorderModal({
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
   const [templateNotice, setTemplateNotice] = useState<string | null>(null)
 
-  // Drag and Drop state
+  // Drag and Drop & Auto-scroll states
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [dropTarget, setDropTarget] = useState<{ targetIndex: number; position: 'before' | 'after' } | null>(null)
+  const [autoScrollDir, setAutoScrollDir] = useState<'up' | 'down' | null>(null)
+
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
+  const autoScrollRef = useRef<{
+    rafId: number | null
+    speed: number
+    dir: 'up' | 'down' | null
+  }>({ rafId: null, speed: 0, dir: null })
 
   // 🛡️ Track open state to only initialize ONCE on open
   const prevIsOpenRef = useRef(false)
@@ -311,26 +319,156 @@ export default function AdminReorderModal({
     setActiveSortMode('custom')
   }
 
-  // Drag and Drop Handlers
-  const onDragStart = (index: number) => setDraggedIndex(index)
-  const onDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault()
-    if (dragOverIndex !== index) setDragOverIndex(index)
+  // Auto-scroll controller for dragging near top/bottom edges
+  const stopAutoScroll = () => {
+    if (autoScrollRef.current.rafId !== null) {
+      cancelAnimationFrame(autoScrollRef.current.rafId)
+      autoScrollRef.current.rafId = null
+    }
+    autoScrollRef.current.speed = 0
+    autoScrollRef.current.dir = null
+    setAutoScrollDir(null)
   }
-  const onDrop = (index: number) => {
-    if (draggedIndex === null || draggedIndex === index) {
-      setDraggedIndex(null)
-      setDragOverIndex(null)
+
+  const startAutoScroll = (speed: number, dir: 'up' | 'down') => {
+    autoScrollRef.current.speed = speed
+    if (autoScrollRef.current.dir !== dir) {
+      autoScrollRef.current.dir = dir
+      setAutoScrollDir(dir)
+    }
+
+    if (autoScrollRef.current.rafId !== null) return
+
+    const step = () => {
+      if (!scrollContainerRef.current || autoScrollRef.current.speed === 0) {
+        autoScrollRef.current.rafId = null
+        autoScrollRef.current.dir = null
+        setAutoScrollDir(null)
+        return
+      }
+      scrollContainerRef.current.scrollTop += autoScrollRef.current.speed
+      autoScrollRef.current.rafId = requestAnimationFrame(step)
+    }
+
+    autoScrollRef.current.rafId = requestAnimationFrame(step)
+  }
+
+  const handleContainerDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    if (!scrollContainerRef.current || draggedIndex === null) return
+
+    const container = scrollContainerRef.current
+    const rect = container.getBoundingClientRect()
+    const threshold = 75 // 75px threshold from edge
+
+    const topDist = e.clientY - rect.top
+    const bottomDist = rect.bottom - e.clientY
+
+    if (topDist >= 0 && topDist < threshold) {
+      const factor = (threshold - topDist) / threshold
+      const speed = -Math.round(4 + factor * 16)
+      startAutoScroll(speed, 'up')
+    } else if (bottomDist >= 0 && bottomDist < threshold) {
+      const factor = (threshold - bottomDist) / threshold
+      const speed = Math.round(4 + factor * 16)
+      startAutoScroll(speed, 'down')
+    } else {
+      stopAutoScroll()
+    }
+  }
+
+  const cleanupDrag = () => {
+    stopAutoScroll()
+    setDraggedIndex(null)
+    setDropTarget(null)
+  }
+
+  useEffect(() => {
+    return () => {
+      stopAutoScroll()
+    }
+  }, [])
+
+  // Drag and Drop Handlers
+  const onDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+    try {
+      e.dataTransfer.setData('text/plain', String(index))
+    } catch {}
+  }
+
+  const isNoOp = (targetIndex: number, position: 'before' | 'after') => {
+    if (draggedIndex === null) return true
+    if (targetIndex === draggedIndex) return true
+    if (targetIndex === draggedIndex - 1 && position === 'after') return true
+    if (targetIndex === draggedIndex + 1 && position === 'before') return true
+    return false
+  }
+
+  const onItemDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    handleContainerDragOver(e)
+
+    if (draggedIndex === null) return
+
+    const rect = e.currentTarget.getBoundingClientRect()
+    const offsetY = e.clientY - rect.top
+    const position: 'before' | 'after' = offsetY < rect.height / 2 ? 'before' : 'after'
+
+    if (isNoOp(index, position)) {
+      if (dropTarget !== null) setDropTarget(null)
       return
     }
-    moveItem(draggedIndex, index)
-    setDraggedIndex(null)
-    setDragOverIndex(null)
+
+    if (!dropTarget || dropTarget.targetIndex !== index || dropTarget.position !== position) {
+      setDropTarget({ targetIndex: index, position })
+    }
   }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    if (draggedIndex === null || dropTarget === null) {
+      cleanupDrag()
+      return
+    }
+
+    const { targetIndex, position } = dropTarget
+    if (isNoOp(targetIndex, position)) {
+      cleanupDrag()
+      return
+    }
+
+    let insertAt = position === 'before' ? targetIndex : targetIndex + 1
+    const copy = [...items]
+    const [moved] = copy.splice(draggedIndex, 1)
+
+    if (draggedIndex < insertAt) {
+      insertAt -= 1
+    }
+
+    copy.splice(insertAt, 0, moved)
+    setItems(copy)
+    setActiveSortMode('custom')
+    cleanupDrag()
+  }
+
   const onDragEnd = () => {
-    setDraggedIndex(null)
-    setDragOverIndex(null)
+    cleanupDrag()
   }
+
+  const previewRank = useMemo(() => {
+    if (draggedIndex === null || dropTarget === null) return null
+    const { targetIndex, position } = dropTarget
+    const rawTarget = position === 'before' ? targetIndex : targetIndex + 1
+    return draggedIndex < rawTarget ? rawTarget : rawTarget + 1
+  }, [draggedIndex, dropTarget])
+
+  const draggedMemberName = useMemo(() => {
+    if (draggedIndex === null || !items[draggedIndex]) return ''
+    return getProfile(items[draggedIndex]).display_name || 'สมาชิก'
+  }, [draggedIndex, items])
 
   // Save Changes
   const handleSave = async () => {
@@ -539,7 +677,23 @@ export default function AdminReorderModal({
         )}
 
         {/* Member Reorder List */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-1.5 min-h-[250px]">
+        <div
+          ref={scrollContainerRef}
+          onDragOver={handleContainerDragOver}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              stopAutoScroll()
+            }
+          }}
+          className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-1.5 min-h-[250px] relative scroll-smooth select-none"
+        >
+          {/* Floating Auto-scroll Indicators when dragging near top/bottom */}
+          {autoScrollDir === 'up' && (
+            <div className="sticky top-0 z-30 py-1.5 px-3 bg-purple-600/90 text-white text-[11px] font-bold rounded-xl shadow-lg flex items-center justify-center gap-1.5 backdrop-blur-xs animate-pulse mb-1">
+              <ChevronsUp size={14} className="animate-bounce" /> กำลังเลื่อนขึ้นอัตโนมัติ...
+            </div>
+          )}
+
           {items.length === 0 ? (
             <div className="py-12 text-center text-slate-400">
               <Users size={32} className="mx-auto mb-2 opacity-50" />
@@ -556,7 +710,6 @@ export default function AdminReorderModal({
               const profile = getProfile(member)
               const isMatch = filteredIndices ? filteredIndices.has(index) : true
               const isDragging = draggedIndex === index
-              const isOver = dragOverIndex === index && draggedIndex !== index
               const baseQuota = Number(member.base_quota) || 0
               const transferredIn = Number(member.transferred_in_quota) || 0
               const transferredOut = Number(member.transferred_out_quota) || 0
@@ -564,114 +717,173 @@ export default function AdminReorderModal({
               const received = Number(member.received_qty) || 0
               const remaining = Math.max(0, target - received)
 
+              const isDropTargetBefore = dropTarget?.targetIndex === index && dropTarget.position === 'before'
+              const isDropTargetAfter = dropTarget?.targetIndex === index && dropTarget.position === 'after'
+
               return (
-                <div
-                  key={member.id || `member-row-${index}`}
-                  draggable
-                  onDragStart={() => onDragStart(index)}
-                  onDragOver={(e) => onDragOver(e, index)}
-                  onDrop={() => onDrop(index)}
-                  onDragEnd={onDragEnd}
-                  className={`flex items-center justify-between gap-2 p-2 sm:p-2.5 rounded-xl border transition select-none ${
-                    isDragging
-                      ? 'opacity-40 bg-purple-50 dark:bg-purple-950/40 border-purple-400 dark:border-purple-600 scale-[0.99]'
-                      : isOver
-                      ? 'border-purple-500 dark:border-purple-400 bg-purple-50/50 dark:bg-purple-950/30 ring-2 ring-purple-400/40'
-                      : isMatch
-                      ? 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600'
-                      : 'opacity-30 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800'
-                  }`}
-                >
-                  {/* Left: Drag handle + Index + Name */}
-                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                    <div
-                      className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-grab active:cursor-grabbing rounded shrink-0"
-                      title="ลากเพื่อสลับตำแหน่งคิว"
-                    >
-                      <GripVertical size={16} />
-                    </div>
-
-                    {/* Real-time Queue Badge */}
-                    <span className="w-7 text-center font-mono font-black text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 py-0.5 rounded border border-purple-200 dark:border-purple-800 shrink-0">
-                      #{index + 1}
-                    </span>
-
-                    {/* Name & Subtitle */}
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 truncate flex items-center gap-1.5">
-                        {profile.display_name || 'ไม่ระบุชื่อ'}
-                        {profile.role === 'admin' && (
-                          <Shield size={12} className="text-blue-500 shrink-0" />
-                        )}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono truncate">
-                        {profile.uid_game ? `UID: ${profile.uid_game}` : 'ไม่มี UID'}
-                      </div>
-                    </div>
-
-                    {/* Priority Rollover Tags */}
-                    {isPriorityMember(member) && (
-                      <div className="shrink-0">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center gap-1 shrink-0 shadow-2xs">
-                          ⚡ สิทธิ์ทบยอด ({member.base_quota} ชิ้น)
+                <div key={member.id || `member-row-${index}`} className="transition-all">
+                  {/* 🌟 Animated Drop Slot Preview (BEFORE) */}
+                  {isDropTargetBefore && (
+                    <div className="py-2.5 px-3.5 my-1.5 rounded-2xl border-2 border-dashed border-purple-500 dark:border-purple-400 bg-purple-50/95 dark:bg-purple-950/70 shadow-lg shadow-purple-500/10 flex items-center justify-between gap-2 animate-in zoom-in-95 fade-in duration-150 transition-all">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-7 text-center font-mono font-black text-xs text-white bg-linear-to-r from-purple-600 to-indigo-600 py-0.5 rounded shadow-xs shrink-0 animate-pulse">
+                          #{previewRank}
                         </span>
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 truncate">
+                          <span className="shrink-0 flex items-center gap-1">
+                            <Sparkles size={13} className="text-purple-500" /> แทรกตรงนี้ ➔
+                          </span>
+                          <span className="text-purple-950 dark:text-purple-100 font-black underline decoration-purple-400 underline-offset-2 truncate">
+                            {draggedMemberName}
+                          </span>
+                        </div>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Right: Quota + Action Step Buttons */}
-                  <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-                    <div className="text-right hidden sm:block pr-2">
-                      <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
-                        {received}/{target} ชิ้น
+                      <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-white dark:bg-purple-900/80 px-2.5 py-0.5 rounded-full border border-purple-200 dark:border-purple-700/80 shrink-0 shadow-2xs">
+                        ปล่อยเพื่อจัดคิว #{previewRank}
                       </span>
-                      <div className="text-[10px] text-slate-400 font-mono">
-                        รอรับอีก {remaining} ชิ้น
+                    </div>
+                  )}
+
+                  {/* Member Card */}
+                  <div
+                    draggable
+                    onDragStart={(e) => onDragStart(e, index)}
+                    onDragOver={(e) => onItemDragOver(e, index)}
+                    onDrop={handleDrop}
+                    onDragEnd={onDragEnd}
+                    className={`flex items-center justify-between gap-2 p-2 sm:p-2.5 rounded-xl border transition-all select-none ${
+                      isDragging
+                        ? 'opacity-35 bg-purple-50/60 dark:bg-purple-950/20 border-2 border-dashed border-purple-400 dark:border-purple-600 scale-[0.98]'
+                        : isMatch
+                        ? 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-xs'
+                        : 'opacity-30 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+                    }`}
+                  >
+                    {/* Left: Drag handle + Index + Name */}
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      <div
+                        className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-grab active:cursor-grabbing rounded shrink-0 transition"
+                        title="ลากเพื่อสลับตำแหน่งคิว"
+                      >
+                        <GripVertical size={16} />
                       </div>
+
+                      {/* Real-time Queue Badge */}
+                      <span className="w-7 text-center font-mono font-black text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 py-0.5 rounded border border-purple-200 dark:border-purple-800 shrink-0">
+                        #{index + 1}
+                      </span>
+
+                      {/* Name & Subtitle */}
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 truncate flex items-center gap-1.5">
+                          {profile.display_name || 'ไม่ระบุชื่อ'}
+                          {profile.role === 'admin' && (
+                            <Shield size={12} className="text-blue-500 shrink-0" />
+                          )}
+                          {isDragging && (
+                            <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-950/80 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-800 shrink-0 animate-pulse">
+                              กำลังย้าย...
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono truncate">
+                          {profile.uid_game ? `UID: ${profile.uid_game}` : 'ไม่มี UID'}
+                        </div>
+                      </div>
+
+                      {/* Priority Rollover Tags */}
+                      {isPriorityMember(member) && (
+                        <div className="shrink-0">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center gap-1 shrink-0 shadow-2xs">
+                            ⚡ สิทธิ์ทบยอด ({member.base_quota} ชิ้น)
+                          </span>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <button
-                        type="button"
-                        onClick={() => moveItem(index, 0)}
-                        disabled={index === 0}
-                        className="p-1 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-20 transition rounded"
-                        title="ย้ายไปบนสุด"
-                      >
-                        <ChevronsUp size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveItem(index, index - 1)}
-                        disabled={index === 0}
-                        className="p-1 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-20 transition rounded"
-                        title="เลื่อนขึ้น 1 ตำแหน่ง"
-                      >
-                        <ChevronUp size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveItem(index, index + 1)}
-                        disabled={index === items.length - 1}
-                        className="p-1 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-20 transition rounded"
-                        title="เลื่อนลง 1 ตำแหน่ง"
-                      >
-                        <ChevronDown size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveItem(index, items.length - 1)}
-                        disabled={index === items.length - 1}
-                        className="p-1 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-20 transition rounded"
-                        title="ย้ายไปล่างสุด"
-                      >
-                        <ChevronsDown size={14} />
-                      </button>
+                    {/* Right: Quota + Action Step Buttons */}
+                    <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                      <div className="text-right hidden sm:block pr-2">
+                        <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
+                          {received}/{target} ชิ้น
+                        </span>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          รอรับอีก {remaining} ชิ้น
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => moveItem(index, 0)}
+                          disabled={index === 0}
+                          className="p-1 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-20 transition rounded cursor-pointer"
+                          title="ย้ายไปบนสุด"
+                        >
+                          <ChevronsUp size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveItem(index, index - 1)}
+                          disabled={index === 0}
+                          className="p-1 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-20 transition rounded cursor-pointer"
+                          title="เลื่อนขึ้น 1 ตำแหน่ง"
+                        >
+                          <ChevronUp size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveItem(index, index + 1)}
+                          disabled={index === items.length - 1}
+                          className="p-1 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-20 transition rounded cursor-pointer"
+                          title="เลื่อนลง 1 ตำแหน่ง"
+                        >
+                          <ChevronDown size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveItem(index, items.length - 1)}
+                          disabled={index === items.length - 1}
+                          className="p-1 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-20 transition rounded cursor-pointer"
+                          title="ย้ายไปล่างสุด"
+                        >
+                          <ChevronsDown size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
+
+                  {/* 🌟 Animated Drop Slot Preview (AFTER) */}
+                  {isDropTargetAfter && (
+                    <div className="py-2.5 px-3.5 my-1.5 rounded-2xl border-2 border-dashed border-purple-500 dark:border-purple-400 bg-purple-50/95 dark:bg-purple-950/70 shadow-lg shadow-purple-500/10 flex items-center justify-between gap-2 animate-in zoom-in-95 fade-in duration-150 transition-all">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-7 text-center font-mono font-black text-xs text-white bg-linear-to-r from-purple-600 to-indigo-600 py-0.5 rounded shadow-xs shrink-0 animate-pulse">
+                          #{previewRank}
+                        </span>
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 truncate">
+                          <span className="shrink-0 flex items-center gap-1">
+                            <Sparkles size={13} className="text-purple-500" /> แทรกตรงนี้ ➔
+                          </span>
+                          <span className="text-purple-950 dark:text-purple-100 font-black underline decoration-purple-400 underline-offset-2 truncate">
+                            {draggedMemberName}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-white dark:bg-purple-900/80 px-2.5 py-0.5 rounded-full border border-purple-200 dark:border-purple-700/80 shrink-0 shadow-2xs">
+                        ปล่อยเพื่อจัดคิว #{previewRank}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )
             })
+          )}
+
+          {/* Floating Auto-scroll Indicators when dragging near bottom */}
+          {autoScrollDir === 'down' && (
+            <div className="sticky bottom-0 z-30 py-1.5 px-3 bg-purple-600/90 text-white text-[11px] font-bold rounded-xl shadow-lg flex items-center justify-center gap-1.5 backdrop-blur-xs animate-pulse mt-1">
+              <ChevronsDown size={14} className="animate-bounce" /> กำลังเลื่อนลงอัตโนมัติ...
+            </div>
           )}
         </div>
 

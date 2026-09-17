@@ -497,9 +497,6 @@ export default function AdminReorderModal({
     return draggedMemberProfile?.display_name || 'สมาชิก'
   }, [draggedMemberProfile])
 
-  const draggedMemberUid = useMemo(() => {
-    return draggedMemberProfile?.uid_game || ''
-  }, [draggedMemberProfile])
 
   // Save Changes
   const handleSave = async () => {
@@ -783,11 +780,6 @@ export default function AdminReorderModal({
                           <span className="text-purple-950 dark:text-purple-100 font-black underline decoration-purple-400 underline-offset-2 truncate">
                             {draggedMemberName}
                           </span>
-                          {draggedMemberUid && (
-                            <span className="text-[10px] font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/80 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-700 shrink-0">
-                              UID: {draggedMemberUid}
-                            </span>
-                          )}
                         </div>
                       </div>
                       <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-white dark:bg-purple-900/80 px-2.5 py-0.5 rounded-full border border-purple-200 dark:border-purple-700/80 shrink-0 shadow-2xs">
@@ -838,13 +830,11 @@ export default function AdminReorderModal({
                             </span>
                           )}
                         </div>
-                        <div className="text-[10px] font-mono truncate flex items-center gap-1.5 mt-0.5">
-                          {profile.uid_game ? (
-                            <span className="text-slate-500 dark:text-slate-400 font-medium">
-                              UID: <span className="text-purple-600 dark:text-purple-400 font-bold">{profile.uid_game}</span>
-                            </span>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate mt-0.5">
+                          {profile.party_id ? (
+                            <span>ปาร์ตี้ {profile.party_id} {profile.slot_index ? `(ช่อง ${profile.slot_index})` : ''}</span>
                           ) : (
-                            <span className="text-slate-400 italic">ไม่มี UID</span>
+                            <span>ไม่มีปาร์ตี้</span>
                           )}
                         </div>
                       </div>
@@ -933,11 +923,6 @@ export default function AdminReorderModal({
                           <span className="text-purple-950 dark:text-purple-100 font-black underline decoration-purple-400 underline-offset-2 truncate">
                             {draggedMemberName}
                           </span>
-                          {draggedMemberUid && (
-                            <span className="text-[10px] font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/80 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-700 shrink-0">
-                              UID: {draggedMemberUid}
-                            </span>
-                          )}
                         </div>
                       </div>
                       <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-white dark:bg-purple-900/80 px-2.5 py-0.5 rounded-full border border-purple-200 dark:border-purple-700/80 shrink-0 shadow-2xs">

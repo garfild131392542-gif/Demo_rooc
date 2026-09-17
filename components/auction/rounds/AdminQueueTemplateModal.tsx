@@ -336,10 +336,6 @@ export default function AdminQueueTemplateModal({
     return templateMembers[draggedIndex].display_name || 'สมาชิก'
   }, [draggedIndex, templateMembers])
 
-  const draggedMemberUid = useMemo(() => {
-    if (draggedIndex === null || !templateMembers[draggedIndex]) return ''
-    return templateMembers[draggedIndex].uid_game || ''
-  }, [draggedIndex, templateMembers])
 
   // Save template
   const handleSave = async () => {
@@ -625,11 +621,6 @@ export default function AdminQueueTemplateModal({
                                   <span className="text-purple-950 dark:text-purple-100 font-black underline decoration-purple-400 truncate">
                                     {draggedMemberName}
                                   </span>
-                                  {draggedMemberUid && (
-                                    <span className="text-[10px] font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/80 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-700 shrink-0">
-                                      UID: {draggedMemberUid}
-                                    </span>
-                                  )}
                                 </div>
                               </div>
                               <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-white dark:bg-purple-900/80 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-700/80 shrink-0">
@@ -670,15 +661,6 @@ export default function AdminQueueTemplateModal({
                                     <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-950/80 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-800 shrink-0 animate-pulse">
                                       กำลังย้าย...
                                     </span>
-                                  )}
-                                </div>
-                                <div className="text-[10px] font-mono truncate flex items-center gap-1.5 mt-0.5">
-                                  {member.uid_game ? (
-                                    <span className="text-slate-500 dark:text-slate-400 font-medium">
-                                      UID: <span className="text-purple-600 dark:text-purple-400 font-bold">{member.uid_game}</span>
-                                    </span>
-                                  ) : (
-                                    <span className="text-slate-400 italic">ไม่มี UID</span>
                                   )}
                                 </div>
                               </div>
@@ -741,11 +723,6 @@ export default function AdminQueueTemplateModal({
                                   <span className="text-purple-950 dark:text-purple-100 font-black underline decoration-purple-400 truncate">
                                     {draggedMemberName}
                                   </span>
-                                  {draggedMemberUid && (
-                                    <span className="text-[10px] font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/80 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-700 shrink-0">
-                                      UID: {draggedMemberUid}
-                                    </span>
-                                  )}
                                 </div>
                               </div>
                               <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-white dark:bg-purple-900/80 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-700/80 shrink-0">
@@ -789,7 +766,7 @@ export default function AdminQueueTemplateModal({
                     <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="ค้นหาชื่อหรือ UID..."
+                      placeholder="ค้นหาชื่อสมาชิก..."
                       value={searchMemberQuery}
                       onChange={e => setSearchMemberQuery(e.target.value)}
                       className="w-full pl-8 pr-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500"
@@ -811,9 +788,6 @@ export default function AdminQueueTemplateModal({
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
                             {member.display_name || 'ไม่ระบุชื่อ'}
-                          </div>
-                          <div className="text-[10px] text-slate-400 font-mono truncate">
-                            {member.uid_game ? `UID: ${member.uid_game}` : 'ไม่มี UID'}
                           </div>
                         </div>
 

@@ -46,10 +46,23 @@ type AdminReorderModalProps = {
   guildMembers?: any[]
 }
 
-const getProfile = (member: any) => {
+const getProfile = (member: any, guildMembersMap?: Map<string, any>) => {
   if (!member) return {}
-  if (Array.isArray(member.profiles)) return member.profiles[0] || {}
-  return member.profiles || {}
+  const p = Array.isArray(member.profiles)
+    ? member.profiles[0] || {}
+    : member.profiles || member.profile || {}
+
+  const uId = member.user_id || member.id || p.id
+  const gm = (uId && guildMembersMap ? guildMembersMap.get(uId) : null) || {}
+
+  return {
+    display_name: p.display_name || member.display_name || gm.display_name || 'ไม่ระบุชื่อ',
+    uid_game: p.uid_game || member.uid_game || gm.uid_game || '',
+    role: p.role || member.role || gm.role || 'member',
+    avatar_url: p.avatar_url || member.avatar_url || gm.avatar_url || null,
+    party_id: p.party_id ?? member.party_id ?? gm.party_id ?? null,
+    slot_index: p.slot_index ?? member.slot_index ?? gm.slot_index ?? null,
+  }
 }
 
 export default function AdminReorderModal({
@@ -67,6 +80,18 @@ export default function AdminReorderModal({
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // 🗺️ Guild members map for rock-solid UID resolution
+  const guildMembersMap = useMemo(() => {
+    const map = new Map<string, any>()
+    ;(guildMembers || []).forEach((g: any) => {
+      if (g && (g.id || g.user_id)) {
+        if (g.id) map.set(g.id, g)
+        if (g.user_id) map.set(g.user_id, g)
+      }
+    })
+    return map
+  }, [guildMembers])
 
   // กรองแยกสมาชิกที่ "ได้รับครบแล้ว" (Completed) ออกจากสมาชิกที่ "กำลังรอรับ" (Pending)
   const { pendingMembers, completedMembers } = useMemo(() => {
@@ -463,10 +488,18 @@ export default function AdminReorderModal({
     return draggedIndex < rawTarget ? rawTarget : rawTarget + 1
   }, [draggedIndex, dropTarget])
 
+  const draggedMemberProfile = useMemo(() => {
+    if (draggedIndex === null || !items[draggedIndex]) return null
+    return getProfile(items[draggedIndex], guildMembersMap)
+  }, [draggedIndex, items, guildMembersMap])
+
   const draggedMemberName = useMemo(() => {
-    if (draggedIndex === null || !items[draggedIndex]) return ''
-    return getProfile(items[draggedIndex]).display_name || 'สมาชิก'
-  }, [draggedIndex, items])
+    return draggedMemberProfile?.display_name || 'สมาชิก'
+  }, [draggedMemberProfile])
+
+  const draggedMemberUid = useMemo(() => {
+    return draggedMemberProfile?.uid_game || ''
+  }, [draggedMemberProfile])
 
   // Save Changes
   const handleSave = async () => {
@@ -680,6 +713,7 @@ export default function AdminReorderModal({
         <div
           ref={scrollContainerRef}
           onDragOver={handleContainerDragOver}
+          onDrop={handleDrop}
           onDragLeave={(e) => {
             if (!e.currentTarget.contains(e.relatedTarget as Node)) {
               stopAutoScroll()
@@ -707,7 +741,7 @@ export default function AdminReorderModal({
           ) : (
             items.map((member, index) => {
               if (!member) return null
-              const profile = getProfile(member)
+              const profile = getProfile(member, guildMembersMap)
               const isMatch = filteredIndices ? filteredIndices.has(index) : true
               const isDragging = draggedIndex === index
               const baseQuota = Number(member.base_quota) || 0
@@ -721,10 +755,23 @@ export default function AdminReorderModal({
               const isDropTargetAfter = dropTarget?.targetIndex === index && dropTarget.position === 'after'
 
               return (
-                <div key={member.id || `member-row-${index}`} className="transition-all">
+                <div
+                  key={member.id || `member-row-${index}`}
+                  onDragOver={(e) => onItemDragOver(e, index)}
+                  onDrop={handleDrop}
+                  className="transition-all"
+                >
                   {/* 🌟 Animated Drop Slot Preview (BEFORE) */}
                   {isDropTargetBefore && (
-                    <div className="py-2.5 px-3.5 my-1.5 rounded-2xl border-2 border-dashed border-purple-500 dark:border-purple-400 bg-purple-50/95 dark:bg-purple-950/70 shadow-lg shadow-purple-500/10 flex items-center justify-between gap-2 animate-in zoom-in-95 fade-in duration-150 transition-all">
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleContainerDragOver(e)
+                      }}
+                      onDrop={handleDrop}
+                      className="py-2.5 px-3.5 my-1.5 rounded-2xl border-2 border-dashed border-purple-500 dark:border-purple-400 bg-purple-50/95 dark:bg-purple-950/70 shadow-lg shadow-purple-500/10 flex items-center justify-between gap-2 animate-in zoom-in-95 fade-in duration-150 transition-all cursor-pointer pointer-events-auto"
+                    >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <span className="w-7 text-center font-mono font-black text-xs text-white bg-linear-to-r from-purple-600 to-indigo-600 py-0.5 rounded shadow-xs shrink-0 animate-pulse">
                           #{previewRank}
@@ -736,6 +783,11 @@ export default function AdminReorderModal({
                           <span className="text-purple-950 dark:text-purple-100 font-black underline decoration-purple-400 underline-offset-2 truncate">
                             {draggedMemberName}
                           </span>
+                          {draggedMemberUid && (
+                            <span className="text-[10px] font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/80 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-700 shrink-0">
+                              UID: {draggedMemberUid}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-white dark:bg-purple-900/80 px-2.5 py-0.5 rounded-full border border-purple-200 dark:border-purple-700/80 shrink-0 shadow-2xs">
@@ -786,8 +838,14 @@ export default function AdminReorderModal({
                             </span>
                           )}
                         </div>
-                        <div className="text-[10px] text-slate-400 font-mono truncate">
-                          {profile.uid_game ? `UID: ${profile.uid_game}` : 'ไม่มี UID'}
+                        <div className="text-[10px] font-mono truncate flex items-center gap-1.5 mt-0.5">
+                          {profile.uid_game ? (
+                            <span className="text-slate-500 dark:text-slate-400 font-medium">
+                              UID: <span className="text-purple-600 dark:text-purple-400 font-bold">{profile.uid_game}</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic">ไม่มี UID</span>
+                          )}
                         </div>
                       </div>
 
@@ -855,7 +913,15 @@ export default function AdminReorderModal({
 
                   {/* 🌟 Animated Drop Slot Preview (AFTER) */}
                   {isDropTargetAfter && (
-                    <div className="py-2.5 px-3.5 my-1.5 rounded-2xl border-2 border-dashed border-purple-500 dark:border-purple-400 bg-purple-50/95 dark:bg-purple-950/70 shadow-lg shadow-purple-500/10 flex items-center justify-between gap-2 animate-in zoom-in-95 fade-in duration-150 transition-all">
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleContainerDragOver(e)
+                      }}
+                      onDrop={handleDrop}
+                      className="py-2.5 px-3.5 my-1.5 rounded-2xl border-2 border-dashed border-purple-500 dark:border-purple-400 bg-purple-50/95 dark:bg-purple-950/70 shadow-lg shadow-purple-500/10 flex items-center justify-between gap-2 animate-in zoom-in-95 fade-in duration-150 transition-all cursor-pointer pointer-events-auto"
+                    >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <span className="w-7 text-center font-mono font-black text-xs text-white bg-linear-to-r from-purple-600 to-indigo-600 py-0.5 rounded shadow-xs shrink-0 animate-pulse">
                           #{previewRank}
@@ -867,6 +933,11 @@ export default function AdminReorderModal({
                           <span className="text-purple-950 dark:text-purple-100 font-black underline decoration-purple-400 underline-offset-2 truncate">
                             {draggedMemberName}
                           </span>
+                          {draggedMemberUid && (
+                            <span className="text-[10px] font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/80 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-700 shrink-0">
+                              UID: {draggedMemberUid}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-white dark:bg-purple-900/80 px-2.5 py-0.5 rounded-full border border-purple-200 dark:border-purple-700/80 shrink-0 shadow-2xs">

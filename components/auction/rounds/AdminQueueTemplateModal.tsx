@@ -336,6 +336,11 @@ export default function AdminQueueTemplateModal({
     return templateMembers[draggedIndex].display_name || 'สมาชิก'
   }, [draggedIndex, templateMembers])
 
+  const draggedMemberUid = useMemo(() => {
+    if (draggedIndex === null || !templateMembers[draggedIndex]) return ''
+    return templateMembers[draggedIndex].uid_game || ''
+  }, [draggedIndex, templateMembers])
+
   // Save template
   const handleSave = async () => {
     if (!templateName.trim()) {
@@ -562,6 +567,7 @@ export default function AdminQueueTemplateModal({
                 <div
                   ref={scrollContainerRef}
                   onDragOver={handleContainerDragOver}
+                  onDrop={handleDrop}
                   onDragLeave={(e) => {
                     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                       stopAutoScroll()
@@ -591,10 +597,23 @@ export default function AdminQueueTemplateModal({
                       const isDropTargetAfter = dropTarget?.targetIndex === index && dropTarget.position === 'after'
 
                       return (
-                        <div key={member.id} className="transition-all">
+                        <div
+                          key={member.id}
+                          onDragOver={(e) => onItemDragOver(e, index)}
+                          onDrop={handleDrop}
+                          className="transition-all"
+                        >
                           {/* 🌟 Animated Drop Slot Preview (BEFORE) */}
                           {isDropTargetBefore && (
-                            <div className="py-2 px-3 my-1.5 rounded-xl border-2 border-dashed border-purple-500 dark:border-purple-400 bg-purple-50/95 dark:bg-purple-950/70 shadow-md flex items-center justify-between gap-2 animate-in zoom-in-95 fade-in duration-150 transition-all">
+                            <div
+                              onDragOver={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleContainerDragOver(e)
+                              }}
+                              onDrop={handleDrop}
+                              className="py-2 px-3 my-1.5 rounded-xl border-2 border-dashed border-purple-500 dark:border-purple-400 bg-purple-50/95 dark:bg-purple-950/70 shadow-md flex items-center justify-between gap-2 animate-in zoom-in-95 fade-in duration-150 transition-all cursor-pointer pointer-events-auto"
+                            >
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className="w-6 text-center font-mono font-black text-xs text-white bg-linear-to-r from-purple-600 to-indigo-600 py-0.5 rounded shadow-xs shrink-0 animate-pulse">
                                   #{previewRank}
@@ -606,6 +625,11 @@ export default function AdminQueueTemplateModal({
                                   <span className="text-purple-950 dark:text-purple-100 font-black underline decoration-purple-400 truncate">
                                     {draggedMemberName}
                                   </span>
+                                  {draggedMemberUid && (
+                                    <span className="text-[10px] font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/80 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-700 shrink-0">
+                                      UID: {draggedMemberUid}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-white dark:bg-purple-900/80 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-700/80 shrink-0">
@@ -648,8 +672,14 @@ export default function AdminQueueTemplateModal({
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-[10px] text-slate-400 font-mono truncate">
-                                  {member.uid_game ? `UID: ${member.uid_game}` : 'ไม่มี UID'}
+                                <div className="text-[10px] font-mono truncate flex items-center gap-1.5 mt-0.5">
+                                  {member.uid_game ? (
+                                    <span className="text-slate-500 dark:text-slate-400 font-medium">
+                                      UID: <span className="text-purple-600 dark:text-purple-400 font-bold">{member.uid_game}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 italic">ไม่มี UID</span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -691,7 +721,15 @@ export default function AdminQueueTemplateModal({
 
                           {/* 🌟 Animated Drop Slot Preview (AFTER) */}
                           {isDropTargetAfter && (
-                            <div className="py-2 px-3 my-1.5 rounded-xl border-2 border-dashed border-purple-500 dark:border-purple-400 bg-purple-50/95 dark:bg-purple-950/70 shadow-md flex items-center justify-between gap-2 animate-in zoom-in-95 fade-in duration-150 transition-all">
+                            <div
+                              onDragOver={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleContainerDragOver(e)
+                              }}
+                              onDrop={handleDrop}
+                              className="py-2 px-3 my-1.5 rounded-xl border-2 border-dashed border-purple-500 dark:border-purple-400 bg-purple-50/95 dark:bg-purple-950/70 shadow-md flex items-center justify-between gap-2 animate-in zoom-in-95 fade-in duration-150 transition-all cursor-pointer pointer-events-auto"
+                            >
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className="w-6 text-center font-mono font-black text-xs text-white bg-linear-to-r from-purple-600 to-indigo-600 py-0.5 rounded shadow-xs shrink-0 animate-pulse">
                                   #{previewRank}
@@ -703,6 +741,11 @@ export default function AdminQueueTemplateModal({
                                   <span className="text-purple-950 dark:text-purple-100 font-black underline decoration-purple-400 truncate">
                                     {draggedMemberName}
                                   </span>
+                                  {draggedMemberUid && (
+                                    <span className="text-[10px] font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/80 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-700 shrink-0">
+                                      UID: {draggedMemberUid}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-white dark:bg-purple-900/80 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-700/80 shrink-0">
